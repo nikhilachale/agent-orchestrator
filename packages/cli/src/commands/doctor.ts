@@ -64,7 +64,16 @@ function readOpenClawHealth(config: OrchestratorConfig): OpenClawHealthSummary |
 
   try {
     const raw = readFileSync(healthPath, "utf-8");
-    return JSON.parse(raw) as OpenClawHealthSummary;
+    const parsed = JSON.parse(raw);
+
+    return {
+      lastSuccessAt: typeof parsed.lastSuccessAt === "string" ? parsed.lastSuccessAt : null,
+      lastFailureAt: typeof parsed.lastFailureAt === "string" ? parsed.lastFailureAt : null,
+      lastFailureError:
+        typeof parsed.lastFailureError === "string" ? parsed.lastFailureError : null,
+      totalSent: typeof parsed.totalSent === "number" ? parsed.totalSent : 0,
+      totalFailed: typeof parsed.totalFailed === "number" ? parsed.totalFailed : 0,
+    };
   } catch {
     return null;
   }
@@ -85,9 +94,11 @@ async function checkOpenClawNotifier(
     "http://127.0.0.1:18789";
   // Resolve ${ENV_VAR} placeholders written by `ao setup openclaw` — the config
   // stores the literal string "${OPENCLAW_HOOKS_TOKEN}" which is truthy but wrong.
-  const rawToken = typeof openclawConfig["token"] === "string" ? openclawConfig["token"] : undefined;
+  const rawToken =
+    typeof openclawConfig["token"] === "string" ? openclawConfig["token"] : undefined;
   const envVarMatch = rawToken?.match(/^\$\{([^}]+)\}$/);
-  const token = (envVarMatch ? process.env[envVarMatch[1]] : rawToken) ?? process.env["OPENCLAW_HOOKS_TOKEN"];
+  const token =
+    (envVarMatch ? process.env[envVarMatch[1]] : rawToken) ?? process.env["OPENCLAW_HOOKS_TOKEN"];
 
   const installation = await detectOpenClawInstallation(url);
   if (installation.state === "running") {

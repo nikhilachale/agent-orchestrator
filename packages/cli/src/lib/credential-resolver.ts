@@ -26,8 +26,11 @@ type ResolvableKey = (typeof RESOLVABLE_KEYS)[number];
 
 interface ResolvedCredential {
   key: ResolvableKey;
-  value: string;
   source: "env" | "openclaw";
+}
+
+interface ResolvedCredentialWithValue extends ResolvedCredential {
+  value: string;
 }
 
 function readOpenClawKeys(): Record<string, string> {
@@ -72,7 +75,7 @@ function readOpenClawKeys(): Record<string, string> {
  * Resolve a single credential from all available sources.
  * Returns the value and where it came from, or null if not found anywhere.
  */
-export function resolveCredential(key: ResolvableKey): ResolvedCredential | null {
+export function resolveCredential(key: ResolvableKey): ResolvedCredentialWithValue | null {
   const envValue = process.env[key];
   if (envValue && envValue.length > 0) {
     return { key, value: envValue, source: "env" };
@@ -92,7 +95,7 @@ export function resolveCredential(key: ResolvableKey): ResolvedCredential | null
  * not already set in the environment. This makes them available to all
  * spawned agent sessions (tmux inherits the parent env).
  *
- * Returns the list of keys that were injected from OpenClaw.
+ * Returns the list of keys that were injected from OpenClaw (without values).
  */
 export function applyOpenClawCredentials(): ResolvedCredential[] {
   const openclawKeys = readOpenClawKeys();
@@ -104,11 +107,16 @@ export function applyOpenClawCredentials(): ResolvedCredential[] {
     const value = openclawKeys[key];
     if (value) {
       process.env[key] = value;
-      applied.push({ key, value, source: "openclaw" });
+      applied.push({ key, source: "openclaw" });
     }
   }
 
   return applied;
 }
 
-export { RESOLVABLE_KEYS, type ResolvableKey, type ResolvedCredential };
+export {
+  RESOLVABLE_KEYS,
+  type ResolvableKey,
+  type ResolvedCredential,
+  type ResolvedCredentialWithValue,
+};

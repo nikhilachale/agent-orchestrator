@@ -1,9 +1,16 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { InstalledPluginConfig, PluginModule, PluginSlot } from "@composio/ao-core";
+import {
+  type InstalledPluginConfig,
+  type PluginSlot,
+  normalizeImportedPluginModule,
+  resolveLocalPluginEntrypoint,
+} from "@composio/ao-core";
 import registryData from "../assets/plugin-registry.json";
+
+export { normalizeImportedPluginModule };
 
 export interface MarketplacePluginEntry {
   id: string;
@@ -16,11 +23,9 @@ export interface MarketplacePluginEntry {
 }
 
 export const BUNDLED_MARKETPLACE_PLUGIN_CATALOG = registryData as MarketplacePluginEntry[];
-export const MARKETPLACE_PLUGIN_CATALOG = BUNDLED_MARKETPLACE_PLUGIN_CATALOG;
 export const DEFAULT_REMOTE_MARKETPLACE_REGISTRY_URL =
   "https://raw.githubusercontent.com/ComposioHQ/agent-orchestrator/main/packages/cli/src/assets/plugin-registry.json";
 
-const LOCAL_PLUGIN_ENTRY_CANDIDATES = ["dist/index.js", "index.js"] as const;
 const MARKETPLACE_CACHE_FILE = "plugin-registry.json";
 
 function isPluginSlot(value: unknown): value is PluginSlot {
@@ -122,79 +127,6 @@ export async function refreshMarketplaceCatalog(
   const mergedEntries = mergeMarketplaceCatalogs(remoteEntries, BUNDLED_MARKETPLACE_PLUGIN_CATALOG);
   writeMarketplaceCatalogCache(mergedEntries);
   return mergedEntries;
-}
-
-function isPluginModule(value: unknown): value is PluginModule {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<PluginModule>;
-  return Boolean(candidate.manifest && typeof candidate.create === "function");
-}
-
-export function normalizeImportedPluginModule(value: unknown): PluginModule | null {
-  if (isPluginModule(value)) return value;
-  if (value && typeof value === "object" && "default" in value) {
-    const defaultExport = (value as { default?: unknown }).default;
-    if (isPluginModule(defaultExport)) return defaultExport;
-  }
-  return null;
-}
-
-function resolvePackageExportsEntry(exportsField: unknown): string | null {
-  if (typeof exportsField === "string") return exportsField;
-  if (!exportsField || typeof exportsField !== "object") return null;
-
-  const exportsRecord = exportsField as Record<string, unknown>;
-  const dotEntry = exportsRecord["."];
-  if (typeof dotEntry === "string") return dotEntry;
-  if (dotEntry && typeof dotEntry === "object") {
-    const importEntry = (dotEntry as Record<string, unknown>)["import"];
-    if (typeof importEntry === "string") return importEntry;
-    const defaultEntry = (dotEntry as Record<string, unknown>)["default"];
-    if (typeof defaultEntry === "string") return defaultEntry;
-  }
-
-  const importEntry = exportsRecord["import"];
-  if (typeof importEntry === "string") return importEntry;
-
-  return null;
-}
-
-function resolveLocalPluginEntrypoint(pluginPath: string): string | null {
-  if (!existsSync(pluginPath)) return null;
-
-  const stat = statSync(pluginPath);
-  if (stat.isFile()) return pluginPath;
-  if (!stat.isDirectory()) return null;
-
-  const packageJsonPath = join(pluginPath, "package.json");
-  if (existsSync(packageJsonPath)) {
-    try {
-      const raw = readFileSync(packageJsonPath, "utf-8");
-      const packageJson = JSON.parse(raw) as { exports?: unknown; main?: unknown; module?: unknown };
-      const exportsEntry = resolvePackageExportsEntry(packageJson.exports);
-      if (exportsEntry) {
-        const resolvedExportsEntry = resolve(pluginPath, exportsEntry);
-        if (existsSync(resolvedExportsEntry)) return resolvedExportsEntry;
-      }
-      if (typeof packageJson.module === "string") {
-        const moduleEntry = resolve(pluginPath, packageJson.module);
-        if (existsSync(moduleEntry)) return moduleEntry;
-      }
-      if (typeof packageJson.main === "string") {
-        const mainEntry = resolve(pluginPath, packageJson.main);
-        if (existsSync(mainEntry)) return mainEntry;
-      }
-    } catch {
-      // Fall through to common entrypoints below.
-    }
-  }
-
-  for (const candidate of LOCAL_PLUGIN_ENTRY_CANDIDATES) {
-    const entry = join(pluginPath, candidate);
-    if (existsSync(entry)) return entry;
-  }
-
-  return null;
 }
 
 export function isLocalPluginReference(reference: string): boolean {

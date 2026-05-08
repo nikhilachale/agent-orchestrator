@@ -246,15 +246,6 @@ export interface DashboardOrchestratorLink {
   projectName: string;
 }
 
-/**
- * Returns true when this PR's enrichment data couldn't be fetched due to
- * API rate limiting. When true, CI status / review decision / mergeability
- * may be stale defaults — don't make decisions based on them.
- */
-export function isPRRateLimited(pr: DashboardPR): boolean {
-  return pr.mergeability.blockers.includes("API rate limited or unavailable");
-}
-
 /** Returns true when a PR has not yet been enriched with live SCM data.
  *  Only returns true for explicit `false` — undefined (legacy data) is treated as enriched. */
 export function isPRUnenriched(pr: DashboardPR): boolean {
@@ -509,7 +500,7 @@ function getDetailedAttentionLevel(session: DashboardSession): AttentionLevel {
   ) {
     return "review";
   }
-  if (session.pr && !isPRRateLimited(session.pr) && !isPRUnenriched(session.pr)) {
+  if (session.pr && !isPRUnenriched(session.pr)) {
     const pr = session.pr;
     if (pr.ciStatus === CI_STATUS.FAILING) return "review";
     if (pr.reviewDecision === "changes_requested") return "review";
@@ -524,7 +515,7 @@ function getDetailedAttentionLevel(session: DashboardSession): AttentionLevel {
   ) {
     return "pending";
   }
-  if (session.pr && !isPRRateLimited(session.pr) && !isPRUnenriched(session.pr)) {
+  if (session.pr && !isPRUnenriched(session.pr)) {
     const pr = session.pr;
     if (!pr.isDraft && pr.unresolvedThreads > 0) return "pending";
     if (!pr.isDraft && (pr.reviewDecision === "pending" || pr.reviewDecision === "none")) {

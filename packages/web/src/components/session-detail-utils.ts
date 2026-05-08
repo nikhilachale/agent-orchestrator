@@ -1,4 +1,4 @@
-import { isPRRateLimited, isPRUnenriched, type DashboardPR } from "@/lib/types";
+import { isPRUnenriched, type DashboardPR } from "@/lib/types";
 
 export const sessionActivityMeta: Record<string, { label: string; color: string }> = {
   active: { label: "Active", color: "var(--color-status-working)" },
@@ -24,14 +24,14 @@ export function formatTimeCompact(isoDate: string | null): string {
 }
 
 export function getCiShortLabel(pr: DashboardPR): string {
-  if (isPRRateLimited(pr) || isPRUnenriched(pr)) return "CI";
+  if (isPRUnenriched(pr)) return "CI";
   if (pr.ciStatus === "passing") return "CI passing";
   if (pr.ciStatus === "failing") return "CI failed";
   return "CI pending";
 }
 
 export function getReviewShortLabel(pr: DashboardPR): string {
-  if (isPRRateLimited(pr) || isPRUnenriched(pr)) return "";
+  if (isPRUnenriched(pr)) return "";
   if (pr.reviewDecision === "approved") return "approved";
   if (pr.reviewDecision === "changes_requested") return "changes";
   return "review";
@@ -104,7 +104,7 @@ export function mobileStatusPillClass(activityLabel: string): string {
 }
 
 export function ciToneClass(pr: DashboardPR): string {
-  if (isPRRateLimited(pr) || isPRUnenriched(pr)) return "session-detail-ci-tone--neutral";
+  if (isPRUnenriched(pr)) return "session-detail-ci-tone--neutral";
   if (pr.ciStatus === "passing") return "session-detail-ci-tone--pass";
   if (pr.ciStatus === "failing") return "session-detail-ci-tone--fail";
   return "session-detail-ci-tone--pending";

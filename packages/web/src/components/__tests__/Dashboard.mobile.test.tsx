@@ -153,34 +153,6 @@ describe("Dashboard unified layout (mobile viewport)", () => {
     expect(screen.getByText("feat/dashboard-polish")).toBeInTheDocument();
   });
 
-  it("shows and dismisses the rate limit banner", () => {
-    render(
-      <Dashboard
-        initialSessions={[
-          makeSession({
-            id: "review-2",
-            status: "reviewing",
-            activity: "idle",
-            pr: makePR({
-              number: 208,
-              mergeability: {
-                mergeable: false,
-                ciPassing: false,
-                approved: false,
-                noConflicts: true,
-                blockers: ["API rate limited or unavailable"],
-              },
-            }),
-          }),
-        ]}
-      />,
-    );
-
-    expect(screen.getByText(/GitHub API rate limited/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-    expect(screen.queryByText(/GitHub API rate limited/i)).not.toBeInTheDocument();
-  });
-
   it("opens the done bar and restores completed sessions", async () => {
     vi.setSystemTime(new Date("2026-04-11T11:07:00.000Z"));
 

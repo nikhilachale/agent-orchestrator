@@ -106,7 +106,7 @@ describe("SessionDetail merge conflict actions", () => {
               ciPassing: true,
               approved: true,
               noConflicts: false,
-              blockers: ["API rate limited or unavailable"],
+              blockers: [],
             },
           }),
         })}
@@ -115,7 +115,11 @@ describe("SessionDetail merge conflict actions", () => {
     );
 
     fireEvent.click(screen.getByRole("link", { name: "PR #100" }));
-    expect(screen.queryByRole("link", { name: /Compare with base branch/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Copy head branch name/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /Compare with base branch/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Copy head branch name/i }),
+    ).not.toBeInTheDocument();
   });
 });

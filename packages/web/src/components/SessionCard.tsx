@@ -4,7 +4,6 @@ import { memo, useState, useEffect, useRef } from "react";
 import {
   type DashboardSession,
   getAttentionLevel,
-  isPRRateLimited,
   isPRUnenriched,
   CI_STATUS,
   getSessionTruthLabel,
@@ -208,19 +207,16 @@ function SessionCardView({ session, onSend, onKill, onMerge, onRestore }: Sessio
     }
   };
 
-  const rateLimited = pr ? isPRRateLimited(pr) : false;
   const prUnenriched = pr ? isPRUnenriched(pr) : false;
   const alerts = getAlerts(session);
-  const isReadyToMerge = !rateLimited && pr?.mergeability.mergeable && pr.state === "open";
+  const isReadyToMerge = pr?.mergeability.mergeable && pr.state === "open";
   const isTerminal = isDashboardSessionTerminal(session);
   const isRestorable = isDashboardSessionRestorable(session);
 
   const title = getSessionTitle(session);
   const footerStatus = getFooterStatusLabel(session, level, Boolean(isReadyToMerge));
   const visiblePassingChecks =
-    !rateLimited && pr && !prUnenriched
-      ? pr.ciChecks.filter((check) => check.status === "passed").slice(0, 3)
-      : [];
+    pr && !prUnenriched ? pr.ciChecks.filter((check) => check.status === "passed").slice(0, 3) : [];
   const isDone = isDashboardSessionDone(session) || level === "done";
   const truthLine = session.lifecycle
     ? [
@@ -340,7 +336,6 @@ function SessionCardView({ session, onSend, onKill, onMerge, onRestore }: Sessio
             </a>
           )}
           {pr &&
-            !rateLimited &&
             (prUnenriched ? (
               <span className="inline-block h-[14px] w-16 animate-pulse rounded-full bg-[var(--color-bg-subtle)]" />
             ) : (
@@ -583,7 +578,6 @@ function SessionCardView({ session, onSend, onKill, onMerge, onRestore }: Sessio
             </a>
           )}
           {pr &&
-            !rateLimited &&
             (prUnenriched ? (
               <span className="inline-block h-[14px] w-16 animate-pulse rounded-full bg-[var(--color-bg-subtle)]" />
             ) : (
@@ -629,24 +623,6 @@ function SessionCardView({ session, onSend, onKill, onMerge, onRestore }: Sessio
           </div>
         )}
 
-        {rateLimited && pr?.state === "open" && (
-          <div className="px-[10px] pb-[5px]">
-            <span className="inline-flex items-center gap-1 text-[10px] text-[var(--color-text-muted)]">
-              <svg
-                className="h-3 w-3 text-[var(--color-text-tertiary)]"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 8v4M12 16h.01" />
-              </svg>
-              PR data rate limited
-            </span>
-          </div>
-        )}
-
         {visiblePassingChecks.length > 0 && (
           <div className="card__ci">
             {visiblePassingChecks.map((check) => {
@@ -686,7 +662,7 @@ function SessionCardView({ session, onSend, onKill, onMerge, onRestore }: Sessio
           </div>
         )}
 
-        {!rateLimited && alerts.length > 0 && (
+        {alerts.length > 0 && (
           <div className="card__alerts flex flex-col">
             {alerts.slice(0, 3).map((alert) => (
               <div key={alert.key} className={cn("alert-row", `alert-row--${alert.type}`)}>
@@ -928,7 +904,6 @@ interface Alert {
 function getAlerts(session: DashboardSession): Alert[] {
   const pr = session.pr;
   if (!pr || pr.state !== "open") return [];
-  if (isPRRateLimited(pr)) return [];
   if (isPRUnenriched(pr)) return [];
 
   const meta = session.metadata;

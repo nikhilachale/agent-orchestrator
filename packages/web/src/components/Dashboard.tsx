@@ -11,7 +11,6 @@ import {
   type DashboardOrchestratorLink,
   type DashboardAttentionZoneMode,
   getAttentionLevel,
-  isPRRateLimited,
 } from "@/lib/types";
 import { AttentionZone } from "./AttentionZone";
 import { DynamicFavicon, countNeedingAttention } from "./DynamicFavicon";
@@ -173,9 +172,11 @@ function DashboardInner({
     return sessions.filter((s) => s.projectId === projectId);
   }, [sessions, projectId]);
   const connectionStatus: "connected" | "reconnecting" | "disconnected" =
-    mux?.status === "disconnected" ? "disconnected"
-    : mux?.status === "connected" ? "connected"
-    : "reconnecting";
+    mux?.status === "disconnected"
+      ? "disconnected"
+      : mux?.status === "connected"
+        ? "connected"
+        : "reconnecting";
   const recoveredFromLoadError = Boolean(dashboardLoadError) && liveSessionsResolved;
   const ssrLoadError = recoveredFromLoadError ? undefined : dashboardLoadError;
   // Live WS error takes precedence; fall back to SSR load error when live data hasn't resolved it.
@@ -185,7 +186,6 @@ function DashboardInner({
   const routerRef = useRef(router);
   routerRef.current = router;
   const activeSessionId = searchParams.get("session") ?? undefined;
-  const [rateLimitDismissed, setRateLimitDismissed] = useState(false);
   const [activeOrchestrators, setActiveOrchestrators] =
     useState<DashboardOrchestratorLink[]>(orchestratorLinks);
   const [spawningProjectIds, setSpawningProjectIds] = useState<string[]>([]);
@@ -457,9 +457,7 @@ function DashboardInner({
       <span className="font-semibold text-[var(--color-status-error)]">
         Orchestrator failed to load
       </span>
-      <span className="break-words text-[var(--color-text-secondary)]">
-        {visibleLoadError}
-      </span>
+      <span className="break-words text-[var(--color-text-secondary)]">{visibleLoadError}</span>
       <span className="text-[var(--color-text-secondary)]">
         Confirm <span className="font-mono text-[10px]">agent-orchestrator.yaml</span> exists and is
         valid, then run <span className="font-mono text-[10px]">ao doctor</span> for diagnostics.
@@ -467,10 +465,6 @@ function DashboardInner({
     </div>
   ) : null;
 
-  const anyRateLimited = useMemo(
-    () => sessions.some((session) => session.pr && isPRRateLimited(session.pr)),
-    [sessions],
-  );
   const normalizedProjectName = projectName?.trim().toLowerCase();
   const headerProjectLabel =
     normalizedProjectName === "agent orchestrator"
@@ -624,40 +618,6 @@ function DashboardInner({
 
               <div className="dashboard-main__body">
                 {loadErrorBanner}
-                {anyRateLimited && !rateLimitDismissed && (
-                  <div className="dashboard-alert mb-4 flex items-center gap-2.5 border border-[color-mix(in_srgb,var(--color-status-attention)_25%,transparent)] bg-[var(--color-tint-yellow)] px-3.5 py-2.5 text-[11px] text-[var(--color-status-attention)]">
-                    <svg
-                      className="h-3.5 w-3.5 shrink-0"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M12 8v4M12 16h.01" />
-                    </svg>
-                    <span className="flex-1">
-                      GitHub API rate limited — PR data (CI status, review state, sizes) may be
-                      stale. Will retry automatically on next refresh.
-                    </span>
-                    <button
-                      onClick={() => setRateLimitDismissed(true)}
-                      className="ml-1 shrink-0 opacity-60 hover:opacity-100"
-                      aria-label="Dismiss"
-                    >
-                      <svg
-                        className="h-3.5 w-3.5"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M18 6 6 18M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-
                 {allProjectsView && (
                   <ProjectOverviewGrid
                     overviews={projectOverviews}

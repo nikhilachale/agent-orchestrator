@@ -1,6 +1,6 @@
 "use client";
 
-import { type DashboardPR, isPRRateLimited, isPRUnenriched } from "@/lib/types";
+import { type DashboardPR, isPRUnenriched } from "@/lib/types";
 import { CIBadge } from "./CIBadge";
 
 export function getSizeLabel(additions: number, deletions: number): string {
@@ -14,7 +14,6 @@ interface PRStatusProps {
 
 export function PRStatus({ pr }: PRStatusProps) {
   const sizeLabel = getSizeLabel(pr.additions, pr.deletions);
-  const rateLimited = isPRRateLimited(pr);
   const unenriched = isPRUnenriched(pr);
 
   return (
@@ -30,14 +29,14 @@ export function PRStatus({ pr }: PRStatusProps) {
         #{pr.number}
       </a>
 
-      {/* Size — shimmer when unenriched, hide when rate limited */}
-      {!rateLimited && (unenriched ? (
+      {/* Size — shimmer when unenriched */}
+      {unenriched ? (
         <span className="inline-block h-[14px] w-16 animate-pulse rounded-full bg-[var(--color-bg-subtle)]" />
       ) : (
         <span className="inline-flex items-center rounded-full bg-[rgba(125,133,144,0.08)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-text-muted)]">
           +{pr.additions} -{pr.deletions} {sizeLabel}
         </span>
-      ))}
+      )}
 
       {/* Merged badge */}
       {pr.state === "merged" && (
@@ -54,14 +53,16 @@ export function PRStatus({ pr }: PRStatusProps) {
       )}
 
       {/* CI status — shimmer when unenriched */}
-      {pr.state === "open" && !pr.isDraft && !rateLimited && (unenriched ? (
-        <span className="inline-block h-[14px] w-14 animate-pulse rounded-full bg-[var(--color-bg-subtle)]" />
-      ) : (
-        <CIBadge status={pr.ciStatus} checks={pr.ciChecks} />
-      ))}
+      {pr.state === "open" &&
+        !pr.isDraft &&
+        (unenriched ? (
+          <span className="inline-block h-[14px] w-14 animate-pulse rounded-full bg-[var(--color-bg-subtle)]" />
+        ) : (
+          <CIBadge status={pr.ciStatus} checks={pr.ciChecks} />
+        ))}
 
       {/* Review decision (only for open PRs with real data) */}
-      {pr.state === "open" && pr.reviewDecision === "approved" && !rateLimited && !unenriched && (
+      {pr.state === "open" && pr.reviewDecision === "approved" && !unenriched && (
         <span className="inline-flex items-center rounded-full bg-[rgba(63,185,80,0.1)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-accent-green)]">
           approved
         </span>
@@ -77,9 +78,8 @@ interface PRTableRowProps {
 
 export function PRTableRow({ pr, muted = false }: PRTableRowProps) {
   const sizeLabel = getSizeLabel(pr.additions, pr.deletions);
-  const rateLimited = isPRRateLimited(pr);
   const unenriched = isPRUnenriched(pr);
-  const hideData = rateLimited || unenriched;
+  const hideData = unenriched;
 
   const reviewLabel = hideData
     ? "—"
@@ -87,13 +87,13 @@ export function PRTableRow({ pr, muted = false }: PRTableRowProps) {
       ? "merged"
       : pr.state === "closed"
         ? "closed"
-    : pr.isDraft
-      ? "draft"
-      : pr.reviewDecision === "approved"
-        ? "approved"
-        : pr.reviewDecision === "changes_requested"
-          ? "changes requested"
-          : "needs review";
+        : pr.isDraft
+          ? "draft"
+          : pr.reviewDecision === "approved"
+            ? "approved"
+            : pr.reviewDecision === "changes_requested"
+              ? "changes requested"
+              : "needs review";
 
   const reviewClass = hideData
     ? "text-[var(--color-text-tertiary)]"
@@ -105,10 +105,14 @@ export function PRTableRow({ pr, muted = false }: PRTableRowProps) {
           ? "text-[var(--color-accent-red)]"
           : "text-[var(--color-accent-yellow)]";
 
-  const shimmer = <span className="inline-block h-3 w-12 animate-pulse rounded bg-[var(--color-bg-subtle)]" />;
+  const shimmer = (
+    <span className="inline-block h-3 w-12 animate-pulse rounded bg-[var(--color-bg-subtle)]" />
+  );
 
   return (
-    <tr className={`border-b border-[var(--color-border-subtle)] transition-colors hover:bg-[var(--color-bg-subtle)]${muted ? " opacity-60 hover:opacity-100" : ""}`}>
+    <tr
+      className={`border-b border-[var(--color-border-subtle)] transition-colors hover:bg-[var(--color-bg-subtle)]${muted ? " opacity-60 hover:opacity-100" : ""}`}
+    >
       <td className="px-3 py-2.5 text-sm">
         <a href={pr.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
           #{pr.number}
@@ -120,8 +124,8 @@ export function PRTableRow({ pr, muted = false }: PRTableRowProps) {
         </a>
       </td>
       <td className="px-3 py-2.5 text-sm">
-        {unenriched ? shimmer : rateLimited ? (
-          <span className="text-[var(--color-text-tertiary)]">—</span>
+        {unenriched ? (
+          shimmer
         ) : (
           <>
             <span className="text-[var(--color-accent-green)]">+{pr.additions}</span>{" "}
@@ -131,11 +135,7 @@ export function PRTableRow({ pr, muted = false }: PRTableRowProps) {
         )}
       </td>
       <td className="px-3 py-2.5">
-        {unenriched ? shimmer : rateLimited ? (
-          <span className="text-[var(--color-text-tertiary)]">—</span>
-        ) : (
-          <CIBadge status={pr.ciStatus} checks={pr.ciChecks} compact />
-        )}
+        {unenriched ? shimmer : <CIBadge status={pr.ciStatus} checks={pr.ciChecks} compact />}
       </td>
       <td className={`px-3 py-2.5 text-xs font-semibold ${reviewClass}`}>
         {unenriched ? shimmer : reviewLabel}
@@ -168,9 +168,8 @@ function getReviewColor(pr: DashboardPR): string {
 }
 
 export function PRCard({ pr, muted = false }: PRTableRowProps) {
-  const rateLimited = isPRRateLimited(pr);
   const unenriched = isPRUnenriched(pr);
-  const hideData = rateLimited || unenriched;
+  const hideData = unenriched;
 
   const ciLabel = hideData
     ? "—"
@@ -194,7 +193,9 @@ export function PRCard({ pr, muted = false }: PRTableRowProps) {
               ? "changes"
               : "needs review";
 
-  const shimmer = <span className="inline-block h-3 w-10 animate-pulse rounded bg-[var(--color-bg-subtle)]" />;
+  const shimmer = (
+    <span className="inline-block h-3 w-10 animate-pulse rounded bg-[var(--color-bg-subtle)]" />
+  );
   const diffLabel = hideData ? null : `+${pr.additions} -${pr.deletions}`;
   const lineTone =
     pr.state === "merged"
@@ -219,7 +220,9 @@ export function PRCard({ pr, muted = false }: PRTableRowProps) {
         <span className="mobile-pr-card__title">{pr.title}</span>
       </div>
       <div className={`mobile-pr-card__meta ${lineTone}`}>
-        {unenriched ? shimmer : (
+        {unenriched ? (
+          shimmer
+        ) : (
           <span className="mobile-pr-card__metric-value">
             <span
               className="mobile-pr-card__ci-dot"
@@ -228,12 +231,13 @@ export function PRCard({ pr, muted = false }: PRTableRowProps) {
             <span style={{ color: hideData ? undefined : getCiTextColor(pr) }}>{ciLabel}</span>
           </span>
         )}
-        <span className="mobile-pr-card__review" style={{ color: hideData ? undefined : getReviewColor(pr) }}>
+        <span
+          className="mobile-pr-card__review"
+          style={{ color: hideData ? undefined : getReviewColor(pr) }}
+        >
           {unenriched ? shimmer : reviewLabel}
         </span>
-        <span className="mobile-pr-card__diff">
-          {hideData ? shimmer : diffLabel}
-        </span>
+        <span className="mobile-pr-card__diff">{hideData ? shimmer : diffLabel}</span>
       </div>
     </a>
   );

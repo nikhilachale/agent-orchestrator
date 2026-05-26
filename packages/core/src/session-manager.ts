@@ -20,6 +20,7 @@ import { promisify } from "node:util";
 import {
   isIssueNotFoundError,
   isRestorable,
+  isSpawnableIssueState,
   isTerminalSession,
   NON_RESTORABLE_STATUSES,
   IssueNotSpawnableError,
@@ -1262,7 +1263,7 @@ export function createSessionManager(deps: SessionManagerDeps): OpenCodeSessionM
 
       if (resolvedIssue) {
         const { state } = resolvedIssue;
-        if (state === "closed" || state === "cancelled") {
+        if (state && !isSpawnableIssueState(state)) {
           recordActivityEvent({
             projectId: spawnConfig.projectId,
             source: "session-manager",

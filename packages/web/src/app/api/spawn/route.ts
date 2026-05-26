@@ -122,16 +122,6 @@ export async function POST(request: NextRequest) {
             : {}),
         },
       });
-      if (err instanceof IssueNotSpawnableError) {
-        recordActivityEvent({
-          projectId: typeof body.projectId === "string" ? body.projectId : "unknown",
-          source: "api",
-          kind: "api.session_spawn_rejected",
-          level: "warn",
-          summary: `session spawn rejected: ${err.message}`,
-          data: { reason: "issue_not_spawnable", issueId: err.issueId, issueState: err.state },
-        });
-      }
     }
     return jsonWithCorrelation(
       { error: err instanceof Error ? err.message : "Failed to spawn session" },

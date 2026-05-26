@@ -2003,11 +2003,10 @@ export function isIssueNotFoundError(err: unknown): boolean {
 export class IssueNotSpawnableError extends Error {
   constructor(
     public readonly issueId: string,
-    public readonly state: "closed" | "cancelled",
+    public readonly state: Exclude<Issue["state"], "open" | "in_progress">,
   ) {
-    const label = state === "cancelled" ? "cancelled" : "closed";
     super(
-      `Issue ${issueId} is ${label}. Cannot spawn a session for a closed/cancelled issue.`,
+      `Issue ${issueId} is ${state}. Cannot spawn a session for a closed/cancelled issue.`,
     );
     this.name = "IssueNotSpawnableError";
   }

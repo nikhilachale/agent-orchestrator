@@ -129,7 +129,16 @@ function SettingsBody({
 
 	const mutation = useMutation({
 		mutationFn: async () => {
-			const orchestratorAgentChanged = (config.orchestrator?.agent ?? "") !== form.orchestratorAgent;
+			const currentEffectiveOrchestratorAgent = effectiveOrchestratorAgentValue(
+				config.orchestrator?.agent,
+				project.agent,
+			);
+			const nextEffectiveOrchestratorAgent = effectiveOrchestratorAgentValue(
+				form.orchestratorAgent || undefined,
+				project.agent,
+			);
+			const orchestratorAgentChanged =
+				currentEffectiveOrchestratorAgent !== nextEffectiveOrchestratorAgent;
 			if (orchestratorAgentChanged) {
 				await assertOrchestratorCanRestart(projectId);
 			}
@@ -446,7 +455,11 @@ function agentName(agentID: string, labels: Map<string, string>) {
 }
 
 function effectiveDesiredOrchestratorAgent(project: Project) {
-	return project.config?.orchestrator?.agent ?? project.agent ?? "";
+	return effectiveOrchestratorAgentValue(project.config?.orchestrator?.agent, project.agent);
+}
+
+function effectiveOrchestratorAgentValue(explicitAgent: string | undefined, defaultAgent: string | undefined) {
+	return explicitAgent ?? defaultAgent ?? "";
 }
 
 function desiredAgentLabel(project: Project, labels: Map<string, string>) {

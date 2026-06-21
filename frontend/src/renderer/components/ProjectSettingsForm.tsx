@@ -6,6 +6,8 @@ import { aoBridge } from "../lib/bridge";
 import { agentsQueryKey, type AgentCatalog, useAgentsQuery } from "../hooks/useAgentsQuery";
 import { useWorkspaceQuery, workspaceQueryKey } from "../hooks/useWorkspaceQuery";
 import { findProjectOrchestrator } from "../types/workspace";
+import { workspaceQueryKey } from "../hooks/useWorkspaceQuery";
+import { RequiredAgentField } from "./CreateProjectAgentSheet";
 import { DashboardSubhead } from "./DashboardSubhead";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -133,6 +135,8 @@ function SettingsBody({
 	const [showAuthPrompt, setShowAuthPrompt] = useState(authStatusUnavailable);
 	const [replacementNotice, setReplacementNotice] = useState<string | null>(null);
 	const [replacementRecoveryRequired, setReplacementRecoveryRequired] = useState(false);
+	const [validationError, setValidationError] = useState<string | null>(null);
+	const missingRequiredAgent = form.workerAgent === "" || form.orchestratorAgent === "";
 
 	const mutation = useMutation({
 		mutationFn: async () => {
@@ -155,8 +159,8 @@ function SettingsBody({
 				...config,
 				defaultBranch: form.defaultBranch || undefined,
 				sessionPrefix: form.sessionPrefix || undefined,
-				worker: blankToUndefined({ ...config.worker, agent: form.workerAgent || undefined }),
-				orchestrator: blankToUndefined({ ...config.orchestrator, agent: form.orchestratorAgent || undefined }),
+				worker: { ...config.worker, agent: form.workerAgent },
+				orchestrator: { ...config.orchestrator, agent: form.orchestratorAgent },
 				agentConfig: blankToUndefined({
 					...config.agentConfig,
 					model: form.model || undefined,
@@ -223,6 +227,8 @@ function SettingsBody({
 			setReplacementNotice("AO daemon restart requested.");
 			setReplacementRecoveryRequired(false);
 			await invalidateReplacementQueries(queryClient, projectId);
+			setValidationError(null);
+			void queryClient.invalidateQueries({ queryKey: ["project", projectId] });
 			onSaved();
 		},
 	});
@@ -307,6 +313,19 @@ function SettingsBody({
 					</CardContent>
 				</Card>
 			)}
+		<form
+			className="mx-auto flex max-w-2xl flex-col gap-4"
+			onSubmit={(event) => {
+				event.preventDefault();
+				setSavedAt(null);
+				if (missingRequiredAgent) {
+					setValidationError("Worker and orchestrator agents are required.");
+					return;
+				}
+				setValidationError(null);
+				mutation.mutate();
+			}}
+		>
 			<Card>
 				<CardHeader>
 					<CardTitle className="text-[13px]">Identity</CardTitle>
@@ -374,6 +393,25 @@ function SettingsBody({
 							onChange={(v) => setForm((f) => ({ ...f, orchestratorAgent: v }))}
 						/>
 					</Field>
+					<RequiredAgentField
+						id="workerAgent"
+						value={form.workerAgent}
+						placeholder="Select worker agent"
+						label="Default worker agent"
+						invalid={validationError !== null && form.workerAgent === ""}
+						onChange={(v) => setForm((f) => ({ ...f, workerAgent: v }))}
+					/>
+					<RequiredAgentField
+						id="orchestratorAgent"
+						value={form.orchestratorAgent}
+						placeholder="Select orchestrator agent"
+						label="Default orchestrator agent"
+						invalid={validationError !== null && form.orchestratorAgent === ""}
+						onChange={(v) => setForm((f) => ({ ...f, orchestratorAgent: v }))}
+					/>
+					{missingRequiredAgent && (
+						<p className="text-[12px] leading-5 text-error">Worker and orchestrator agents are required.</p>
+					)}
 					<Field label="Model override" htmlFor="model">
 						<input
 							id="model"
@@ -416,6 +454,7 @@ function SettingsBody({
 				>
 					{mutation.isPending ? "Saving…" : "Save changes"}
 				</Button>
+				{validationError && <span className="text-[12px] text-error">{validationError}</span>}
 				{mutation.isError && (
 					<span className="text-[12px] text-error">
 						{mutation.error instanceof Error ? mutation.error.message : "Save failed"}

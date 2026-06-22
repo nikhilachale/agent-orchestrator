@@ -51,10 +51,10 @@ type Service struct {
 	// responses expose it so clients can compare an explicit empty override
 	// against the real effective default.
 	defaultHarness domain.AgentHarness
-	store     Store
-	sessions  SessionTeardowner
-	clock     func() time.Time
-	telemetry ports.EventSink
+	store          Store
+	sessions       SessionTeardowner
+	clock          func() time.Time
+	telemetry      ports.EventSink
 	// addMu serialises the whole body of Add. Workspace registration performs
 	// filesystem mutations (git init, .gitignore writes, commits) that are not
 	// covered by the store's own writeMu, so path/id conflict checks plus the
@@ -70,10 +70,10 @@ type Deps struct {
 	// DefaultHarness is the daemon's configured default agent (AO_AGENT).
 	// When empty, the service falls back to config.DefaultAgent.
 	DefaultHarness domain.AgentHarness
-	Store     Store
-	Sessions  SessionTeardowner
-	Clock     func() time.Time
-	Telemetry ports.EventSink
+	Store          Store
+	Sessions       SessionTeardowner
+	Clock          func() time.Time
+	Telemetry      ports.EventSink
 }
 
 // New returns a project service backed by the given durable store.
@@ -83,23 +83,23 @@ func New(store Store) *Service {
 
 // NewWithDeps returns a project service with optional teardown dependencies.
 func NewWithDeps(d Deps) *Service {
-        defaultHarness := d.DefaultHarness
-        if defaultHarness == "" {
-                defaultHarness = domain.AgentHarness(config.DefaultAgent)
-        }
+	defaultHarness := d.DefaultHarness
+	if defaultHarness == "" {
+		defaultHarness = domain.AgentHarness(config.DefaultAgent)
+	}
 
-        s := &Service{
-                store:          d.Store,
-                sessions:       d.Sessions,
-                clock:          d.Clock,
-                telemetry:      d.Telemetry,
-                defaultHarness: defaultHarness,
-        }
-        if s.clock == nil {
-                s.clock = time.Now
-        }
-        return s
-  }
+	s := &Service{
+		store:          d.Store,
+		sessions:       d.Sessions,
+		clock:          d.Clock,
+		telemetry:      d.Telemetry,
+		defaultHarness: defaultHarness,
+	}
+	if s.clock == nil {
+		s.clock = time.Now
+	}
+	return s
+}
 
 // List returns every active registered project.
 func (m *Service) List(ctx context.Context) ([]Summary, error) {
@@ -195,12 +195,12 @@ func (m *Service) Add(ctx context.Context, in AddInput) (Project, error) {
 		})
 	}
 
-	var config domain.ProjectConfig
+	var projectConfig domain.ProjectConfig
 	if in.Config != nil {
 		if err := in.Config.Validate(); err != nil {
 			return Project{}, apierr.Invalid("INVALID_PROJECT_CONFIG", err.Error(), nil)
 		}
-		config = *in.Config
+		projectConfig = *in.Config
 	}
 
 	registeredAt := time.Now()
@@ -210,7 +210,7 @@ func (m *Service) Add(ctx context.Context, in AddInput) (Project, error) {
 		DisplayName:  name,
 		RegisteredAt: registeredAt,
 		Kind:         domain.ProjectKindSingleRepo,
-		Config:       config,
+		Config:       projectConfig,
 	}
 	if in.AsWorkspace {
 		repos, err := prepareWorkspaceProject(ctx, path, domain.ProjectID(row.ID), registeredAt)
@@ -222,10 +222,10 @@ func (m *Service) Add(ctx context.Context, in AddInput) (Project, error) {
 		if err := m.store.UpsertWorkspaceProject(ctx, row, repos); err != nil {
 			return Project{}, apierr.Internal("PROJECT_ADD_FAILED", "Failed to register workspace project")
 		}
-	 m.emitProjectAdded(row, projectCountBefore == 0)
-   p := m.projectFromRow(row)
-   p.WorkspaceRepos = workspaceReposFromRecords(repos)
-   return p, nil
+		m.emitProjectAdded(row, projectCountBefore == 0)
+		p := m.projectFromRow(row)
+		p.WorkspaceRepos = workspaceReposFromRecords(repos)
+		return p, nil
 	}
 	if !isGitRepo(path) {
 		return Project{}, apierr.Invalid("NOT_A_GIT_REPO", "Repository path must point to a git repository", nil)
@@ -244,8 +244,8 @@ func (m *Service) Add(ctx context.Context, in AddInput) (Project, error) {
 	if err := m.store.UpsertProject(ctx, row); err != nil {
 		return Project{}, apierr.Internal("PROJECT_ADD_FAILED", "Failed to register project")
 	}
-  m.emitProjectAdded(row, projectCountBefore == 0)
-  return m.projectFromRow(row), nil
+	m.emitProjectAdded(row, projectCountBefore == 0)
+	return m.projectFromRow(row), nil
 }
 
 func (m *Service) activeProjectCount(ctx context.Context) (int, error) {

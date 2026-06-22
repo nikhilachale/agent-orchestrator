@@ -36,5 +36,5 @@ func (c *AgentsController) list(w http.ResponseWriter, r *http.Request) {
 		envelope.WriteError(w, r, err)
 		return
 	}
-	envelope.WriteJSON(w, http.StatusOK, ListAgentsResponse(inventory))
+	envelope.WriteJSON(w, http.StatusOK, inventory)
 }

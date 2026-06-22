@@ -19,9 +19,12 @@ var ErrAgentBinaryNotFound = errors.New("agent: binary not found on PATH")
 type AgentAuthStatus string
 
 const (
-	AgentAuthStatusAuthorized   AgentAuthStatus = "authorized"
+	// AgentAuthStatusAuthorized means the agent can make authenticated model calls.
+	AgentAuthStatusAuthorized AgentAuthStatus = "authorized"
+	// AgentAuthStatusUnauthorized means the agent is installed but not authenticated.
 	AgentAuthStatusUnauthorized AgentAuthStatus = "unauthorized"
-	AgentAuthStatusUnknown      AgentAuthStatus = "unknown"
+	// AgentAuthStatusUnknown means the daemon could not determine auth status.
+	AgentAuthStatusUnknown AgentAuthStatus = "unknown"
 )
 
 // Agent is the contract every CLI coding agent adapter (claude-code, codex, …)

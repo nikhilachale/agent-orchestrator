@@ -540,14 +540,14 @@ func (m *Manager) recordRetiredTermination(ctx context.Context, id domain.Sessio
 			select {
 			case <-ctx.Done():
 				timer.Stop()
-				return fmt.Errorf("retire %s: %w: %v", id, ErrRetireTerminationUnrecorded, ctx.Err())
+				return fmt.Errorf("retire %s: %w: %w", id, ErrRetireTerminationUnrecorded, ctx.Err())
 			case <-timer.C:
 			}
 			continue
 		}
 		return nil
 	}
-	return fmt.Errorf("retire %s: %w: %v", id, ErrRetireTerminationUnrecorded, lastErr)
+	return fmt.Errorf("retire %s: %w: %w", id, ErrRetireTerminationUnrecorded, lastErr)
 }
 
 // Restore relaunches a torn-down session in its workspace. The fallible I/O runs

@@ -9,6 +9,7 @@ import (
 
 var _ ports.AgentAuthChecker = (*Plugin)(nil)
 
+// AuthStatus returns the plugin's local authentication status.
 func (p *Plugin) AuthStatus(ctx context.Context) (ports.AgentAuthStatus, error) {
 	cmd, err := p.GetLaunchCommand(ctx, ports.LaunchConfig{})
 	if err != nil || len(cmd) == 0 {

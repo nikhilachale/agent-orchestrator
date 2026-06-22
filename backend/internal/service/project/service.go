@@ -46,13 +46,10 @@ type SessionTeardowner interface {
 
 // Service implements project registration and lookup use-cases for controllers.
 type Service struct {
-	store     Store
-	sessions  SessionTeardowner
-	clock     func() time.Time
-	telemetry ports.EventSink
-	// defaultHarness is the daemon's configured default agent. Project detail
-	// responses expose it so clients can compare an explicit empty override
-	// against the real effective default.
+	store          Store
+	sessions       SessionTeardowner
+	clock          func() time.Time
+	telemetry      ports.EventSink
 	defaultHarness domain.AgentHarness
 	// addMu serialises the whole body of Add. Workspace registration performs
 	// filesystem mutations (git init, .gitignore writes, commits) that are not
@@ -65,13 +62,13 @@ var _ Manager = (*Service)(nil)
 
 // Deps captures optional collaborators for project use-cases.
 type Deps struct {
-	Store     Store
-	Sessions  SessionTeardowner
-	Clock     func() time.Time
-	Telemetry ports.EventSink
 	// DefaultHarness is the daemon's configured default agent (AO_AGENT).
 	// When empty, the service falls back to config.DefaultAgent.
 	DefaultHarness domain.AgentHarness
+	Store          Store
+	Sessions       SessionTeardowner
+	Clock          func() time.Time
+	Telemetry      ports.EventSink
 }
 
 // New returns a project service backed by the given durable store.
@@ -192,12 +189,12 @@ func (m *Service) Add(ctx context.Context, in AddInput) (Project, error) {
 		})
 	}
 
-	var config domain.ProjectConfig
+	var projectConfig domain.ProjectConfig
 	if in.Config != nil {
 		if err := in.Config.Validate(); err != nil {
 			return Project{}, apierr.Invalid("INVALID_PROJECT_CONFIG", err.Error(), nil)
 		}
-		config = *in.Config
+		projectConfig = *in.Config
 	}
 
 	registeredAt := time.Now()
@@ -207,7 +204,7 @@ func (m *Service) Add(ctx context.Context, in AddInput) (Project, error) {
 		DisplayName:  name,
 		RegisteredAt: registeredAt,
 		Kind:         domain.ProjectKindSingleRepo,
-		Config:       config,
+		Config:       projectConfig,
 	}
 	if in.AsWorkspace {
 		repos, err := prepareWorkspaceProject(ctx, path, domain.ProjectID(row.ID), registeredAt)

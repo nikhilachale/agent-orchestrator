@@ -62,8 +62,6 @@ func (s *Service) List(ctx context.Context) (Inventory, error) {
 			if info.AuthStatus == ports.AgentAuthStatusAuthorized {
 				authorized = append(authorized, info)
 			}
-		} else if errors.Is(err, ports.ErrAgentBinaryNotFound) {
-			continue
 		} else {
 			continue
 		}

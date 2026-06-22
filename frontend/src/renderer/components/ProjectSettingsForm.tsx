@@ -6,8 +6,6 @@ import { aoBridge } from "../lib/bridge";
 import { agentsQueryKey, type AgentCatalog, useAgentsQuery } from "../hooks/useAgentsQuery";
 import { useWorkspaceQuery, workspaceQueryKey } from "../hooks/useWorkspaceQuery";
 import { findProjectOrchestrator } from "../types/workspace";
-import { workspaceQueryKey } from "../hooks/useWorkspaceQuery";
-import { RequiredAgentField } from "./CreateProjectAgentSheet";
 import { DashboardSubhead } from "./DashboardSubhead";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -120,7 +118,8 @@ function SettingsBody({
 	const spawnFailurePending = liveOrchestrator !== undefined && savedOrchestratorAgent !== runningOrchestratorAgent;
 	const replacementNeeded = spawnFailurePending;
 	const retryRequiresIdle = spawnFailurePending;
-	const retryBlockedUntilIdle = retryRequiresIdle && liveOrchestrator !== undefined && workspaceOrchestratorRestartBlocked(liveOrchestrator);
+	const retryBlockedUntilIdle =
+		retryRequiresIdle && liveOrchestrator !== undefined && workspaceOrchestratorRestartBlocked(liveOrchestrator);
 	const [form, setForm] = useState({
 		defaultBranch: config.defaultBranch ?? project.defaultBranch ?? "",
 		sessionPrefix: config.sessionPrefix ?? "",
@@ -148,8 +147,7 @@ function SettingsBody({
 				form.orchestratorAgent || undefined,
 				project.agent,
 			);
-			const orchestratorAgentChanged =
-				currentEffectiveOrchestratorAgent !== nextEffectiveOrchestratorAgent;
+			const orchestratorAgentChanged = currentEffectiveOrchestratorAgent !== nextEffectiveOrchestratorAgent;
 			if (orchestratorAgentChanged) {
 				await assertOrchestratorCanRestart(projectId);
 			}
@@ -264,233 +262,208 @@ function SettingsBody({
 				className="mx-auto flex max-w-2xl flex-col gap-4"
 				onSubmit={(event) => {
 					event.preventDefault();
+					setSavedAt(null);
+					if (missingRequiredAgent) {
+						setValidationError("Worker and orchestrator agents are required.");
+						return;
+					}
+					setValidationError(null);
 					mutation.mutate();
 				}}
 			>
-			{replacementNeeded && (
-				<Card className="border-warning/40 bg-warning/5">
+				{replacementNeeded && (
+					<Card className="border-warning/40 bg-warning/5">
+						<CardHeader>
+							<CardTitle className="text-[13px] text-warning">Orchestrator replacement pending</CardTitle>
+						</CardHeader>
+						<CardContent className="flex flex-col gap-3 text-[12px] text-muted-foreground">
+							<div>
+								Saved orchestrator agent is <span className="text-foreground">{savedAgentLabel}</span>, but the running
+								orchestrator is still <span className="text-foreground">{runningAgentLabel}</span>.
+							</div>
+							<div>
+								{retryBlockedUntilIdle
+									? "The previous orchestrator was kept alive because the replacement failed to start. It must become idle before retry can run."
+									: "The previous orchestrator was kept alive because the replacement failed to start."}
+							</div>
+							<div className="flex items-center gap-3">
+								<Button
+									type="button"
+									variant="outline"
+									disabled={
+										retryReplacementMutation.isPending || restartDaemonMutation.isPending || retryBlockedUntilIdle
+									}
+									onClick={() => retryReplacementMutation.mutate()}
+								>
+									{retryReplacementMutation.isPending
+										? "Retrying…"
+										: retryBlockedUntilIdle
+											? "Retry when idle"
+											: "Retry orchestrator replacement"}
+								</Button>
+								{retryBlockedUntilIdle && <span>Current orchestrator must be idle before retrying.</span>}
+								{retryReplacementMutation.isError && (
+									<span className="text-error">
+										{retryReplacementMutation.error instanceof Error
+											? retryReplacementMutation.error.message
+											: "Retry failed"}
+									</span>
+								)}
+							</div>
+						</CardContent>
+					</Card>
+				)}
+				<Card>
 					<CardHeader>
-						<CardTitle className="text-[13px] text-warning">Orchestrator replacement pending</CardTitle>
+						<CardTitle className="text-[13px]">Identity</CardTitle>
 					</CardHeader>
-					<CardContent className="flex flex-col gap-3 text-[12px] text-muted-foreground">
-						<div>
-							Saved orchestrator agent is <span className="text-foreground">{savedAgentLabel}</span>, but the
-							running orchestrator is still <span className="text-foreground">{runningAgentLabel}</span>.
-						</div>
-						<div>
-							{retryBlockedUntilIdle
-								? "The previous orchestrator was kept alive because the replacement failed to start. It must become idle before retry can run."
-								: "The previous orchestrator was kept alive because the replacement failed to start."}
-						</div>
-						<div className="flex items-center gap-3">
-							<Button
-								type="button"
-								variant="outline"
-								disabled={
-									retryReplacementMutation.isPending ||
-									restartDaemonMutation.isPending ||
-									retryBlockedUntilIdle
-								}
-								onClick={() => retryReplacementMutation.mutate()}
-							>
-								{retryReplacementMutation.isPending
-									? "Retrying…"
-									: retryBlockedUntilIdle
-										? "Retry when idle"
-									: "Retry orchestrator replacement"}
-							</Button>
-							{retryBlockedUntilIdle && (
-								<span>Current orchestrator must be idle before retrying.</span>
-							)}
-							{retryReplacementMutation.isError && (
-								<span className="text-error">
-									{retryReplacementMutation.error instanceof Error
-										? retryReplacementMutation.error.message
-										: "Retry failed"}
-								</span>
-							)}
-						</div>
+					<CardContent className="flex flex-col gap-2 font-mono text-[12px] text-muted-foreground">
+						<ReadonlyRow label="id" value={project.id} />
+						<ReadonlyRow label="path" value={project.path} />
+						<ReadonlyRow label="repo" value={project.repo || "—"} />
 					</CardContent>
 				</Card>
-			)}
-		<form
-			className="mx-auto flex max-w-2xl flex-col gap-4"
-			onSubmit={(event) => {
-				event.preventDefault();
-				setSavedAt(null);
-				if (missingRequiredAgent) {
-					setValidationError("Worker and orchestrator agents are required.");
-					return;
-				}
-				setValidationError(null);
-				mutation.mutate();
-			}}
-		>
-			<Card>
-				<CardHeader>
-					<CardTitle className="text-[13px]">Identity</CardTitle>
-				</CardHeader>
-				<CardContent className="flex flex-col gap-2 font-mono text-[12px] text-muted-foreground">
-					<ReadonlyRow label="id" value={project.id} />
-					<ReadonlyRow label="path" value={project.path} />
-					<ReadonlyRow label="repo" value={project.repo || "—"} />
-				</CardContent>
-			</Card>
 
-			<Card>
-				<CardHeader>
-					<CardTitle className="text-[13px]">Worktrees</CardTitle>
-				</CardHeader>
-				<CardContent className="flex flex-col gap-4">
-					<Field label="Default branch" htmlFor="defaultBranch">
-						<input
-							id="defaultBranch"
-							className="h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-[13px] text-foreground placeholder:text-passive focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-weak"
-							value={form.defaultBranch}
-							onChange={(e) => setForm((f) => ({ ...f, defaultBranch: e.target.value }))}
-							placeholder="main"
-						/>
-					</Field>
-					<Field label="Session prefix" htmlFor="sessionPrefix">
-						<input
-							id="sessionPrefix"
-							className="h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-[13px] text-foreground placeholder:text-passive focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-weak"
-							value={form.sessionPrefix}
-							onChange={(e) => setForm((f) => ({ ...f, sessionPrefix: e.target.value }))}
-							placeholder="ao"
-						/>
-					</Field>
-				</CardContent>
-			</Card>
+				<Card>
+					<CardHeader>
+						<CardTitle className="text-[13px]">Worktrees</CardTitle>
+					</CardHeader>
+					<CardContent className="flex flex-col gap-4">
+						<Field label="Default branch" htmlFor="defaultBranch">
+							<input
+								id="defaultBranch"
+								className="h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-[13px] text-foreground placeholder:text-passive focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-weak"
+								value={form.defaultBranch}
+								onChange={(e) => setForm((f) => ({ ...f, defaultBranch: e.target.value }))}
+								placeholder="main"
+							/>
+						</Field>
+						<Field label="Session prefix" htmlFor="sessionPrefix">
+							<input
+								id="sessionPrefix"
+								className="h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-[13px] text-foreground placeholder:text-passive focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-weak"
+								value={form.sessionPrefix}
+								onChange={(e) => setForm((f) => ({ ...f, sessionPrefix: e.target.value }))}
+								placeholder="ao"
+							/>
+						</Field>
+					</CardContent>
+				</Card>
 
-			<Card>
-				<CardHeader>
-					<div className="flex items-center justify-between gap-3">
-						<CardTitle className="text-[13px]">Agents</CardTitle>
-						<Button type="button" variant="outline" disabled={isReloadingAgents} onClick={onReloadAgents}>
-							{isReloadingAgents ? "Reloading..." : "Reload agents"}
-						</Button>
-					</div>
-				</CardHeader>
-				<CardContent className="flex flex-col gap-4">
-					<Field label="Default worker agent" htmlFor="workerAgent">
-						<AgentSelect
-							id="workerAgent"
-							value={form.workerAgent}
-							authorized={agentOptions}
-							installed={installedAgents}
-							supported={supportedAgents}
-							onChange={(v) => setForm((f) => ({ ...f, workerAgent: v }))}
-						/>
-					</Field>
-					<Field label="Default orchestrator agent" htmlFor="orchestratorAgent">
-						<AgentSelect
-							id="orchestratorAgent"
-							value={form.orchestratorAgent}
-							authorized={agentOptions}
-							installed={installedAgents}
-							supported={supportedAgents}
-							onChange={(v) => setForm((f) => ({ ...f, orchestratorAgent: v }))}
-						/>
-					</Field>
-					<RequiredAgentField
-						id="workerAgent"
-						value={form.workerAgent}
-						placeholder="Select worker agent"
-						label="Default worker agent"
-						invalid={validationError !== null && form.workerAgent === ""}
-						onChange={(v) => setForm((f) => ({ ...f, workerAgent: v }))}
-					/>
-					<RequiredAgentField
-						id="orchestratorAgent"
-						value={form.orchestratorAgent}
-						placeholder="Select orchestrator agent"
-						label="Default orchestrator agent"
-						invalid={validationError !== null && form.orchestratorAgent === ""}
-						onChange={(v) => setForm((f) => ({ ...f, orchestratorAgent: v }))}
-					/>
-					{missingRequiredAgent && (
-						<p className="text-[12px] leading-5 text-error">Worker and orchestrator agents are required.</p>
-					)}
-					<Field label="Model override" htmlFor="model">
-						<input
-							id="model"
-							className="h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-[13px] text-foreground placeholder:text-passive focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-weak"
-							value={form.model}
-							onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
-							placeholder="(agent default)"
-						/>
-					</Field>
-					<Field label="Permission mode" htmlFor="permissionMode">
-						<PermissionModeSelect
-							id="permissionMode"
-							value={form.permissions}
-							onChange={(v) => setForm((f) => ({ ...f, permissions: v }))}
-						/>
-					</Field>
-				</CardContent>
-			</Card>
-
-			<Card>
-				<CardHeader>
-					<CardTitle className="text-[13px]">Reviewers</CardTitle>
-				</CardHeader>
-				<CardContent className="flex flex-col gap-4">
-					<Field label="Default reviewer agent" htmlFor="reviewerHarness">
-						<ReviewerSelect
-							id="reviewerHarness"
-							value={form.reviewerHarness}
-							onChange={(v) => setForm((f) => ({ ...f, reviewerHarness: v }))}
-						/>
-					</Field>
-				</CardContent>
-			</Card>
-
-			<div className="flex items-center gap-3">
-				<Button
-					type="submit"
-					variant="primary"
-					disabled={mutation.isPending || retryReplacementMutation.isPending || restartDaemonMutation.isPending}
-				>
-					{mutation.isPending ? "Saving…" : "Save changes"}
-				</Button>
-				{validationError && <span className="text-[12px] text-error">{validationError}</span>}
-				{mutation.isError && (
-					<span className="text-[12px] text-error">
-						{mutation.error instanceof Error ? mutation.error.message : "Save failed"}
-					</span>
-				)}
-				{replacementNotice && !mutation.isPending && !mutation.isError && !retryReplacementMutation.isPending && (
-					<div className="flex items-center gap-2 text-[12px] text-warning">
-						<span>{replacementNotice}</span>
-						{replacementRecoveryRequired && (
-							<Button
-								type="button"
-								variant="outline"
-								disabled={restartDaemonMutation.isPending}
-								onClick={() => restartDaemonMutation.mutate()}
-							>
-								{restartDaemonMutation.isPending ? "Restarting…" : "Restart AO daemon"}
+				<Card>
+					<CardHeader>
+						<div className="flex items-center justify-between gap-3">
+							<CardTitle className="text-[13px]">Agents</CardTitle>
+							<Button type="button" variant="outline" disabled={isReloadingAgents} onClick={onReloadAgents}>
+								{isReloadingAgents ? "Reloading..." : "Reload agents"}
 							</Button>
+						</div>
+					</CardHeader>
+					<CardContent className="flex flex-col gap-4">
+						<Field label="Default worker agent" htmlFor="workerAgent">
+							<AgentSelect
+								id="workerAgent"
+								value={form.workerAgent}
+								authorized={agentOptions}
+								installed={installedAgents}
+								supported={supportedAgents}
+								invalid={validationError !== null && form.workerAgent === ""}
+								onChange={(v) => setForm((f) => ({ ...f, workerAgent: v }))}
+							/>
+						</Field>
+						<Field label="Default orchestrator agent" htmlFor="orchestratorAgent">
+							<AgentSelect
+								id="orchestratorAgent"
+								value={form.orchestratorAgent}
+								authorized={agentOptions}
+								installed={installedAgents}
+								supported={supportedAgents}
+								invalid={validationError !== null && form.orchestratorAgent === ""}
+								onChange={(v) => setForm((f) => ({ ...f, orchestratorAgent: v }))}
+							/>
+						</Field>
+						{missingRequiredAgent && (
+							<p className="text-[12px] leading-5 text-error">Worker and orchestrator agents are required.</p>
 						)}
-					</div>
-				)}
-				{restartDaemonMutation.isError && (
-					<span className="text-[12px] text-error">
-						{restartDaemonMutation.error instanceof Error ? restartDaemonMutation.error.message : "Restart failed"}
-					</span>
-				)}
-				{savedAt &&
-					!mutation.isPending &&
-					!mutation.isError &&
-					!replacementNotice &&
-					!retryReplacementMutation.isPending &&
-					!retryReplacementMutation.isError && (
-					<span className="text-[12px] text-success">
-						{restartedAt ? "Saved. Orchestrator restarted." : "Saved."}
-					</span>
-				)}
-			</div>
+						<Field label="Model override" htmlFor="model">
+							<input
+								id="model"
+								className="h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-[13px] text-foreground placeholder:text-passive focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-weak"
+								value={form.model}
+								onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
+								placeholder="(agent default)"
+							/>
+						</Field>
+						<Field label="Permission mode" htmlFor="permissionMode">
+							<PermissionModeSelect
+								id="permissionMode"
+								value={form.permissions}
+								onChange={(v) => setForm((f) => ({ ...f, permissions: v }))}
+							/>
+						</Field>
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader>
+						<CardTitle className="text-[13px]">Reviewers</CardTitle>
+					</CardHeader>
+					<CardContent className="flex flex-col gap-4">
+						<Field label="Default reviewer agent" htmlFor="reviewerHarness">
+							<ReviewerSelect
+								id="reviewerHarness"
+								value={form.reviewerHarness}
+								onChange={(v) => setForm((f) => ({ ...f, reviewerHarness: v }))}
+							/>
+						</Field>
+					</CardContent>
+				</Card>
+
+				<div className="flex items-center gap-3">
+					<Button
+						type="submit"
+						variant="primary"
+						disabled={mutation.isPending || retryReplacementMutation.isPending || restartDaemonMutation.isPending}
+					>
+						{mutation.isPending ? "Saving…" : "Save changes"}
+					</Button>
+					{validationError && <span className="text-[12px] text-error">{validationError}</span>}
+					{mutation.isError && (
+						<span className="text-[12px] text-error">
+							{mutation.error instanceof Error ? mutation.error.message : "Save failed"}
+						</span>
+					)}
+					{replacementNotice && !mutation.isPending && !mutation.isError && !retryReplacementMutation.isPending && (
+						<div className="flex items-center gap-2 text-[12px] text-warning">
+							<span>{replacementNotice}</span>
+							{replacementRecoveryRequired && (
+								<Button
+									type="button"
+									variant="outline"
+									disabled={restartDaemonMutation.isPending}
+									onClick={() => restartDaemonMutation.mutate()}
+								>
+									{restartDaemonMutation.isPending ? "Restarting…" : "Restart AO daemon"}
+								</Button>
+							)}
+						</div>
+					)}
+					{restartDaemonMutation.isError && (
+						<span className="text-[12px] text-error">
+							{restartDaemonMutation.error instanceof Error ? restartDaemonMutation.error.message : "Restart failed"}
+						</span>
+					)}
+					{savedAt &&
+						!mutation.isPending &&
+						!mutation.isError &&
+						!replacementNotice &&
+						!retryReplacementMutation.isPending &&
+						!retryReplacementMutation.isError && (
+							<span className="text-[12px] text-success">
+								{restartedAt ? "Saved. Orchestrator restarted." : "Saved."}
+							</span>
+						)}
+				</div>
 			</form>
 		</>
 	);
@@ -628,6 +601,7 @@ function AgentSelect({
 	authorized,
 	installed,
 	supported,
+	invalid = false,
 	onChange,
 }: {
 	id: string;
@@ -635,6 +609,7 @@ function AgentSelect({
 	authorized: AgentInfo[];
 	installed: AgentInfo[];
 	supported: AgentInfo[];
+	invalid?: boolean;
 	onChange: (value: string) => void;
 }) {
 	// "" sentinel → daemon default; Select can't hold an empty value, so map it.
@@ -659,18 +634,15 @@ function AgentSelect({
 		})
 		.sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
 	const currentWarning = currentInstalled
-			? `${current?.label ?? value} is configured but is not authorized on this machine.`
-			: `${current?.label ?? value} is configured but was not detected on this machine.`;
+		? `${current?.label ?? value} is configured but is not authorized on this machine.`
+		: `${current?.label ?? value} is configured but was not detected on this machine.`;
 	return (
 		<div className="flex flex-col gap-1.5">
-			<Select
-				value={value || "__default__"}
-				onValueChange={(v) => onChange(v === "__default__" ? "" : v)}
-			>
-				<SelectTrigger id={id} className="h-8 w-full text-[13px]">
+			<Select value={value || "__default__"} onValueChange={(v) => onChange(v === "__default__" ? "" : v)}>
+				<SelectTrigger id={id} className="h-8 w-full text-[13px]" aria-invalid={invalid || undefined}>
 					<SelectValue />
 				</SelectTrigger>
-				<SelectContent>
+				<SelectContent position="popper" align="start" sideOffset={4} className="!max-h-80">
 					<SelectItem value="__default__">Daemon default</SelectItem>
 					{needsFallbackOption && (
 						<SelectItem value={value} disabled className="[&>span:last-child]:w-full">
@@ -681,7 +653,12 @@ function AgentSelect({
 						</SelectItem>
 					)}
 					{options.map((agent) => (
-						<SelectItem key={agent.id} value={agent.id} disabled={agent.disabled} className="[&>span:last-child]:w-full">
+						<SelectItem
+							key={agent.id}
+							value={agent.id}
+							disabled={agent.disabled}
+							className="[&>span:last-child]:w-full"
+						>
 							<span className="flex min-w-0 w-full items-center justify-between gap-4">
 								<span className="truncate">{agent.label}</span>
 								{agent.reason && <span className="shrink-0 text-[11px] text-muted-foreground">{agent.reason}</span>}

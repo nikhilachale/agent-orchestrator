@@ -255,6 +255,7 @@ func nvmNodeBinCandidates(home, binary string) []string {
 	}
 	sort.Sort(sort.Reverse(sort.StringSlice(matches)))
 	return matches
+}
 func resolveNativeWindowsCodex(path string) string {
 	if runtime.GOOS != "windows" || !strings.EqualFold(filepath.Ext(path), ".cmd") {
 		return path

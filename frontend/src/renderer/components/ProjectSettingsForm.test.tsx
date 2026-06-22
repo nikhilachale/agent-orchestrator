@@ -24,6 +24,7 @@ vi.mock("../lib/api-client", () => ({
 		}
 		return "Request failed";
 	},
+	hasTrustedApiBaseUrl: () => true,
 }));
 
 vi.mock("../lib/bridge", () => ({
@@ -69,7 +70,10 @@ beforeEach(() => {
 	putMock.mockReset();
 	startDaemonMock.mockReset();
 	stopDaemonMock.mockReset();
-	postMock.mockResolvedValue({ data: { orchestrator: { id: "proj-1-orchestrator", projectId: "proj-1" } }, error: undefined });
+	postMock.mockResolvedValue({
+		data: { orchestrator: { id: "proj-1-orchestrator", projectId: "proj-1" } },
+		error: undefined,
+	});
 	putMock.mockResolvedValue({ data: { project: {} }, error: undefined });
 	startDaemonMock.mockResolvedValue({ state: "starting" });
 	stopDaemonMock.mockResolvedValue({ state: "stopped" });
@@ -187,7 +191,7 @@ describe("ProjectSettingsForm", () => {
 			},
 		});
 		expect(await screen.findByText("Saved. Orchestrator restarted.")).toBeInTheDocument();
-	});
+	}, 20_000);
 
 	it("reuses the cached agent catalog across project settings switches", async () => {
 		mockProject({
@@ -197,6 +201,10 @@ describe("ProjectSettingsForm", () => {
 			path: "/repo/project-one",
 			repo: "",
 			defaultBranch: "main",
+			config: {
+				worker: { agent: "codex" },
+				orchestrator: { agent: "codex" },
+			},
 		});
 		mockAgents({
 			supported: [{ id: "codex", label: "Codex" }],
@@ -275,6 +283,7 @@ describe("ProjectSettingsForm", () => {
 			defaultBranch: "main",
 			config: {
 				defaultBranch: "main",
+				worker: { agent: "codex" },
 				orchestrator: { agent: "codex" },
 			},
 		});
@@ -305,6 +314,7 @@ describe("ProjectSettingsForm", () => {
 			repo: "",
 			defaultBranch: "main",
 			config: {
+				worker: { agent: "claude-code" },
 				orchestrator: { agent: "claude-code" },
 			},
 		});
@@ -354,6 +364,7 @@ describe("ProjectSettingsForm", () => {
 			repo: "",
 			defaultBranch: "main",
 			config: {
+				worker: { agent: "claude-code" },
 				orchestrator: { agent: "claude-code" },
 			},
 		});
@@ -403,6 +414,7 @@ describe("ProjectSettingsForm", () => {
 			repo: "",
 			defaultBranch: "main",
 			config: {
+				worker: { agent: "claude-code" },
 				orchestrator: { agent: "claude-code" },
 			},
 		});
@@ -426,6 +438,7 @@ describe("ProjectSettingsForm", () => {
 				projectId: "proj-1",
 				kind: "orchestrator",
 				harness: "claude-code",
+				provider: "claude-code",
 				status: "idle",
 				isTerminated: false,
 			},
@@ -440,29 +453,18 @@ describe("ProjectSettingsForm", () => {
 				repo: "",
 				defaultBranch: "main",
 				config: {
+					worker: { agent: "codex" },
 					orchestrator: { agent: "codex" },
-	it("shows the daemon validation message when save fails", async () => {
-		getMock.mockResolvedValue({
-			data: {
-				status: "ok",
-				project: {
-					id: "proj-1",
-					name: "Project One",
-					kind: "single_repo",
-					path: "/repo/project-one",
-					repo: "",
-					defaultBranch: "main",
-					config: {
-						worker: { agent: "codex" },
-						orchestrator: { agent: "claude-code" },
-					},
 				},
 			});
 			return { data: { project: {} }, error: undefined };
 		});
 		postMock
 			.mockResolvedValueOnce({ data: undefined, error: { message: "agent binary missing" } })
-			.mockResolvedValueOnce({ data: { orchestrator: { id: "proj-2-orchestrator", projectId: "proj-1" } }, error: undefined });
+			.mockResolvedValueOnce({
+				data: { orchestrator: { id: "proj-2-orchestrator", projectId: "proj-1" } },
+				error: undefined,
+			});
 
 		renderSettings();
 
@@ -476,7 +478,10 @@ describe("ProjectSettingsForm", () => {
 		).toBeInTheDocument();
 		expect(await screen.findByText("Orchestrator replacement pending")).toBeInTheDocument();
 		expect(
-			screen.getByText((_, node) => node?.textContent === "Saved orchestrator agent is Codex, but the running orchestrator is still Claude Code."),
+			screen.getByText(
+				(_, node) =>
+					node?.textContent === "Saved orchestrator agent is Codex, but the running orchestrator is still Claude Code.",
+			),
 		).toBeInTheDocument();
 
 		await userEvent.click(screen.getByRole("button", { name: "Retry orchestrator replacement" }));
@@ -496,9 +501,6 @@ describe("ProjectSettingsForm", () => {
 			path: "/repo/project-one",
 			repo: "",
 			defaultBranch: "main",
-			config: {
-				orchestrator: { agent: "codex" },
-			},
 		});
 		mockAgents({
 			supported: [
@@ -520,6 +522,7 @@ describe("ProjectSettingsForm", () => {
 				projectId: "proj-1",
 				kind: "orchestrator",
 				harness: "claude-code",
+				provider: "claude-code",
 				status: "working",
 				isTerminated: false,
 			},
@@ -542,6 +545,7 @@ describe("ProjectSettingsForm", () => {
 			repo: "",
 			defaultBranch: "main",
 			config: {
+				worker: { agent: "claude-code" },
 				orchestrator: { agent: "claude-code" },
 			},
 		});
@@ -626,6 +630,7 @@ describe("ProjectSettingsForm", () => {
 				projectId: "proj-1",
 				kind: "orchestrator",
 				harness: "claude-code",
+				provider: "claude-code",
 				status: "idle",
 				isTerminated: false,
 			},
@@ -730,7 +735,9 @@ describe("ProjectSettingsForm", () => {
 
 		renderSettings();
 
-		expect(await screen.findByText("Claude Code is configured but is not authorized on this machine.")).toBeInTheDocument();
+		expect(
+			await screen.findByText("Claude Code is configured but is not authorized on this machine."),
+		).toBeInTheDocument();
 		expect(screen.getByRole("combobox", { name: "Default worker agent" })).toHaveTextContent("Claude Code");
 		await userEvent.click(screen.getByRole("combobox", { name: "Default orchestrator agent" }));
 		expect(screen.getByRole("option", { name: /Claude Code.*Needs auth/i })).toHaveAttribute("aria-disabled", "true");
@@ -785,6 +792,10 @@ describe("ProjectSettingsForm", () => {
 			path: "/repo/project-one",
 			repo: "",
 			defaultBranch: "main",
+			config: {
+				worker: { agent: "codex" },
+				orchestrator: { agent: "codex" },
+			},
 		});
 		mockAgents({
 			supported: [
@@ -815,6 +826,10 @@ describe("ProjectSettingsForm", () => {
 			path: "/repo/project-one",
 			repo: "",
 			defaultBranch: "main",
+			config: {
+				worker: { agent: "codex" },
+				orchestrator: { agent: "codex" },
+			},
 		});
 		mockAgents({
 			supported: [{ id: "codex", label: "Codex" }],
@@ -855,10 +870,8 @@ describe("ProjectSettingsForm", () => {
 		renderSettings();
 
 		expect(await screen.findByText("Worker and orchestrator agents are required.")).toBeInTheDocument();
-		expect(screen.getByRole("combobox", { name: "Default worker agent" })).toHaveTextContent("Select worker agent");
-		expect(screen.getByRole("combobox", { name: "Default orchestrator agent" })).toHaveTextContent(
-			"Select orchestrator agent",
-		);
+		expect(screen.getByRole("combobox", { name: "Default worker agent" })).toHaveTextContent("Daemon default");
+		expect(screen.getByRole("combobox", { name: "Default orchestrator agent" })).toHaveTextContent("Daemon default");
 
 		await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
 

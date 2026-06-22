@@ -1,15 +1,6 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
-import {
-	type AttentionZone,
-	type WorkerDisplayStatus,
-	type WorkspaceSession,
-	attentionZone,
-	workerDisplayStatus,
-	workerSessions,
-} from "../types/workspace";
 
 import { agentsQueryKey, useAgentsQuery } from "../hooks/useAgentsQuery";
 import { DashboardSubhead } from "./DashboardSubhead";

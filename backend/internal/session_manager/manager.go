@@ -1729,10 +1729,20 @@ func defaultSpawnBranch(id domain.SessionID, kind domain.SessionKind, prefix str
 }
 
 func buildPrompt(cfg ports.SpawnConfig) string {
-	if cfg.Prompt == "" && cfg.IssueID != "" {
-		return fmt.Sprintf("Work on issue %s. Use the issue context in your standing instructions.", cfg.IssueID)
+	issueContext := strings.TrimSpace(cfg.IssueContext)
+	if cfg.Prompt != "" {
+		if cfg.Kind == domain.KindWorker && issueContext != "" {
+			return strings.TrimRight(cfg.Prompt, "\n") + "\n\n" + issueContextSection(issueContext)
+		}
+		return cfg.Prompt
 	}
-	return cfg.Prompt
+	if cfg.IssueID == "" {
+		return ""
+	}
+	if cfg.Kind == domain.KindWorker && issueContext != "" {
+		return fmt.Sprintf("Work on issue %s. Use the issue context below as task context.\n\n%s", cfg.IssueID, issueContextSection(issueContext))
+	}
+	return fmt.Sprintf("Work on issue %s. Issue details were not pre-fetched; start by reading the issue, then implement.", cfg.IssueID)
 }
 
 // buildSpawnTexts returns the user-facing prompt and the system prompt to
@@ -1755,22 +1765,36 @@ func (m *Manager) buildSpawnTexts(ctx context.Context, cfg ports.SpawnConfig) (p
 // rather than persisting them, so a restored worker points at the orchestrator
 // that is active now, not the one from its original spawn.
 func (m *Manager) buildSystemPrompt(ctx context.Context, kind domain.SessionKind, projectID domain.ProjectID) (string, error) {
-	var base string
+	project, err := m.loadProject(ctx, projectID)
+	if err != nil {
+		return "", err
+	}
+	sections := make([]string, 0, 4)
 	switch kind {
 	case domain.KindOrchestrator:
-		base = orchestratorPrompt(projectID)
+		sections = append(sections, orchestratorPrompt(projectID))
+		if rules := strings.TrimSpace(project.Config.OrchestratorRules); rules != "" {
+			sections = append(sections, "## Project-specific orchestrator rules\n"+rules)
+		}
 	case domain.KindWorker:
+		sections = append(sections, workerRolePrompt())
 		orchestratorID, ok, err := m.activeOrchestratorSessionID(ctx, projectID)
 		if err != nil {
 			return "", err
 		}
 		if ok {
-			base = workerOrchestratorPrompt(orchestratorID) + "\n\n" + workerMultiPRPrompt()
-		} else {
-			base = workerMultiPRPrompt()
+			sections = append(sections, workerOrchestratorPrompt(orchestratorID))
+		}
+		sections = append(sections, workerMultiPRPrompt())
+		rules, err := projectAgentRules(project)
+		if err != nil {
+			return "", err
+		}
+		if rules != "" {
+			sections = append(sections, "## Project Rules\n"+rules)
 		}
 	}
-	if base == "" {
+	if len(sections) == 0 {
 		return "", nil
 	}
 	workspacePrompt, err := m.workspaceProjectPrompt(ctx, kind, projectID)
@@ -1872,6 +1896,14 @@ To discover any other AO command, run `+"`ao --help`"+` (and `+"`ao <command> --
 
 Use workers for focused implementation tasks, track their progress, synthesize their results, and only step into implementation directly for true emergencies or small coordination fixes.`, project, project)
 }
+
+func workerRolePrompt() string {
+	return `## Worker role
+
+You are an implementation worker for this AO session. Focus on the assigned task, inspect the relevant code and tests before editing, keep changes scoped, verify the behavior you touched, and report blockers clearly.`
+}
+
+
 
 func workspaceOrchestratorPrompt(repos []domain.WorkspaceRepoRecord) string {
 	return fmt.Sprintf(`## Workspace project

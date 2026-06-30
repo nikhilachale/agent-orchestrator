@@ -18,6 +18,12 @@ var DefaultCommands = [][]string{
 	{"providers", "list"},
 }
 
+// CmdRunner runs the command and returns the combined stdout/stderr.
+// It is exposed as a package variable to allow mocking in tests.
+var CmdRunner = func(ctx context.Context, name string, arg ...string) ([]byte, error) {
+	return exec.CommandContext(ctx, name, arg...).CombinedOutput()
+}
+
 // CLIStatus runs bounded local CLI probes and classifies their output.
 func CLIStatus(ctx context.Context, binary string, commands [][]string) (ports.AgentAuthStatus, error) {
 	if err := ctx.Err(); err != nil {
@@ -45,13 +51,26 @@ func commandStatus(ctx context.Context, binary string, args []string) (ports.Age
 	probeCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	out, err := exec.CommandContext(probeCtx, binary, args...).CombinedOutput()
+	out, err := CmdRunner(probeCtx, binary, args...)
 	if probeCtx.Err() != nil {
 		return ports.AgentAuthStatusUnknown, probeCtx.Err()
 	}
-	text := strings.ToLower(string(out))
+	status := StatusFromText(string(out))
+	if status != ports.AgentAuthStatusUnknown {
+		return status, nil
+	}
+	if err != nil {
+		return ports.AgentAuthStatusUnknown, nil
+	}
+	return ports.AgentAuthStatusUnknown, nil
+}
+
+// StatusFromText classifies common CLI auth/status output.
+func StatusFromText(out string) ports.AgentAuthStatus {
+	text := strings.ToLower(out)
 	if hasAny(text,
 		"not logged in",
+		"not currently logged in",
 		"logged out",
 		"not authenticated",
 		"unauthenticated",
@@ -66,7 +85,7 @@ func commandStatus(ctx context.Context, binary string, args []string) (ports.Age
 		`"loggedin": false`,
 		`"loggedin":false`,
 	) {
-		return ports.AgentAuthStatusUnauthorized, nil
+		return ports.AgentAuthStatusUnauthorized
 	}
 	if hasAny(text,
 		"logged in",
@@ -78,12 +97,9 @@ func commandStatus(ctx context.Context, binary string, args []string) (ports.Age
 		`"loggedin": true`,
 		`"loggedin":true`,
 	) {
-		return ports.AgentAuthStatusAuthorized, nil
+		return ports.AgentAuthStatusAuthorized
 	}
-	if err != nil {
-		return ports.AgentAuthStatusUnknown, nil
-	}
-	return ports.AgentAuthStatusUnknown, nil
+	return ports.AgentAuthStatusUnknown
 }
 
 func hasAny(text string, needles ...string) bool {

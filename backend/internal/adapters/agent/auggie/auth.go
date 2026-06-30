@@ -2,6 +2,7 @@ package auggie
 
 import (
 	"context"
+	"time"
 
 	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/agent/authprobe"
 	"github.com/aoagents/agent-orchestrator/backend/internal/ports"
@@ -15,5 +16,25 @@ func (p *Plugin) AuthStatus(ctx context.Context) (ports.AgentAuthStatus, error) 
 	if err != nil || len(cmd) == 0 {
 		return ports.AgentAuthStatusUnknown, err
 	}
-	return authprobe.CLIStatus(ctx, cmd[0], nil)
+	return auggieAccountAuthStatus(ctx, cmd[0])
+}
+
+func auggieAccountAuthStatus(ctx context.Context, binary string) (ports.AgentAuthStatus, error) {
+	if binary == "" {
+		return ports.AgentAuthStatusUnknown, nil
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
+	defer cancel()
+
+	out, err := authprobe.CmdRunner(probeCtx, binary, "account", "status")
+	if probeCtx.Err() != nil {
+		return ports.AgentAuthStatusUnknown, probeCtx.Err()
+	}
+	if status := authprobe.StatusFromText(string(out)); status != ports.AgentAuthStatusUnknown {
+		return status, nil
+	}
+	if err == nil {
+		return ports.AgentAuthStatusAuthorized, nil
+	}
+	return ports.AgentAuthStatusUnknown, nil
 }

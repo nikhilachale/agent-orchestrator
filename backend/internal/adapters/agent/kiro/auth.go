@@ -2,6 +2,7 @@ package kiro
 
 import (
 	"context"
+	"time"
 
 	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/agent/authprobe"
 	"github.com/aoagents/agent-orchestrator/backend/internal/ports"
@@ -11,9 +12,29 @@ var _ ports.AgentAuthChecker = (*Plugin)(nil)
 
 // AuthStatus returns the plugin's local authentication status.
 func (p *Plugin) AuthStatus(ctx context.Context) (ports.AgentAuthStatus, error) {
-	cmd, err := p.GetLaunchCommand(ctx, ports.LaunchConfig{})
-	if err != nil || len(cmd) == 0 {
+	binary, err := p.kiroBinary(ctx)
+	if err != nil {
 		return ports.AgentAuthStatusUnknown, err
 	}
-	return authprobe.CLIStatus(ctx, cmd[0], nil)
+	return kiroWhoamiAuthStatus(ctx, binary)
+}
+
+func kiroWhoamiAuthStatus(ctx context.Context, binary string) (ports.AgentAuthStatus, error) {
+	if binary == "" {
+		return ports.AgentAuthStatusUnknown, nil
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
+	defer cancel()
+
+	out, err := authprobe.CmdRunner(probeCtx, binary, "whoami")
+	if probeCtx.Err() != nil {
+		return ports.AgentAuthStatusUnknown, probeCtx.Err()
+	}
+	if status := authprobe.StatusFromText(string(out)); status != ports.AgentAuthStatusUnknown {
+		return status, nil
+	}
+	if err == nil {
+		return ports.AgentAuthStatusAuthorized, nil
+	}
+	return ports.AgentAuthStatusUnknown, nil
 }

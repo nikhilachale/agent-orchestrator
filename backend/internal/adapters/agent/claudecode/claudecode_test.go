@@ -512,9 +512,40 @@ func TestClaudeConfigAuthStatusAuthorizedWithOAuthSubscription(t *testing.T) {
 	}
 }
 
-func TestClaudeConfigAuthStatusUnknownWithoutSubscription(t *testing.T) {
+func TestClaudeConfigAuthStatusAuthorizedWithOAuthAccount(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".claude.json")
 	content := `{"oauthAccount":{"accountUuid":"account-1"}}`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	status, ok, err := claudeConfigAuthStatus(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok || status != ports.AgentAuthStatusAuthorized {
+		t.Fatalf("status = (%q, %v), want (%q, true)", status, ok, ports.AgentAuthStatusAuthorized)
+	}
+}
+
+func TestClaudeConfigAuthStatusAuthorizedWithUserID(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".claude.json")
+	if err := os.WriteFile(path, []byte(`{"userID":"user-1"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	status, ok, err := claudeConfigAuthStatus(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok || status != ports.AgentAuthStatusAuthorized {
+		t.Fatalf("status = (%q, %v), want (%q, true)", status, ok, ports.AgentAuthStatusAuthorized)
+	}
+}
+
+func TestClaudeConfigAuthStatusUnknownWithoutOAuthIdentity(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".claude.json")
+	content := `{"oauthAccount":{}}`
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}

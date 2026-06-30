@@ -351,8 +351,12 @@ func claudeConfigAuthStatus(path string) (ports.AgentAuthStatus, bool, error) {
 	if raw := root["hasAvailableSubscription"]; len(raw) > 0 {
 		_ = json.Unmarshal(raw, &hasSubscription)
 	}
-	if !hasSubscription {
-		return ports.AgentAuthStatusUnknown, false, nil
+	var userID string
+	if raw := root["userID"]; len(raw) > 0 {
+		_ = json.Unmarshal(raw, &userID)
+	}
+	if strings.TrimSpace(userID) != "" {
+		return ports.AgentAuthStatusAuthorized, true, nil
 	}
 	var oauthAccount map[string]any
 	if raw := root["oauthAccount"]; len(raw) > 0 {
@@ -363,7 +367,13 @@ func claudeConfigAuthStatus(path string) (ports.AgentAuthStatus, bool, error) {
 	if len(oauthAccount) == 0 {
 		return ports.AgentAuthStatusUnknown, false, nil
 	}
-	return ports.AgentAuthStatusAuthorized, true, nil
+	if hasSubscription {
+		return ports.AgentAuthStatusAuthorized, true, nil
+	}
+	if accountUUID, ok := oauthAccount["accountUuid"].(string); ok && strings.TrimSpace(accountUUID) != "" {
+		return ports.AgentAuthStatusAuthorized, true, nil
+	}
+	return ports.AgentAuthStatusUnknown, false, nil
 }
 
 // claudeSessionUUID maps an AO session id onto a stable Claude Code

@@ -3,7 +3,6 @@ package agy
 import (
 	"context"
 
-	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/agent/authprobe"
 	"github.com/aoagents/agent-orchestrator/backend/internal/ports"
 )
 
@@ -15,5 +14,5 @@ func (p *Plugin) AuthStatus(ctx context.Context) (ports.AgentAuthStatus, error) 
 	if err != nil || len(cmd) == 0 {
 		return ports.AgentAuthStatusUnknown, err
 	}
-	return authprobe.CLIStatus(ctx, cmd[0], nil)
+	return ports.AgentAuthStatusAuthorized, nil
 }

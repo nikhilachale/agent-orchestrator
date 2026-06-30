@@ -23,6 +23,9 @@ func TestGetAgentHooksFootprintIsGitignored(t *testing.T) {
 	for _, ha := range Harnessed() {
 		t.Run(string(ha.Harness), func(t *testing.T) {
 			ws := t.TempDir()
+			if ha.Harness == "autohand" {
+				t.Setenv("AUTOHAND_CONFIG", filepath.Join(t.TempDir(), "config.json"))
+			}
 			cfg := ports.WorkspaceHookConfig{
 				SessionID:     "proj-1",
 				WorkspacePath: ws,

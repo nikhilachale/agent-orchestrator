@@ -60,3 +60,4 @@ dist-electron/
 
 # playwright artifacts
 frontend/test-results/
+.aider*

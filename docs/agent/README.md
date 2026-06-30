@@ -1,5 +1,9 @@
 # Agent Adapter PRD
 
+For the end-to-end runtime flow around agent loading, install/auth detection,
+role resolution, switching, and orchestrator replacement, see
+[switching.md](switching.md).
+
 ## Goal
 
 Agent adapters let AO run and observe different CLI coding agents without hardcoding agent-specific behavior into the spawn engine. Every CLI coding agent must implement the contract in `backend/internal/ports/agent.go`.

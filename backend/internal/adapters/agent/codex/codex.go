@@ -367,7 +367,7 @@ func normalizePermissionMode(mode ports.PermissionMode) ports.PermissionMode {
 	}
 }
 
-func fileExists(path string) bool {
+var fileExists = func(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
 }

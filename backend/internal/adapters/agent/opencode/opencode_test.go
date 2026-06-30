@@ -13,6 +13,7 @@ import (
 )
 
 func TestOpenCodeLocalAuthStatusAuthorizedWithEnv(t *testing.T) {
+	clearOpenCodeAuthEnv(t)
 	t.Setenv("ANTHROPIC_API_KEY", "sk-ant-test")
 
 	status, ok, err := opencodeLocalAuthStatus(context.Background())
@@ -25,6 +26,7 @@ func TestOpenCodeLocalAuthStatusAuthorizedWithEnv(t *testing.T) {
 }
 
 func TestOpenCodeLocalAuthStatusAuthorizedWithAuthFile(t *testing.T) {
+	clearOpenCodeAuthEnv(t)
 	writeOpenCodeAuthFile(t, `{
 		"anthropic": {
 			"type": "api",
@@ -42,6 +44,7 @@ func TestOpenCodeLocalAuthStatusAuthorizedWithAuthFile(t *testing.T) {
 }
 
 func TestOpenCodeLocalAuthStatusUnauthorizedWithEmptyAuthFile(t *testing.T) {
+	clearOpenCodeAuthEnv(t)
 	writeOpenCodeAuthFile(t, `{}`)
 
 	status, ok, err := opencodeLocalAuthStatus(context.Background())
@@ -54,6 +57,7 @@ func TestOpenCodeLocalAuthStatusUnauthorizedWithEmptyAuthFile(t *testing.T) {
 }
 
 func TestOpenCodeLocalAuthStatusAuthorizedWithActiveDBAccount(t *testing.T) {
+	clearOpenCodeAuthEnv(t)
 	dataDir := writeOpenCodeDB(t, func(db *sql.DB) {
 		if _, err := db.Exec(`
 			CREATE TABLE account (
@@ -90,6 +94,7 @@ func TestOpenCodeLocalAuthStatusAuthorizedWithActiveDBAccount(t *testing.T) {
 }
 
 func TestOpenCodeLocalAuthStatusDBAccountOverridesEmptyAuthFile(t *testing.T) {
+	clearOpenCodeAuthEnv(t)
 	dataDir := writeOpenCodeDB(t, func(db *sql.DB) {
 		if _, err := db.Exec(`
 			CREATE TABLE account (
@@ -123,6 +128,7 @@ func TestOpenCodeLocalAuthStatusDBAccountOverridesEmptyAuthFile(t *testing.T) {
 }
 
 func TestOpenCodeLocalAuthStatusAuthorizedWithControlDBAccount(t *testing.T) {
+	clearOpenCodeAuthEnv(t)
 	dataHome := t.TempDir()
 	dataDir := filepath.Join(dataHome, "opencode")
 	writeOpenCodeDBAt(t, dataDir, func(db *sql.DB) {
@@ -156,6 +162,7 @@ func TestOpenCodeLocalAuthStatusAuthorizedWithControlDBAccount(t *testing.T) {
 }
 
 func TestOpenCodeLocalAuthStatusUnauthorizedWithEmptyDBAccounts(t *testing.T) {
+	clearOpenCodeAuthEnv(t)
 	dataDir := writeOpenCodeDB(t, func(db *sql.DB) {
 		if _, err := db.Exec(`
 			CREATE TABLE account (
@@ -200,6 +207,7 @@ func TestOpenCodeLocalAuthStatusUnauthorizedWithEmptyDBAccounts(t *testing.T) {
 }
 
 func TestOpenCodeLocalAuthStatusUnknownWhenMissing(t *testing.T) {
+	clearOpenCodeAuthEnv(t)
 	t.Setenv("HOME", t.TempDir())
 
 	status, ok, err := opencodeLocalAuthStatus(context.Background())
@@ -244,6 +252,15 @@ func writeOpenCodeAuthFile(t *testing.T, content string) {
 	if err := os.WriteFile(filepath.Join(authDir, "auth.json"), []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func clearOpenCodeAuthEnv(t *testing.T) {
+	t.Helper()
+	for _, name := range opencodeAPIKeyEnvVars {
+		t.Setenv(name, "")
+	}
+	t.Setenv("OPENCODE_DATA_DIR", "")
+	t.Setenv("XDG_DATA_HOME", "")
 }
 
 func TestGetLaunchCommandBuildsArgv(t *testing.T) {

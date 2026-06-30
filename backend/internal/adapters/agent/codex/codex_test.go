@@ -91,6 +91,9 @@ func TestGetLaunchCommandWithoutWorkspaceOmitsTrustFlag(t *testing.T) {
 }
 
 func TestResolveCodexBinaryFindsNVMInstallWhenPathIsSparse(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("NVM install discovery is Unix-specific")
+	}
 	home := t.TempDir()
 	binDir := filepath.Join(home, ".nvm", "versions", "node", "v20.19.4", "bin")
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
@@ -102,6 +105,13 @@ func TestResolveCodexBinaryFindsNVMInstallWhenPathIsSparse(t *testing.T) {
 	}
 	t.Setenv("HOME", home)
 	t.Setenv("PATH", "")
+	origFileExists := fileExists
+	fileExists = func(path string) bool {
+		return strings.HasPrefix(path, home+string(os.PathSeparator)) && origFileExists(path)
+	}
+	t.Cleanup(func() {
+		fileExists = origFileExists
+	})
 
 	got, err := ResolveCodexBinary(context.Background())
 	if err != nil {

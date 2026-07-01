@@ -436,7 +436,12 @@ function ProjectItem({
 			setReplacementError({
 				projectId: workspace.id,
 				projectName: workspace.name,
-				message: err instanceof Error ? err.message : restartNeeded ? "Could not restart orchestrator" : "Could not spawn orchestrator",
+				message:
+					err instanceof Error
+						? err.message
+						: restartNeeded
+							? "Could not restart orchestrator"
+							: "Could not spawn orchestrator",
 			});
 		} finally {
 			if (restartNeeded) finishRestart(workspace.id);

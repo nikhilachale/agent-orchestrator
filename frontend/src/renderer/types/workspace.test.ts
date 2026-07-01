@@ -158,7 +158,10 @@ describe("orchestratorNeedsRestart", () => {
 });
 
 describe("orchestratorHealth", () => {
-	function workspaceWith(sessions: WorkspaceSession[], orchestratorAgent?: WorkspaceSummary["orchestratorAgent"]): WorkspaceSummary {
+	function workspaceWith(
+		sessions: WorkspaceSession[],
+		orchestratorAgent?: WorkspaceSummary["orchestratorAgent"],
+	): WorkspaceSummary {
 		return { id: "skills", name: "skills", path: "/tmp/skills", orchestratorAgent, sessions };
 	}
 
@@ -177,11 +180,16 @@ describe("orchestratorHealth", () => {
 				]),
 			).state,
 		).toBe("duplicates");
-		expect(orchestratorHealth(workspaceWith([sessionWith({ kind: "orchestrator", provider: "claude-code" })], "codex")).state).toBe("restart_needed");
+		expect(
+			orchestratorHealth(workspaceWith([sessionWith({ kind: "orchestrator", provider: "claude-code" })], "codex"))
+				.state,
+		).toBe("restart_needed");
 	});
 
 	it("reports ok when the active orchestrator matches config", () => {
-		expect(orchestratorHealth(workspaceWith([sessionWith({ kind: "orchestrator", provider: "codex" })], "codex")).state).toBe("ok");
+		expect(
+			orchestratorHealth(workspaceWith([sessionWith({ kind: "orchestrator", provider: "codex" })], "codex")).state,
+		).toBe("ok");
 	});
 });
 

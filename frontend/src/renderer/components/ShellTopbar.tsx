@@ -134,7 +134,12 @@ export function ShellTopbar() {
 			setReplacementError({
 				projectId,
 				projectName: project?.name,
-				message: error instanceof Error ? error.message : restartNeeded ? "Could not restart orchestrator" : "Could not spawn orchestrator",
+				message:
+					error instanceof Error
+						? error.message
+						: restartNeeded
+							? "Could not restart orchestrator"
+							: "Could not spawn orchestrator",
 			});
 		} finally {
 			if (restartNeeded) finishRestart(projectId);
@@ -182,10 +187,10 @@ export function ShellTopbar() {
 						{isOrchestrator ? (
 							<>
 								<button
-								aria-label="New task"
-								className="dashboard-app-header__primary-btn"
-								disabled={isRestarting}
-								onClick={openNewTask}
+									aria-label="New task"
+									className="dashboard-app-header__primary-btn"
+									disabled={isRestarting}
+									onClick={openNewTask}
 									style={noDragStyle}
 									type="button"
 								>

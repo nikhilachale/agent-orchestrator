@@ -23,7 +23,9 @@ export function OrchestratorReplacementDialog({ workspaces }: OrchestratorReplac
 
 	const project = error ? workspaces.find((workspace) => workspace.id === error.projectId) : undefined;
 	const orchestrator = error ? findProjectOrchestrator(workspaces, error.projectId) : undefined;
-	const title = error?.projectName ? `Could not update ${error.projectName} orchestrator` : "Could not update orchestrator";
+	const title = error?.projectName
+		? `Could not update ${error.projectName} orchestrator`
+		: "Could not update orchestrator";
 
 	const retry = async () => {
 		if (!error) return;

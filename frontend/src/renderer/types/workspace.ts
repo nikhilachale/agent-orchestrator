@@ -325,14 +325,21 @@ export function orchestratorHealth(workspace: WorkspaceSummary, restarting = fal
 	}
 	const active = workspace.sessions.filter((session) => isOrchestratorSession(session) && sessionIsActive(session));
 	if (active.length > 1) {
-		return { state: "duplicates", message: "Multiple orchestrators are active. The newest one is used; stale ones will be cleaned up on daemon reconcile." };
+		return {
+			state: "duplicates",
+			message:
+				"Multiple orchestrators are active. The newest one is used; stale ones will be cleaned up on daemon reconcile.",
+		};
 	}
 	const orchestrator = active[0];
 	if (!orchestrator) {
 		return { state: "missing", message: "No orchestrator is running for this project." };
 	}
 	if (orchestratorNeedsRestart(workspace, orchestrator)) {
-		return { state: "restart_needed", message: `Configured orchestrator agent is ${workspace.orchestratorAgent}; running agent is ${orchestrator.provider}.` };
+		return {
+			state: "restart_needed",
+			message: `Configured orchestrator agent is ${workspace.orchestratorAgent}; running agent is ${orchestrator.provider}.`,
+		};
 	}
 	return { state: "ok" };
 }

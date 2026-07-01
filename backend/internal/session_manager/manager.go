@@ -514,9 +514,6 @@ func (m *Manager) RetireForReplacement(ctx context.Context, id domain.SessionID)
 	if err := m.store.DeleteSessionWorktrees(ctx, rec.ID); err != nil {
 		return fmt.Errorf("retire replacement %s: clear restore markers: %w", id, err)
 	}
-	if err := m.lcm.MarkTerminated(ctx, rec.ID); err != nil {
-		return fmt.Errorf("retire replacement %s: mark terminated: %w", id, err)
-	}
 	handle := runtimeHandle(rec.Metadata)
 	if handle.ID != "" {
 		if err := m.runtime.Destroy(ctx, handle); err != nil {
@@ -525,6 +522,9 @@ func (m *Manager) RetireForReplacement(ctx context.Context, id domain.SessionID)
 	}
 	if err := m.workspace.ForceDestroy(ctx, ws); err != nil {
 		return fmt.Errorf("retire replacement %s: force destroy: %w", id, err)
+	}
+	if err := m.lcm.MarkTerminated(ctx, rec.ID); err != nil {
+		return fmt.Errorf("retire replacement %s: mark terminated: %w", id, err)
 	}
 	return nil
 }

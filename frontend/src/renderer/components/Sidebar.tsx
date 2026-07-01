@@ -16,7 +16,7 @@ import {
 import { useRef, useState, type ReactNode } from "react";
 import {
 	attentionZone,
-	isOrchestratorSession,
+	newestActiveOrchestrator,
 	sessionIsActive,
 	type WorkspaceSession,
 	type WorkspaceSummary,
@@ -412,7 +412,7 @@ function ProjectItem({
 	const sessions = workerSessions(workspace.sessions).filter(sessionIsActive);
 	// The project's live orchestrator (if any) backs the hover Orchestrator
 	// button: navigate to it when present, otherwise spawn one first.
-	const orchestrator = workspace.sessions.find((s) => isOrchestratorSession(s) && sessionIsActive(s));
+	const orchestrator = newestActiveOrchestrator(workspace.sessions);
 
 	// Mirrors ShellTopbar's launcher: attach to the running orchestrator, or
 	// spawn one via the daemon and follow it once the workspace refetches.

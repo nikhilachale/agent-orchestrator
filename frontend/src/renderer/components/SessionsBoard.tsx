@@ -6,6 +6,7 @@ import {
 	type AttentionZone,
 	type WorkspaceSession,
 	attentionZone,
+	newestActiveOrchestrator,
 	orchestratorHealth,
 	workerSessions,
 } from "../types/workspace";
@@ -79,9 +80,7 @@ export function SessionsBoard({ projectId }: SessionsBoardProps) {
 	const workspaces = projectId ? all.filter((w) => w.id === projectId) : all;
 	const workspace = projectId ? workspaces[0] : undefined;
 	const sessions = workspaces.flatMap((w) => workerSessions(w.sessions));
-	const orchestrator = projectId
-		? workspaces[0]?.sessions.find((session) => session.kind === "orchestrator" && session.status !== "terminated")
-		: undefined;
+	const orchestrator = projectId ? newestActiveOrchestrator(workspaces[0]?.sessions ?? []) : undefined;
 	const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
 	const [isSpawning, setIsSpawning] = useState(false);
 	const restartingProjectIds = useUiStore((state) => state.restartingProjectIds);

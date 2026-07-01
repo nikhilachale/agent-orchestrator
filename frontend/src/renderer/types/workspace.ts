@@ -199,7 +199,31 @@ export function findProjectOrchestrator(
 	projectId: string,
 ): WorkspaceSession | undefined {
 	const workspace = workspaces.find((w) => w.id === projectId);
-	return workspace?.sessions.find((session) => isOrchestratorSession(session) && sessionIsActive(session));
+	return newestActiveOrchestrator(workspace?.sessions ?? []);
+}
+
+export function newestActiveOrchestrator(sessions: WorkspaceSession[]): WorkspaceSession | undefined {
+	const active = sessions.filter((session) => isOrchestratorSession(session) && sessionIsActive(session));
+	return active.reduce<WorkspaceSession | undefined>(
+		(newest, session) => (!newest || sessionNewer(session, newest) ? session : newest),
+		undefined,
+	);
+}
+
+function sessionNewer(a: WorkspaceSession, b: WorkspaceSession): boolean {
+	const aCreated = timestamp(a.createdAt);
+	const bCreated = timestamp(b.createdAt);
+	if (aCreated !== bCreated) return aCreated > bCreated;
+	const aUpdated = timestamp(a.updatedAt);
+	const bUpdated = timestamp(b.updatedAt);
+	if (aUpdated !== bUpdated) return aUpdated > bUpdated;
+	return a.id > b.id;
+}
+
+function timestamp(value?: string): number {
+	if (!value) return 0;
+	const parsed = Date.parse(value);
+	return Number.isNaN(parsed) ? 0 : parsed;
 }
 
 export function workerSessions(sessions: WorkspaceSession[]): WorkspaceSession[] {
@@ -323,7 +347,7 @@ export function orchestratorHealth(workspace: WorkspaceSummary, restarting = fal
 			message: "Multiple orchestrators are active. The newest one is used; stale ones will be cleaned up on daemon reconcile.",
 		};
 	}
-	const orchestrator = active[0];
+	const orchestrator = newestActiveOrchestrator(workspace.sessions);
 	if (!orchestrator) {
 		return { state: "missing", message: "No orchestrator is running for this project." };
 	}

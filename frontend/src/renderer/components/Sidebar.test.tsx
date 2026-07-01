@@ -8,6 +8,15 @@ import type { WorkspaceSummary } from "../types/workspace";
 import { agentsQueryKey } from "../hooks/useAgentsQuery";
 
 const { getMock, navigateMock } = vi.hoisted(() => ({ getMock: vi.fn(), navigateMock: vi.fn() }));
+import type { WorkspaceSession, WorkspaceSummary } from "../types/workspace";
+
+const { navigateMock, mockParams, renameSessionMock } = vi.hoisted(() => ({
+	navigateMock: vi.fn(),
+	mockParams: { projectId: undefined as string | undefined },
+	renameSessionMock: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../lib/rename-session", () => ({ renameSession: renameSessionMock }));
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("@tanstack/react-router")>();
@@ -38,6 +47,19 @@ const workspace: WorkspaceSummary = {
 	sessions: [],
 };
 
+const session: WorkspaceSession = {
+	id: "proj-1-1",
+	workspaceId: "proj-1",
+	workspaceName: "Project One",
+	title: "fix login",
+	provider: "claude-code",
+	kind: "worker",
+	branch: "session/proj-1-1",
+	status: "working",
+	updatedAt: "2026-06-30T00:00:00Z",
+	prs: [],
+};
+
 type CreateProjectHandler = (input: { path: string; workerAgent: string; orchestratorAgent: string }) => Promise<void>;
 type RemoveProjectHandler = (projectId: string) => Promise<void>;
 
@@ -49,6 +71,7 @@ function renderSidebar({
 	onCreateProject?: CreateProjectHandler;
 	onRemoveProject?: RemoveProjectHandler;
 	seedAgents?: boolean;
+	workspaces = [workspace],
 } = {}) {
 	const queryClient = new QueryClient({
 		defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -76,7 +99,7 @@ function renderSidebar({
 					daemonStatus={{ state: "running" }}
 					onCreateProject={onCreateProject}
 					onRemoveProject={onRemoveProject}
-					workspaces={[workspace]}
+					workspaces={workspaces}
 				/>
 			</SidebarProvider>
 		</QueryClientProvider>,
@@ -109,6 +132,8 @@ beforeEach(() => {
 		error: undefined,
 	});
 	navigateMock.mockReset();
+	renameSessionMock.mockReset().mockResolvedValue(undefined);
+	mockParams.projectId = undefined;
 	vi.spyOn(window, "confirm").mockReturnValue(true);
 	vi.spyOn(window, "alert").mockImplementation(() => undefined);
 });
@@ -235,6 +260,42 @@ describe("Sidebar", () => {
 				orchestratorAgent: "claude-code",
 			}),
 		);
+	});
+
+	it("renames a session inline and persists via the daemon", async () => {
+		const user = userEvent.setup();
+		const workspaceWithSession = { ...workspace, sessions: [session] };
+		renderSidebar({ workspaces: [workspaceWithSession] });
+
+		await user.click(screen.getByLabelText("Rename fix login"));
+		const input = screen.getByLabelText("Rename fix login");
+		await user.clear(input);
+		await user.type(input, "polish login{Enter}");
+
+		await waitFor(() => expect(renameSessionMock).toHaveBeenCalledWith("proj-1-1", "polish login"));
+	});
+
+	it("caps the inline rename input at 20 characters", async () => {
+		const user = userEvent.setup();
+		const workspaceWithSession = { ...workspace, sessions: [session] };
+		renderSidebar({ workspaces: [workspaceWithSession] });
+
+		await user.click(screen.getByLabelText("Rename fix login"));
+		expect(screen.getByLabelText("Rename fix login")).toHaveAttribute("maxlength", "20");
+	});
+
+	it("cancels the inline rename on Escape without calling the daemon", async () => {
+		const user = userEvent.setup();
+		const workspaceWithSession = { ...workspace, sessions: [session] };
+		renderSidebar({ workspaces: [workspaceWithSession] });
+
+		await user.click(screen.getByLabelText("Rename fix login"));
+		const input = screen.getByLabelText("Rename fix login");
+		await user.clear(input);
+		await user.type(input, "discard me{Escape}");
+
+		expect(renameSessionMock).not.toHaveBeenCalled();
+		expect(screen.getByLabelText("Open fix login")).toBeInTheDocument();
 	});
 
 	it("always shows action icons and reserves padding for them", () => {

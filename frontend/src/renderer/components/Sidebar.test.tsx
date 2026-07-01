@@ -233,7 +233,11 @@ describe("Sidebar", () => {
 
 		await user.click(screen.getByRole("combobox", { name: "Worker agent" }));
 		const options = await screen.findAllByRole("option");
-		expect(options.map((option) => option.textContent)).toEqual(["Claude Code", "CursorNeeds auth", "AiderNeeds install"]);
+		expect(options.map((option) => option.textContent)).toEqual([
+			"Claude Code",
+			"CursorNeeds auth",
+			"AiderNeeds install",
+		]);
 		expect(options[1]).toHaveAttribute("aria-disabled", "true");
 		expect(options[2]).toHaveAttribute("aria-disabled", "true");
 		await user.keyboard("{Escape}");
@@ -242,7 +246,9 @@ describe("Sidebar", () => {
 		await chooseOption(screen.getByRole("combobox", { name: "Orchestrator agent" }), "Claude Code");
 		await user.click(screen.getByRole("button", { name: "Create and start" }));
 
-		await waitFor(() => expect(onCreateProject).toHaveBeenCalledWith(expect.objectContaining({ workerAgent: "claude-code" })));
+		await waitFor(() =>
+			expect(onCreateProject).toHaveBeenCalledWith(expect.objectContaining({ workerAgent: "claude-code" })),
+		);
 	});
 
 	it("updates project agent options when the catalog loads after the dialog opens", async () => {

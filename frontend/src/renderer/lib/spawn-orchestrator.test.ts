@@ -49,8 +49,6 @@ describe("spawnOrchestrator", () => {
 			response: { status: 400 },
 		});
 
-		await expect(spawnOrchestrator("proj")).rejects.toThrow(
-			"agent binary not found on PATH (AGENT_BINARY_NOT_FOUND)",
-		);
+		await expect(spawnOrchestrator("proj")).rejects.toThrow("agent binary not found on PATH (AGENT_BINARY_NOT_FOUND)");
 	});
 });

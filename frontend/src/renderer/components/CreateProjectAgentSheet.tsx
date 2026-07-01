@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import type { components } from "../../api/schema";
 import { agentsQueryKey, agentsQueryOptions, refreshAgents } from "../hooks/useAgentsQuery";
 import { AGENT_OPTIONS } from "../lib/agent-options";
@@ -175,7 +175,7 @@ export function CreateProjectAgentSheet({
 	);
 }
 
-export function RequiredAgentField({
+export const RequiredAgentField = memo(function RequiredAgentField({
 	authorized,
 	disabled = false,
 	id,
@@ -245,4 +245,4 @@ export function RequiredAgentField({
 			</Select>
 		</div>
 	);
-}
+});

@@ -57,7 +57,7 @@ describe("useWorkspaceQuery", () => {
 							id: "proj-1",
 							name: "my-app",
 							path: "/home/me/my-app",
-							config: { orchestrator: { agent: "codex" } },
+							orchestratorAgent: "codex",
 						},
 					],
 				},

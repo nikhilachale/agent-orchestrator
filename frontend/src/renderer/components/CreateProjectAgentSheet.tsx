@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Dialog from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
+import { TriangleAlert, X } from "lucide-react";
 import { memo, useEffect, useState } from "react";
 import type { components } from "../../api/schema";
 import { agentsQueryKey, agentsQueryOptions, refreshAgents } from "../hooks/useAgentsQuery";
@@ -198,7 +198,7 @@ export const RequiredAgentField = memo(function RequiredAgentField({
 	supported?: AgentInfo[];
 	value: string;
 }) {
-	const fallbackAgents = AGENT_OPTIONS.map((agent) => ({ id: agent, label: agent }));
+	const fallbackAgents: AgentInfo[] = AGENT_OPTIONS.map((agent) => ({ id: agent, label: agent }));
 	const supportedAgents = supported ?? fallbackAgents;
 	const installedAgents = installed ?? supportedAgents;
 	const authorizedAgents = authorized ?? supportedAgents;
@@ -207,13 +207,17 @@ export const RequiredAgentField = memo(function RequiredAgentField({
 	const options = supportedAgents
 		.map((agent) => {
 			const installedAgent = installedById.get(agent.id);
-			const isAuthorized = authorizedIds.has(agent.id);
-			const rank = isAuthorized ? 0 : installedAgent ? 1 : 2;
+			const authStatus = installedAgent?.authStatus;
+			const isAuthorized = authorizedIds.has(agent.id) || authStatus === "authorized";
+			const isAuthUnknown = Boolean(installedAgent) && !isAuthorized && authStatus !== "unauthorized";
+			const isSelectable = isAuthorized || isAuthUnknown;
+			const rank = isAuthorized ? 0 : isAuthUnknown ? 1 : installedAgent ? 2 : 3;
 			return {
 				...agent,
-				disabled: !isAuthorized,
+				disabled: !isSelectable,
 				rank,
-				reason: !installedAgent ? "Needs install" : !isAuthorized ? "Needs auth" : "",
+				reason: !installedAgent ? "Needs install" : isAuthUnknown ? "Auth unknown" : !isAuthorized ? "Needs auth" : "",
+				warning: isAuthUnknown,
 			};
 		})
 		.sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
@@ -237,7 +241,12 @@ export const RequiredAgentField = memo(function RequiredAgentField({
 						>
 							<span className="flex min-w-0 w-full items-center justify-between gap-4">
 								<span className="truncate">{agent.label}</span>
-								{agent.reason && <span className="shrink-0 text-[11px] text-muted-foreground">{agent.reason}</span>}
+								{agent.reason && (
+									<span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+										{agent.warning && <TriangleAlert className="size-3 text-warning" aria-hidden="true" />}
+										{agent.reason}
+									</span>
+								)}
 							</span>
 						</SelectItem>
 					))}

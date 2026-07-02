@@ -222,7 +222,7 @@ describe("ProjectSettingsForm", () => {
 		expect(putMock).not.toHaveBeenCalled();
 	});
 
-	it("shows needs-auth agents as unavailable in project settings", async () => {
+	it("shows unknown-auth agents as selectable with a warning in project settings", async () => {
 		mockProject({
 			id: "proj-1",
 			name: "Project One",
@@ -247,8 +247,8 @@ describe("ProjectSettingsForm", () => {
 			"Codex",
 			"Goose",
 			"OpenCode",
-			"KiroNeeds auth",
+			"KiroAuth unknown",
 		]);
-		expect(options[4]).toHaveAttribute("aria-disabled", "true");
+		expect(options[4]).not.toHaveAttribute("aria-disabled", "true");
 	});
 });

@@ -59,3 +59,38 @@ func TestCLIStatus_Mocked(t *testing.T) {
 		})
 	}
 }
+
+func TestStatusFromTextExplicitFalseKeys(t *testing.T) {
+	tests := []string{
+		`{ "authenticated": false }`,
+		`{ "authorized": false }`,
+		`authenticated=false`,
+		`authorized: false`,
+		`{ "logged_in": false }`,
+		`{ "loggedIn": false }`,
+	}
+
+	for _, out := range tests {
+		t.Run(out, func(t *testing.T) {
+			if got := StatusFromText(out); got != ports.AgentAuthStatusUnauthorized {
+				t.Fatalf("StatusFromText(%q) = %q, want %q", out, got, ports.AgentAuthStatusUnauthorized)
+			}
+		})
+	}
+}
+
+func TestStatusFromTextExplicitTrueKeys(t *testing.T) {
+	tests := []string{
+		`{ "authenticated": true }`,
+		`{ "authorized": true }`,
+		`{ "loggedIn": true }`,
+	}
+
+	for _, out := range tests {
+		t.Run(out, func(t *testing.T) {
+			if got := StatusFromText(out); got != ports.AgentAuthStatusAuthorized {
+				t.Fatalf("StatusFromText(%q) = %q, want %q", out, got, ports.AgentAuthStatusAuthorized)
+			}
+		})
+	}
+}

@@ -119,15 +119,23 @@ describe("NewTaskDialog", () => {
 		expect(spawnBody().harness).toBe("cursor");
 	});
 
-	it("does not allow selecting an installed agent that needs auth", async () => {
+	it("allows selecting an installed agent with unknown auth", async () => {
 		renderDialog();
 		const user = userEvent.setup();
 		await waitForAgentCatalog();
 
 		await user.click(screen.getByRole("combobox", { name: "Agent" }));
 		const options = await screen.findAllByRole("option");
-		expect(options.map((option) => option.textContent)).toEqual(["Claude Code", "Cursor", "KiroNeeds auth"]);
-		expect(options[2]).toHaveAttribute("aria-disabled", "true");
+		expect(options.map((option) => option.textContent)).toEqual(["Claude Code", "Cursor", "KiroAuth unknown"]);
+		expect(options[2]).not.toHaveAttribute("aria-disabled", "true");
+		await user.click(options[2]);
+
+		await user.type(screen.getByLabelText("Title"), "T");
+		await user.type(screen.getByLabelText("Brief"), "B");
+		await user.click(screen.getByRole("button", { name: "Start task" }));
+
+		await waitFor(() => expect(postMock).toHaveBeenCalledTimes(1));
+		expect(spawnBody().harness).toBe("kiro");
 	});
 
 	it("requires both title and brief", async () => {

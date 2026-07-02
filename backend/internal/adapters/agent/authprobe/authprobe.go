@@ -68,6 +68,7 @@ func commandStatus(ctx context.Context, binary string, args []string) (ports.Age
 // StatusFromText classifies common CLI auth/status output.
 func StatusFromText(out string) ports.AgentAuthStatus {
 	text := strings.ToLower(out)
+	compactText := compact(text)
 	if hasAny(text,
 		"not logged in",
 		"not currently logged in",
@@ -84,6 +85,23 @@ func StatusFromText(out string) ports.AgentAuthStatus {
 		"no token",
 		`"loggedin": false`,
 		`"loggedin":false`,
+	) || hasAny(compactText,
+		`"authenticated":false`,
+		`'authenticated':false`,
+		"authenticated:false",
+		"authenticated=false",
+		`"authorized":false`,
+		`'authorized':false`,
+		"authorized:false",
+		"authorized=false",
+		`"logged_in":false`,
+		`'logged_in':false`,
+		"logged_in:false",
+		"logged_in=false",
+		`"loggedin":false`,
+		`'loggedin':false`,
+		"loggedin:false",
+		"loggedin=false",
 	) {
 		return ports.AgentAuthStatusUnauthorized
 	}
@@ -100,6 +118,10 @@ func StatusFromText(out string) ports.AgentAuthStatus {
 		return ports.AgentAuthStatusAuthorized
 	}
 	return ports.AgentAuthStatusUnknown
+}
+
+func compact(text string) string {
+	return strings.NewReplacer(" ", "", "\t", "", "\n", "", "\r", "").Replace(text)
 }
 
 func hasAny(text string, needles ...string) bool {

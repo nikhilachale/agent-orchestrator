@@ -525,6 +525,7 @@ func sessionPrefix(project domain.ProjectRecord) string {
 // rollbackSpawnSeedRow.
 func (m *Manager) markSpawnFailedTerminated(ctx context.Context, id domain.SessionID) {
 	_ = m.lcm.MarkTerminated(ctx, id)
+	m.cleanupSystemPromptDir(id)
 }
 
 // markSpawnFailedTerminatedWithoutWorkspace parks a spawn failure after the
@@ -551,6 +552,7 @@ func (m *Manager) markSpawnFailedTerminatedWithoutWorkspace(ctx context.Context,
 // fails, fall back to parking it terminated so a phantom row never looks live.
 func (m *Manager) rollbackSpawnSeedRow(ctx context.Context, id domain.SessionID) {
 	if deleted, err := m.store.DeleteSession(ctx, id); err == nil && deleted {
+		m.cleanupSystemPromptDir(id)
 		return
 	}
 	m.markSpawnFailedTerminated(ctx, id)
@@ -573,6 +575,7 @@ func (m *Manager) rollbackSpawn(ctx context.Context, id domain.SessionID) (delet
 		return false, false, fmt.Errorf("rollback %s: %w", id, err)
 	}
 	if deleted {
+		m.cleanupSystemPromptDir(id)
 		return true, false, nil
 	}
 	killed, err = m.Kill(ctx, id)
@@ -650,6 +653,7 @@ func (m *Manager) Kill(ctx context.Context, id domain.SessionID) (bool, error) {
 	if err := m.lcm.MarkTerminated(ctx, id); err != nil {
 		return false, fmt.Errorf("kill %s: %w", id, err)
 	}
+	m.cleanupSystemPromptDir(id)
 	return freed, nil
 }
 
@@ -805,6 +809,7 @@ func (m *Manager) relaunchRestoredSession(ctx context.Context, rec domain.Sessio
 	}
 	systemPromptFile, err := m.prepareSystemPromptFile(rec.ID, rec.Harness, systemPrompt)
 	if err != nil {
+		m.cleanupSystemPromptDir(rec.ID)
 		return domain.SessionRecord{}, fmt.Errorf("restore %s: system prompt file: %w", rec.ID, err)
 	}
 
@@ -816,6 +821,7 @@ func (m *Manager) relaunchRestoredSession(ctx context.Context, rec domain.Sessio
 	}
 	argv, delivery, err := restoreArgv(ctx, agent, rec.ID, ws.Path, rec.Metadata, systemPrompt, systemPromptFile, agentConfig, rec.Kind, m.dataDir)
 	if err != nil {
+		m.cleanupSystemPromptDir(rec.ID)
 		return domain.SessionRecord{}, fmt.Errorf("restore %s: %w", rec.ID, err)
 	}
 	handle, err := m.runtime.Create(ctx, ports.RuntimeConfig{
@@ -825,11 +831,13 @@ func (m *Manager) relaunchRestoredSession(ctx context.Context, rec domain.Sessio
 		Env:           m.runtimeEnv(rec.ID, rec.ProjectID, rec.IssueID, project.Config.Env),
 	})
 	if err != nil {
+		m.cleanupSystemPromptDir(rec.ID)
 		return domain.SessionRecord{}, fmt.Errorf("restore %s: runtime: %w", rec.ID, err)
 	}
 	metadata := domain.SessionMetadata{Branch: ws.Branch, WorkspacePath: ws.Path, RuntimeHandleID: handle.ID, AgentSessionID: rec.Metadata.AgentSessionID, Prompt: rec.Metadata.Prompt}
 	if err := m.lcm.MarkSpawned(ctx, rec.ID, metadata); err != nil {
 		_ = m.runtime.Destroy(ctx, handle)
+		m.cleanupSystemPromptDir(rec.ID)
 		return domain.SessionRecord{}, fmt.Errorf("restore %s: completed: %w", rec.ID, err)
 	}
 	if delivery == ports.PromptDeliveryAfterStart && rec.Metadata.Prompt != "" {
@@ -847,6 +855,7 @@ func (m *Manager) relaunchRestoredSession(ctx context.Context, rec domain.Sessio
 		if err := m.deliverAfterStartPrompt(ctx, agent, launchCfg, handle, rec.ID, rec.Metadata.Prompt); err != nil {
 			_ = m.runtime.Destroy(ctx, handle)
 			_ = m.lcm.MarkTerminated(ctx, rec.ID)
+			m.cleanupSystemPromptDir(rec.ID)
 			return domain.SessionRecord{}, fmt.Errorf("restore %s: deliver prompt: %w", rec.ID, err)
 		}
 	}
@@ -1647,6 +1656,7 @@ func (m *Manager) Cleanup(ctx context.Context, project domain.ProjectID) (Cleanu
 		}
 		ws := workspaceInfo(rec)
 		if ws.Path == "" {
+			m.cleanupSystemPromptDir(rec.ID)
 			continue
 		}
 		if h := runtimeHandle(rec.Metadata); h.ID != "" {
@@ -1673,6 +1683,7 @@ func (m *Manager) Cleanup(ctx context.Context, project domain.ProjectID) (Cleanu
 			result.Skipped = append(result.Skipped, CleanupSkip{SessionID: rec.ID, Reason: cleanupSkipReason(err)})
 			continue
 		}
+		m.cleanupSystemPromptDir(rec.ID)
 		result.Cleaned = append(result.Cleaned, rec.ID)
 	}
 	return result, nil
@@ -1847,7 +1858,7 @@ func (m *Manager) writeSystemPromptFile(id domain.SessionID, systemPrompt string
 	if systemPrompt == "" || strings.TrimSpace(m.dataDir) == "" {
 		return "", nil
 	}
-	path := filepath.Join(m.dataDir, "prompts", string(id), "system.md")
+	path := filepath.Join(m.systemPromptDir(id), "system.md")
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return "", err
 	}
@@ -1871,6 +1882,23 @@ func (m *Manager) prepareSystemPromptFile(id domain.SessionID, harness domain.Ag
 
 func systemPromptFileRequired(harness domain.AgentHarness) bool {
 	return harness == domain.HarnessAider
+}
+
+func (m *Manager) systemPromptDir(id domain.SessionID) string {
+	if strings.TrimSpace(m.dataDir) == "" {
+		return ""
+	}
+	return filepath.Join(m.dataDir, "prompts", string(id))
+}
+
+func (m *Manager) cleanupSystemPromptDir(id domain.SessionID) {
+	dir := m.systemPromptDir(id)
+	if dir == "" {
+		return
+	}
+	if err := os.RemoveAll(dir); err != nil {
+		m.logger.Warn("system prompt cleanup failed", "session", id, "path", dir, "err", err)
+	}
 }
 
 func orchestratorCommandReference(project domain.ProjectID) string {

@@ -3,7 +3,9 @@ import { useState } from "react";
 import type { components } from "../../api/schema";
 import { apiClient, apiErrorMessage } from "../lib/api-client";
 import { DEFAULT_PROJECT_AGENT } from "../lib/agent-options";
-import { workspaceQueryKey } from "../hooks/useWorkspaceQuery";
+import { useWorkspaceQuery, workspaceQueryKey } from "../hooks/useWorkspaceQuery";
+import { spawnOrchestrator } from "../lib/spawn-orchestrator";
+import { newestActiveOrchestrator } from "../types/workspace";
 import { RequiredAgentField } from "./CreateProjectAgentSheet";
 import { DashboardSubhead } from "./DashboardSubhead";
 import { Button } from "./ui/button";
@@ -66,7 +68,10 @@ export function ProjectSettingsForm({ projectId }: { projectId: string }) {
 
 function SettingsBody({ project, projectId, onSaved }: { project: Project; projectId: string; onSaved: () => void }) {
 	const queryClient = useQueryClient();
+	const workspaceQuery = useWorkspaceQuery();
 	const config = project.config ?? {};
+	const workspace = workspaceQuery.data?.find((item) => item.id === projectId);
+	const activeOrchestrator = newestActiveOrchestrator(workspace?.sessions ?? []);
 	const [form, setForm] = useState({
 		defaultBranch: config.defaultBranch ?? project.defaultBranch ?? "",
 		sessionPrefix: config.sessionPrefix ?? "",
@@ -77,6 +82,8 @@ function SettingsBody({ project, projectId, onSaved }: { project: Project; proje
 		reviewerHarness: config.reviewers?.[0]?.harness ?? "",
 	});
 	const [savedAt, setSavedAt] = useState<number | null>(null);
+	const [replacementError, setReplacementError] = useState<string | null>(null);
+	const initialOrchestratorAgent = config.orchestrator?.agent || DEFAULT_PROJECT_AGENT;
 
 	const mutation = useMutation({
 		mutationFn: async () => {
@@ -100,9 +107,23 @@ function SettingsBody({ project, projectId, onSaved }: { project: Project; proje
 				body: { config: next },
 			});
 			if (error) throw new Error(apiErrorMessage(error));
+			if (
+				form.orchestratorAgent !== initialOrchestratorAgent ||
+				(activeOrchestrator && activeOrchestrator.provider !== form.orchestratorAgent)
+			) {
+				try {
+					await spawnOrchestrator(projectId, true);
+				} catch (error) {
+					return {
+						replacementError: error instanceof Error ? error.message : "Could not replace orchestrator",
+					};
+				}
+			}
+			return { replacementError: null };
 		},
-		onSuccess: () => {
+		onSuccess: (result) => {
 			setSavedAt(Date.now());
+			setReplacementError(result.replacementError);
 			void queryClient.invalidateQueries({ queryKey: ["project", projectId] });
 			onSaved();
 		},
@@ -114,6 +135,7 @@ function SettingsBody({ project, projectId, onSaved }: { project: Project; proje
 			onSubmit={(event) => {
 				event.preventDefault();
 				setSavedAt(null);
+				setReplacementError(null);
 				mutation.mutate();
 			}}
 		>
@@ -218,6 +240,9 @@ function SettingsBody({ project, projectId, onSaved }: { project: Project; proje
 				)}
 				{savedAt && !mutation.isPending && !mutation.isError && (
 					<span className="text-[12px] text-success">Saved.</span>
+				)}
+				{replacementError && !mutation.isPending && !mutation.isError && (
+					<span className="text-[12px] text-warning">Orchestrator restart failed: {replacementError}</span>
 				)}
 			</div>
 		</form>

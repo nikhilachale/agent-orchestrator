@@ -5,16 +5,22 @@ import { memo, useEffect, useState } from "react";
 import type { components } from "../../api/schema";
 import { agentsQueryKey, agentsQueryOptions, refreshAgents } from "../hooks/useAgentsQuery";
 import { AGENT_OPTIONS } from "../lib/agent-options";
+import { buildIntake, type IntakeForm, IntakeFields, intakeNeedsRule } from "./IntakeFields";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+
+type TrackerIntakeConfig = components["schemas"]["TrackerIntakeConfig"];
 
 type AgentInfo = components["schemas"]["AgentInfo"];
 
 export type CreateProjectAgentSelection = {
 	workerAgent: string;
 	orchestratorAgent: string;
+	trackerIntake?: TrackerIntakeConfig;
 };
+
+const EMPTY_INTAKE: IntakeForm = { enabled: false, repo: "", assignee: "" };
 
 type CreateProjectAgentSheetProps = {
 	error?: string | null;
@@ -54,12 +60,16 @@ export function CreateProjectAgentSheet({
 		: null;
 	const [workerAgent, setWorkerAgent] = useState("");
 	const [orchestratorAgent, setOrchestratorAgent] = useState("");
-	const canSubmit = workerAgent !== "" && orchestratorAgent !== "" && !isCreating && !isLoadingAgents;
+	const [intake, setIntake] = useState<IntakeForm>(EMPTY_INTAKE);
+	const intakeIncomplete = intakeNeedsRule(intake);
+	const canSubmit =
+		workerAgent !== "" && orchestratorAgent !== "" && !intakeIncomplete && !isCreating && !isLoadingAgents;
 
 	useEffect(() => {
 		if (!open) {
 			setWorkerAgent("");
 			setOrchestratorAgent("");
+			setIntake(EMPTY_INTAKE);
 		}
 	}, [open, path]);
 
@@ -91,7 +101,7 @@ export function CreateProjectAgentSheet({
 						onSubmit={(event) => {
 							event.preventDefault();
 							if (!canSubmit) return;
-							void onSubmit({ workerAgent, orchestratorAgent });
+							void onSubmit({ workerAgent, orchestratorAgent, trackerIntake: buildIntake(intake) });
 						}}
 					>
 						<div className="grid gap-3 sm:grid-cols-2">
@@ -153,6 +163,10 @@ export function CreateProjectAgentSheet({
 									: "Could not refresh agent catalog."}
 							</div>
 						)}
+
+						<div className="border-t border-border pt-4">
+							<IntakeFields form={intake} onChange={(patch) => setIntake((f) => ({ ...f, ...patch }))} compact />
+						</div>
 
 						{error && (
 							<div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-[12px] leading-5 text-destructive">

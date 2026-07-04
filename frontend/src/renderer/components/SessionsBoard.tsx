@@ -4,7 +4,13 @@ import { useNavigate } from "@tanstack/react-router";
 
 import { DashboardSubhead } from "./DashboardSubhead";
 import { Plus } from "lucide-react";
-import { type AttentionZone, type WorkspaceSession, attentionZone, workerSessions } from "../types/workspace";
+import {
+	type AttentionZone,
+	type WorkspaceSession,
+	attentionZone,
+	canonicalTrackerIssueId,
+	workerSessions,
+} from "../types/workspace";
 import { useSessionScmSummary, type SessionPRSummary } from "../hooks/useSessionScmSummary";
 import { useWorkspaceQuery, workspaceQueryKey } from "../hooks/useWorkspaceQuery";
 import { OrchestratorIcon } from "./icons";
@@ -261,6 +267,7 @@ function ZoneColumn({
 
 function SessionCard({ session, onOpen }: { session: WorkspaceSession; onOpen: () => void }) {
 	const badge = sessionBadge(session);
+	const issueId = canonicalTrackerIssueId(session.issueId);
 	const branch = session.branch || "";
 	const showBranch = branch !== "" && !sameLabel(branch, session.title) && !sameLabel(branch, session.id);
 	const prSummaries = sessionPRDisplaySummaries(session, useSessionScmSummary(session.id).data);
@@ -283,6 +290,14 @@ function SessionCard({ session, onOpen }: { session: WorkspaceSession; onOpen: (
 					<span className={cn("h-[7px] w-[7px] rounded-full bg-current")} />
 					{badge.label}
 				</span>
+				{issueId && (
+					<span
+						className="inline-flex max-w-[13rem] items-center truncate rounded-[4px] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-1.5 py-0.5 font-mono text-[10px] text-accent"
+						title={`Intake issue: ${issueId}`}
+					>
+						{issueId}
+					</span>
+				)}
 				<span className="ml-auto shrink-0 font-mono text-[10.5px] tracking-[0.04em] text-passive">
 					{agentLabel(session.provider)}
 				</span>

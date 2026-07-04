@@ -322,9 +322,10 @@ func TestSpawnResolvesProjectFromCWD(t *testing.T) {
 	}
 }
 
-func TestSpawnUnauthorizedAgentRefreshesThenBlocks(t *testing.T) {
+func TestSpawnStaleUnauthorizedAgentRefreshesProbesThenAllows(t *testing.T) {
 	cfg := setConfigEnv(t)
 	var requests []string
+	var req spawnRequest
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		appendPrimaryRequest(&requests, r)
 		w.Header().Set("Content-Type", "application/json")
@@ -333,6 +334,13 @@ func TestSpawnUnauthorizedAgentRefreshesThenBlocks(t *testing.T) {
 			_, _ = io.WriteString(w, `{"status":"ok","project":{"id":"demo","name":"Demo","path":"/repo/demo"}}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/agents/refresh":
 			_, _ = io.WriteString(w, `{"supported":[{"id":"codex","label":"Codex"}],"installed":[{"id":"codex","label":"Codex","authStatus":"unauthorized"}],"authorized":[]}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/agents/codex/probe":
+			_, _ = io.WriteString(w, `{"agent":{"id":"codex","label":"Codex","authStatus":"authorized"},"supported":true,"installed":true}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions":
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatal(err)
+			}
+			_, _ = io.WriteString(w, `{"session":{"id":"demo-12","status":"idle"}}`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -340,11 +348,102 @@ func TestSpawnUnauthorizedAgentRefreshesThenBlocks(t *testing.T) {
 	t.Cleanup(srv.Close)
 	writeRunFileFor(t, cfg, srv)
 
-	_, _, err := executeCLI(t, Deps{ProcessAlive: func(int) bool { return true }}, "spawn", "--project", "demo", "--agent", "codex")
-	if err == nil || !strings.Contains(err.Error(), "agent \"codex\" needs auth") {
-		t.Fatalf("err=%v, want needs auth", err)
+	_, errOut, err := executeCLI(t, Deps{ProcessAlive: func(int) bool { return true }}, "spawn", "--project", "demo", "--agent", "codex")
+	if err != nil {
+		t.Fatalf("spawn failed: %v stderr=%s", err, errOut)
 	}
-	want := []string{"GET /api/v1/projects/demo", "POST /api/v1/agents/refresh"}
+	if errOut != "" {
+		t.Fatalf("stderr = %q, want no warning after fresh authorized probe", errOut)
+	}
+	if req.ProjectID != "demo" || req.Harness != "codex" {
+		t.Fatalf("spawn request = %#v", req)
+	}
+	want := []string{"GET /api/v1/projects/demo", "POST /api/v1/agents/refresh", "POST /api/v1/agents/codex/probe", "POST /api/v1/sessions"}
+	if !reflect.DeepEqual(requests, want) {
+		t.Fatalf("requests=%#v want %#v", requests, want)
+	}
+}
+
+func TestSpawnFreshUnauthorizedWarnsAndAllows(t *testing.T) {
+	cfg := setConfigEnv(t)
+	var requests []string
+	var req spawnRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		appendPrimaryRequest(&requests, r)
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/projects/demo":
+			_, _ = io.WriteString(w, `{"status":"ok","project":{"id":"demo","name":"Demo","path":"/repo/demo"}}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/agents/refresh":
+			_, _ = io.WriteString(w, `{"supported":[{"id":"codex","label":"Codex"}],"installed":[{"id":"codex","label":"Codex","authStatus":"unauthorized"}],"authorized":[]}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/agents/codex/probe":
+			_, _ = io.WriteString(w, `{"agent":{"id":"codex","label":"Codex","authStatus":"unauthorized"},"supported":true,"installed":true}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions":
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatal(err)
+			}
+			_, _ = io.WriteString(w, `{"session":{"id":"demo-12","status":"idle"}}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	writeRunFileFor(t, cfg, srv)
+
+	_, errOut, err := executeCLI(t, Deps{ProcessAlive: func(int) bool { return true }}, "spawn", "--project", "demo", "--agent", "codex")
+	if err != nil {
+		t.Fatalf("spawn failed: %v stderr=%s", err, errOut)
+	}
+	if !strings.Contains(errOut, "may need auth according to a fresh local probe") {
+		t.Fatalf("stderr missing warning: %s", errOut)
+	}
+	if req.ProjectID != "demo" || req.Harness != "codex" {
+		t.Fatalf("spawn request = %#v", req)
+	}
+	want := []string{"GET /api/v1/projects/demo", "POST /api/v1/agents/refresh", "POST /api/v1/agents/codex/probe", "POST /api/v1/sessions"}
+	if !reflect.DeepEqual(requests, want) {
+		t.Fatalf("requests=%#v want %#v", requests, want)
+	}
+}
+
+func TestSpawnUnavailableFreshProbeWarnsAndAllows(t *testing.T) {
+	cfg := setConfigEnv(t)
+	var requests []string
+	var req spawnRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		appendPrimaryRequest(&requests, r)
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/projects/demo":
+			_, _ = io.WriteString(w, `{"status":"ok","project":{"id":"demo","name":"Demo","path":"/repo/demo"}}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/agents/refresh":
+			_, _ = io.WriteString(w, `{"supported":[{"id":"codex","label":"Codex"}],"installed":[{"id":"codex","label":"Codex","authStatus":"unauthorized"}],"authorized":[]}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/agents/codex/probe":
+			w.WriteHeader(http.StatusNotImplemented)
+			_, _ = io.WriteString(w, `{"message":"not implemented","code":"NOT_IMPLEMENTED"}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions":
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatal(err)
+			}
+			_, _ = io.WriteString(w, `{"session":{"id":"demo-12","status":"idle"}}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	writeRunFileFor(t, cfg, srv)
+
+	_, errOut, err := executeCLI(t, Deps{ProcessAlive: func(int) bool { return true }}, "spawn", "--project", "demo", "--agent", "codex")
+	if err != nil {
+		t.Fatalf("spawn failed: %v stderr=%s", err, errOut)
+	}
+	if !strings.Contains(errOut, "fresh readiness probe is unavailable") {
+		t.Fatalf("stderr missing warning: %s", errOut)
+	}
+	if req.ProjectID != "demo" || req.Harness != "codex" {
+		t.Fatalf("spawn request = %#v", req)
+	}
+	want := []string{"GET /api/v1/projects/demo", "POST /api/v1/agents/refresh", "POST /api/v1/agents/codex/probe", "POST /api/v1/sessions"}
 	if !reflect.DeepEqual(requests, want) {
 		t.Fatalf("requests=%#v want %#v", requests, want)
 	}
@@ -389,6 +488,8 @@ func TestSpawnNotInstalledAgentRefreshesThenBlocks(t *testing.T) {
 			_, _ = io.WriteString(w, `{"status":"ok","project":{"id":"demo","name":"Demo","path":"/repo/demo"}}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/agents/refresh":
 			_, _ = io.WriteString(w, `{"supported":[{"id":"codex","label":"Codex"}],"installed":[],"authorized":[]}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/agents/codex/probe":
+			_, _ = io.WriteString(w, `{"agent":{"id":"codex","label":"Codex"},"supported":true,"installed":false}`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -400,7 +501,123 @@ func TestSpawnNotInstalledAgentRefreshesThenBlocks(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "agent \"codex\" needs install") {
 		t.Fatalf("err=%v, want needs install", err)
 	}
-	want := []string{"GET /api/v1/projects/demo", "POST /api/v1/agents/refresh"}
+	want := []string{"GET /api/v1/projects/demo", "POST /api/v1/agents/refresh", "POST /api/v1/agents/codex/probe"}
+	if !reflect.DeepEqual(requests, want) {
+		t.Fatalf("requests=%#v want %#v", requests, want)
+	}
+}
+
+func TestSpawnStaleNotInstalledFreshInstalledWarnsAndAllows(t *testing.T) {
+	cfg := setConfigEnv(t)
+	var requests []string
+	var req spawnRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		appendPrimaryRequest(&requests, r)
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/projects/demo":
+			_, _ = io.WriteString(w, `{"status":"ok","project":{"id":"demo","name":"Demo","path":"/repo/demo"}}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/agents/refresh":
+			_, _ = io.WriteString(w, `{"supported":[{"id":"codex","label":"Codex"}],"installed":[],"authorized":[]}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/agents/codex/probe":
+			_, _ = io.WriteString(w, `{"agent":{"id":"codex","label":"Codex","authStatus":"unknown"},"supported":true,"installed":true}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions":
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatal(err)
+			}
+			_, _ = io.WriteString(w, `{"session":{"id":"demo-12","status":"idle"}}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	writeRunFileFor(t, cfg, srv)
+
+	_, errOut, err := executeCLI(t, Deps{ProcessAlive: func(int) bool { return true }}, "spawn", "--project", "demo", "--agent", "codex")
+	if err != nil {
+		t.Fatalf("spawn failed: %v stderr=%s", err, errOut)
+	}
+	if !strings.Contains(errOut, "auth status is unknown") {
+		t.Fatalf("stderr missing warning: %s", errOut)
+	}
+	if req.ProjectID != "demo" || req.Harness != "codex" {
+		t.Fatalf("spawn request = %#v", req)
+	}
+	want := []string{"GET /api/v1/projects/demo", "POST /api/v1/agents/refresh", "POST /api/v1/agents/codex/probe", "POST /api/v1/sessions"}
+	if !reflect.DeepEqual(requests, want) {
+		t.Fatalf("requests=%#v want %#v", requests, want)
+	}
+}
+
+func TestSpawnUnavailableFreshProbeForNotInstalledWarnsAndAllows(t *testing.T) {
+	cfg := setConfigEnv(t)
+	var requests []string
+	var req spawnRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		appendPrimaryRequest(&requests, r)
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/projects/demo":
+			_, _ = io.WriteString(w, `{"status":"ok","project":{"id":"demo","name":"Demo","path":"/repo/demo"}}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/agents/refresh":
+			_, _ = io.WriteString(w, `{"supported":[{"id":"codex","label":"Codex"}],"installed":[],"authorized":[]}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/agents/codex/probe":
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = io.WriteString(w, `{"message":"not found","code":"NOT_FOUND"}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions":
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatal(err)
+			}
+			_, _ = io.WriteString(w, `{"session":{"id":"demo-12","status":"idle"}}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	writeRunFileFor(t, cfg, srv)
+
+	_, errOut, err := executeCLI(t, Deps{ProcessAlive: func(int) bool { return true }}, "spawn", "--project", "demo", "--agent", "codex")
+	if err != nil {
+		t.Fatalf("spawn failed: %v stderr=%s", err, errOut)
+	}
+	if !strings.Contains(errOut, "fresh readiness probe is unavailable") {
+		t.Fatalf("stderr missing warning: %s", errOut)
+	}
+	if req.ProjectID != "demo" || req.Harness != "codex" {
+		t.Fatalf("spawn request = %#v", req)
+	}
+	want := []string{"GET /api/v1/projects/demo", "POST /api/v1/agents/refresh", "POST /api/v1/agents/codex/probe", "POST /api/v1/sessions"}
+	if !reflect.DeepEqual(requests, want) {
+		t.Fatalf("requests=%#v want %#v", requests, want)
+	}
+}
+
+func TestSpawnFreshProbeServerErrorBlocks(t *testing.T) {
+	cfg := setConfigEnv(t)
+	var requests []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		appendPrimaryRequest(&requests, r)
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/projects/demo":
+			_, _ = io.WriteString(w, `{"status":"ok","project":{"id":"demo","name":"Demo","path":"/repo/demo"}}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/agents/refresh":
+			_, _ = io.WriteString(w, `{"supported":[{"id":"codex","label":"Codex"}],"installed":[],"authorized":[]}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/agents/codex/probe":
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = io.WriteString(w, `{"message":"probe failed","code":"PROBE_FAILED","requestId":"req-1"}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	writeRunFileFor(t, cfg, srv)
+
+	_, _, err := executeCLI(t, Deps{ProcessAlive: func(int) bool { return true }}, "spawn", "--project", "demo", "--agent", "codex")
+	if err == nil || !strings.Contains(err.Error(), "probe failed (PROBE_FAILED) [request req-1]") {
+		t.Fatalf("err=%v, want probe server error", err)
+	}
+	want := []string{"GET /api/v1/projects/demo", "POST /api/v1/agents/refresh", "POST /api/v1/agents/codex/probe"}
 	if !reflect.DeepEqual(requests, want) {
 		t.Fatalf("requests=%#v want %#v", requests, want)
 	}

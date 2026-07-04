@@ -2,7 +2,9 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -49,6 +51,12 @@ type spawnResult struct {
 		ID     string `json:"id"`
 		Status string `json:"status"`
 	} `json:"session"`
+}
+
+type agentProbeResult struct {
+	Agent     agentInfo `json:"agent"`
+	Supported bool      `json:"supported"`
+	Installed bool      `json:"installed"`
 }
 
 func newSpawnCommand(ctx *commandContext) *cobra.Command {
@@ -336,17 +344,50 @@ func (c *commandContext) preflightSpawnAgentAuth(ctx context.Context, cmd *cobra
 	if !state.supported {
 		return fmt.Errorf("agent %q is not supported by this daemon; pass a supported --agent or run `ao agent ls`", agentID)
 	}
-	if !state.installed {
-		return fmt.Errorf("agent %q needs install; install the agent CLI or pass --skip-agent-check to let spawn validate it", agentID)
+	if !state.installed || state.authStatus == "unauthorized" {
+		fresh, err := c.probeSpawnAgent(ctx, agentID)
+		if err != nil {
+			if agentProbeUnavailable(err) {
+				_, err = fmt.Fprintf(cmd.ErrOrStderr(), "warning: agent %q fresh readiness probe is unavailable; continuing and letting spawn validate runtime readiness\n", agentID)
+				return err
+			}
+			return err
+		}
+		if !fresh.Supported {
+			return fmt.Errorf("agent %q is not supported by this daemon; pass a supported --agent or run `ao agent ls`", agentID)
+		}
+		if !fresh.Installed {
+			return fmt.Errorf("agent %q needs install; install the agent CLI or pass --skip-agent-check to let spawn validate it", agentID)
+		}
+		state.installed = true
+		state.authorized = fresh.Agent.AuthStatus == "authorized"
+		state.authStatus = fresh.Agent.AuthStatus
 	}
 	if state.authorized {
 		return nil
 	}
 	if state.authStatus == "unauthorized" {
-		return fmt.Errorf("agent %q needs auth; run the agent's login command, then `ao agent ls --refresh`", agentID)
+		_, err = fmt.Fprintf(cmd.ErrOrStderr(), "warning: agent %q may need auth according to a fresh local probe; continuing and letting spawn validate runtime readiness\n", agentID)
+		return err
 	}
 	_, err = fmt.Fprintf(cmd.ErrOrStderr(), "warning: agent %q auth status is unknown; continuing and letting spawn validate runtime readiness\n", agentID)
 	return err
+}
+
+func (c *commandContext) probeSpawnAgent(ctx context.Context, agentID string) (agentProbeResult, error) {
+	var result agentProbeResult
+	if err := c.postJSON(ctx, "agents/"+url.PathEscape(agentID)+"/probe", struct{}{}, &result); err != nil {
+		return agentProbeResult{}, err
+	}
+	return result, nil
+}
+
+func agentProbeUnavailable(err error) bool {
+	var apiErr apiResponseError
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+	return apiErr.StatusCode == http.StatusNotFound || apiErr.StatusCode == http.StatusNotImplemented
 }
 
 type agentCatalogState struct {

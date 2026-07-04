@@ -119,6 +119,11 @@ func (f *fakeAgentCatalog) Refresh(context.Context) (agentsvc.Inventory, error) 
 	return authorizedCodexInventory(), nil
 }
 
+func (f *fakeAgentCatalog) Probe(_ context.Context, agentID string) (agentsvc.ProbeResult, error) {
+	info := agentsvc.Info{ID: agentID, Label: agentID, AuthStatus: "authorized"}
+	return agentsvc.ProbeResult{Agent: info, Supported: true, Installed: true}, nil
+}
+
 func authorizedCodexInventory() agentsvc.Inventory {
 	info := agentsvc.Info{ID: "codex", Label: "Codex", AuthStatus: "authorized"}
 	return agentsvc.Inventory{

@@ -7,8 +7,10 @@ import { Input } from "./ui/input";
 import { RequiredAgentField } from "./CreateProjectAgentSheet";
 import type { components } from "../../api/schema";
 import { apiClient, apiErrorMessage } from "../lib/api-client";
-import type { AgentProvider } from "../types/workspace";
+import { AGENT_OPTIONS } from "../lib/agent-options";
+import type { AgentProvider, WorkspaceSummary } from "../types/workspace";
 import { agentsQueryKey, agentsQueryOptions, refreshAgents } from "../hooks/useAgentsQuery";
+import { workspaceQueryKey } from "../hooks/useWorkspaceQuery";
 
 type Project = components["schemas"]["Project"];
 
@@ -18,6 +20,8 @@ type NewTaskDialogProps = {
 	onCreated: (sessionId: string) => void;
 	onOpenChange: (open: boolean) => void;
 };
+
+const usePreviewData = import.meta.env.VITE_NO_ELECTRON === "1";
 
 export function NewTaskDialog({ open, projectId, onCreated, onOpenChange }: NewTaskDialogProps) {
 	const queryClient = useQueryClient();
@@ -35,7 +39,7 @@ export function NewTaskDialog({ open, projectId, onCreated, onOpenChange }: NewT
 
 	const projectQuery = useQuery({
 		queryKey: ["project", projectId],
-		enabled: open && Boolean(projectId),
+		enabled: open && Boolean(projectId) && !usePreviewData,
 		queryFn: async () => {
 			const { data, error: apiError } = await apiClient.GET("/api/v1/projects/{id}", {
 				params: { path: { id: projectId as string } },
@@ -47,14 +51,15 @@ export function NewTaskDialog({ open, projectId, onCreated, onOpenChange }: NewT
 	});
 	const agentsQuery = useQuery({
 		...agentsQueryOptions,
-		enabled: open,
+		enabled: open && !usePreviewData,
 	});
 	const refreshAgentsMutation = useMutation({
 		mutationFn: refreshAgents,
 		onSuccess: (next) => queryClient.setQueryData(agentsQueryKey, next),
 	});
-	const defaultWorkerAgent = projectQuery.data?.config?.worker?.agent ?? "";
-	const agentCatalog = agentsQuery.data;
+	const defaultWorkerAgent = usePreviewData ? "codex" : (projectQuery.data?.config?.worker?.agent ?? "");
+	const mockAgents = AGENT_OPTIONS.map((id) => ({ id, label: id, authStatus: "authorized" as const }));
+	const agentCatalog = usePreviewData ? { authorized: mockAgents, installed: mockAgents, supported: mockAgents } : agentsQuery.data;
 
 	useEffect(() => {
 		if (!open) {
@@ -89,6 +94,44 @@ export function NewTaskDialog({ open, projectId, onCreated, onOpenChange }: NewT
 		setIsSubmitting(true);
 		setError(undefined);
 		try {
+			if (usePreviewData) {
+				const sessionId = mockSessionId(cleanTitle);
+				const selectedAgent = ((agentTouched && agent) || defaultWorkerAgent || "codex") as AgentProvider;
+				const now = new Date().toISOString();
+				queryClient.setQueryData<WorkspaceSummary[]>(workspaceQueryKey, (current = []) =>
+					current.map((workspace) => {
+						if (workspace.id !== projectId) return workspace;
+						const branchName = cleanBranch || `mock/${sessionId}`;
+						return {
+							...workspace,
+							sessions: [
+								{
+									id: sessionId,
+									terminalHandleId: `${sessionId}/terminal_0`,
+									workspaceId: workspace.id,
+									workspaceName: workspace.name,
+									title: cleanTitle,
+									issueId: cleanTitle,
+									provider: selectedAgent,
+									kind: "worker",
+									branch: branchName,
+									status: "working",
+									createdAt: now,
+									updatedAt: now,
+									changedFiles: [{ path: "src/mock/task-preview.ts", additions: 18, deletions: 2 }],
+									commitMessage: cleanPrompt.slice(0, 72),
+									prs: [],
+								},
+								...workspace.sessions,
+							],
+						};
+					}),
+				);
+				onCreated(sessionId);
+				onOpenChange(false);
+				return;
+			}
+
 			const { data, error: apiError } = await apiClient.POST("/api/v1/sessions", {
 				body: {
 					projectId,
@@ -229,4 +272,13 @@ export function NewTaskDialog({ open, projectId, onCreated, onOpenChange }: NewT
 			</Dialog.Portal>
 		</Dialog.Root>
 	);
+}
+
+function mockSessionId(title: string) {
+	const slug = title
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-|-$/g, "")
+		.slice(0, 28);
+	return `${slug || "task"}-${Date.now().toString(36)}`;
 }

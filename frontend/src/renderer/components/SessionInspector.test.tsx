@@ -120,6 +120,7 @@ const reviewState = (n: number, status: string, targetSha = `sha-${n}`) => ({
 });
 
 beforeEach(() => {
+	window.localStorage.clear();
 	getMock.mockReset();
 	postMock.mockReset();
 	getMock.mockResolvedValue({ data: { reviewerHandleId: "", reviews: [] }, error: undefined });
@@ -340,10 +341,61 @@ describe("SessionInspector Activity section", () => {
 });
 
 describe("SessionInspector tabs", () => {
-	it("exposes Summary, Reviews, and Browser as the three inspector tabs", () => {
+	it("exposes visible inspector sections as Codex-style tabs", () => {
 		renderWithQuery(<SessionInspector session={session([pr(1, "open")])} />);
 		const tabs = screen.getAllByRole("tab").map((el) => el.textContent?.trim());
-		expect(tabs).toEqual(["Summary", "Reviews", "Browser"]);
+		expect(tabs).toEqual(["Summary", "Review", "Browser"]);
+		expect(screen.getByRole("button", { name: /add inspector section/i })).toBeInTheDocument();
+	});
+
+	it("removes a visible section, persists the choice, and restores it from the add menu", async () => {
+		const { unmount } = renderWithQuery(<SessionInspector session={session([pr(1, "open")])} />);
+
+		await userEvent.click(screen.getByRole("button", { name: /remove browser section/i }));
+		expect(screen.queryByRole("tab", { name: "Browser" })).not.toBeInTheDocument();
+		expect(JSON.parse(window.localStorage.getItem("ao.inspector.visibleSections") ?? "[]")).toEqual([
+			"summary",
+			"reviews",
+		]);
+
+		unmount();
+		renderWithQuery(<SessionInspector session={session([pr(1, "open")])} />);
+		expect(screen.queryByRole("tab", { name: "Browser" })).not.toBeInTheDocument();
+
+		await userEvent.click(screen.getByRole("button", { name: /add inspector section/i }));
+		await userEvent.click(screen.getByRole("menuitem", { name: /browser/i }));
+		expect(screen.getByRole("tab", { name: "Browser" })).toHaveAttribute("aria-selected", "true");
+	});
+
+	it("keeps at least one visible section when removing tabs", async () => {
+		renderWithQuery(<SessionInspector session={session([pr(1, "open")])} />);
+
+		await userEvent.click(screen.getByRole("button", { name: /remove browser section/i }));
+		await userEvent.click(screen.getByRole("button", { name: /remove reviews section/i }));
+
+		expect(screen.getAllByRole("tab").map((el) => el.textContent?.trim())).toEqual(["Summary"]);
+		expect(screen.queryByRole("button", { name: /remove summary section/i })).not.toBeInTheDocument();
+	});
+
+	it("switches to the next visible section when the active section is removed", async () => {
+		renderWithQuery(<SessionInspector session={session([pr(1, "open")])} />);
+
+		await userEvent.click(screen.getByRole("tab", { name: "Review" }));
+		await userEvent.click(screen.getByRole("button", { name: /remove reviews section/i }));
+
+		expect(screen.getByRole("tab", { name: "Browser" })).toHaveAttribute("aria-selected", "true");
+	});
+
+	it("adds a controlled active Browser section back when preview switches to it", () => {
+		window.localStorage.setItem("ao.inspector.visibleSections", JSON.stringify(["summary"]));
+
+		renderWithQuery(<SessionInspector session={session([pr(1, "open")])} view="browser" />);
+
+		expect(screen.getByRole("tab", { name: "Browser" })).toHaveAttribute("aria-selected", "true");
+		expect(JSON.parse(window.localStorage.getItem("ao.inspector.visibleSections") ?? "[]")).toEqual([
+			"summary",
+			"browser",
+		]);
 	});
 
 	it("shows the intake issue id in the summary overview when present", () => {
@@ -355,7 +407,7 @@ describe("SessionInspector tabs", () => {
 });
 
 describe("SessionInspector reviews tab", () => {
-	const openReviewsTab = async () => userEvent.click(screen.getByRole("tab", { name: /Reviews/ }));
+	const openReviewsTab = async () => userEvent.click(screen.getByRole("tab", { name: /Review/ }));
 
 	it("triggers a review and opens the returned reviewer terminal", async () => {
 		mockCommonGets([], "", [reviewState(3, "needs_review")]);
@@ -469,7 +521,7 @@ describe("SessionInspector reviews tab", () => {
 		await openReviewsTab();
 
 		await waitFor(() => expect(screen.getAllByText("Open terminal")).toHaveLength(1));
-		expect(screen.getAllByRole("button", { name: /review/i })).toHaveLength(1);
+		expect(within(screen.getByRole("tabpanel")).getAllByRole("button", { name: /review/i })).toHaveLength(1);
 		await userEvent.click(screen.getByRole("button", { name: /open terminal/i }));
 
 		expect(onOpenReviewerTerminal).toHaveBeenCalledWith({ handleId: "reviewer-pane", harness: "codex" });
@@ -503,7 +555,7 @@ describe("SessionInspector reviews tab", () => {
 	it("shows the no-PR empty state when the session has no PRs", async () => {
 		mockCommonGets();
 		renderWithQuery(<SessionInspector session={session([])} />);
-		await userEvent.click(screen.getByRole("tab", { name: /Reviews/ }));
+		await userEvent.click(screen.getByRole("tab", { name: /Review/ }));
 
 		expect(await screen.findByText("No pull request opened yet.")).toBeInTheDocument();
 	});

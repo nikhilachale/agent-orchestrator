@@ -1,9 +1,12 @@
-import { ChevronLeft, Maximize2, Minimize2, Shield } from "lucide-react";
+import { Bot, ChevronLeft, Clock3, GitBranch, Maximize2, Minimize2, Minus, Plus, Shield } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type WheelEvent } from "react";
 import type { Theme } from "../stores/ui-store";
 import type { TerminalTarget } from "../types/terminal";
-import { isOrchestratorSession, type WorkspaceSession } from "../types/workspace";
+import { isOrchestratorSession, workerDisplayStatus, type WorkspaceSession, type WorkerDisplayStatus } from "../types/workspace";
+import { formatTimeCompact } from "../lib/format-time";
 import { TerminalPane } from "./TerminalPane";
+import { OrchestratorIcon } from "./icons";
+import { cn } from "../lib/utils";
 
 type CenterPaneProps = {
 	session?: WorkspaceSession;
@@ -96,51 +99,14 @@ export function CenterPane({ session, theme, daemonReady, terminalTarget, onSele
 			className="terminal-pane-frame flex h-full min-h-0 min-w-0 flex-col bg-background"
 			onWheelCapture={handleWheelZoom}
 		>
-			<div className="terminal-toolbar">
-				<div className="terminal-toolbar__label">
-					<span className="terminal-toolbar__eyebrow">TERMINAL</span>
-					<span className="terminal-toolbar__session">
-						{!session ? "No session" : isOrchestratorSession(session) ? "Orchestrator" : session.title}
-					</span>
-				</div>
-				<div className="terminal-toolbar__controls">
-					<button
-						aria-label="Decrease terminal font size"
-						className="terminal-toolbar__control"
-						disabled={fontSize <= MIN_TERMINAL_FONT_SIZE}
-						onClick={() => updateFontSize(-1)}
-						title="Decrease terminal font size"
-						type="button"
-					>
-						-
-					</button>
-					<span className="terminal-toolbar__font-size">{fontSize}px</span>
-					<button
-						aria-label="Increase terminal font size"
-						className="terminal-toolbar__control"
-						disabled={fontSize >= MAX_TERMINAL_FONT_SIZE}
-						onClick={() => updateFontSize(1)}
-						title="Increase terminal font size"
-						type="button"
-					>
-						+
-					</button>
-					<button
-						aria-label={isFullscreen ? "Exit terminal fullscreen" : "Open terminal fullscreen"}
-						aria-pressed={isFullscreen}
-						className="terminal-toolbar__control terminal-toolbar__control--icon"
-						onClick={() => void toggleFullscreen()}
-						title={isFullscreen ? "Exit fullscreen" : "Fullscreen terminal"}
-						type="button"
-					>
-						{isFullscreen ? (
-							<Minimize2 className="h-3.5 w-3.5" aria-hidden="true" />
-						) : (
-							<Maximize2 className="h-3.5 w-3.5" aria-hidden="true" />
-						)}
-					</button>
-				</div>
-			</div>
+			<SessionWorkspaceHeader session={session} />
+			<TerminalToolbar
+				fontSize={fontSize}
+				isFullscreen={isFullscreen}
+				onDecreaseFont={() => updateFontSize(-1)}
+				onIncreaseFont={() => updateFontSize(1)}
+				onToggleFullscreen={() => void toggleFullscreen()}
+			/>
 			{target.kind === "reviewer" ? (
 				<div className="reviewer-terminal-header">
 					<button
@@ -167,6 +133,129 @@ export function CenterPane({ session, theme, daemonReady, terminalTarget, onSele
 					terminalTarget={target}
 					theme={theme}
 				/>
+			</div>
+		</div>
+	);
+}
+
+function SessionWorkspaceHeader({ session }: { session?: WorkspaceSession }) {
+	const isOrchestrator = session ? isOrchestratorSession(session) : false;
+	const displayStatus = session && !isOrchestrator ? workerDisplayStatus(session) : undefined;
+	const title = !session ? "No session" : isOrchestrator ? "Orchestrator" : session.title;
+	const branch = session?.branch || (session ? `session/${session.id}` : "");
+	const updated = session ? formatTimeCompact(session.activity?.lastActivityAt ?? session.updatedAt) : undefined;
+
+	return (
+		<header className="session-workspace-header">
+			<div className="session-workspace-header__icon" aria-hidden="true">
+				{isOrchestrator ? <OrchestratorIcon className="size-4" /> : <Bot className="size-4" />}
+			</div>
+			<div className="session-workspace-header__copy">
+				<div className="session-workspace-header__kicker">
+					<span>{isOrchestrator ? "Orchestrator session" : "Agent session"}</span>
+					{session?.workspaceName ? (
+						<>
+							<span aria-hidden="true">/</span>
+							<span>{session.workspaceName}</span>
+						</>
+					) : null}
+				</div>
+				<h1 className="session-workspace-header__title">{title}</h1>
+				{session ? (
+					<div className="session-workspace-header__meta">
+						<span className="session-workspace-header__meta-item">
+							<GitBranch aria-hidden="true" />
+							<span>{branch}</span>
+						</span>
+						<span className="session-workspace-header__meta-item">
+							<Clock3 aria-hidden="true" />
+							<span>{updated}</span>
+						</span>
+						<span className="session-workspace-header__meta-item">
+							<span>{session.provider}</span>
+						</span>
+					</div>
+				) : null}
+			</div>
+			{displayStatus ? <SessionHeaderStatus status={displayStatus} /> : null}
+		</header>
+	);
+}
+
+function SessionHeaderStatus({ status }: { status: WorkerDisplayStatus }) {
+	const meta: Record<WorkerDisplayStatus, { label: string; className: string; pulse?: boolean }> = {
+		working: { label: "Working", className: "session-workspace-status--working", pulse: true },
+		needs_you: { label: "Needs input", className: "session-workspace-status--warning" },
+		mergeable: { label: "Ready", className: "session-workspace-status--success" },
+		ci_failed: { label: "CI failed", className: "session-workspace-status--error" },
+		no_signal: { label: "No signal", className: "session-workspace-status--muted" },
+		done: { label: "Done", className: "session-workspace-status--muted" },
+		unknown: { label: "Unknown", className: "session-workspace-status--muted" },
+	};
+	const entry = meta[status];
+	return (
+		<span className={cn("session-workspace-status", entry.className)}>
+			<span className={cn("session-workspace-status__dot", entry.pulse && "animate-status-pulse")} aria-hidden="true" />
+			{entry.label}
+		</span>
+	);
+}
+
+function TerminalToolbar({
+	fontSize,
+	isFullscreen,
+	onDecreaseFont,
+	onIncreaseFont,
+	onToggleFullscreen,
+}: {
+	fontSize: number;
+	isFullscreen: boolean;
+	onDecreaseFont: () => void;
+	onIncreaseFont: () => void;
+	onToggleFullscreen: () => void;
+}) {
+	return (
+		<div className="terminal-toolbar">
+			<div className="terminal-toolbar__label">
+				<span className="terminal-toolbar__eyebrow">Terminal</span>
+				<span className="terminal-toolbar__session">Live shell</span>
+			</div>
+			<div className="terminal-toolbar__controls">
+				<button
+					aria-label="Decrease terminal font size"
+					className="terminal-toolbar__control"
+					disabled={fontSize <= MIN_TERMINAL_FONT_SIZE}
+					onClick={onDecreaseFont}
+					title="Decrease terminal font size"
+					type="button"
+				>
+					<Minus className="h-3.5 w-3.5" aria-hidden="true" />
+				</button>
+				<span className="terminal-toolbar__font-size">{fontSize}px</span>
+				<button
+					aria-label="Increase terminal font size"
+					className="terminal-toolbar__control"
+					disabled={fontSize >= MAX_TERMINAL_FONT_SIZE}
+					onClick={onIncreaseFont}
+					title="Increase terminal font size"
+					type="button"
+				>
+					<Plus className="h-3.5 w-3.5" aria-hidden="true" />
+				</button>
+				<button
+					aria-label={isFullscreen ? "Exit terminal fullscreen" : "Open terminal fullscreen"}
+					aria-pressed={isFullscreen}
+					className="terminal-toolbar__control terminal-toolbar__control--icon"
+					onClick={onToggleFullscreen}
+					title={isFullscreen ? "Exit fullscreen" : "Fullscreen terminal"}
+					type="button"
+				>
+					{isFullscreen ? (
+						<Minimize2 className="h-3.5 w-3.5" aria-hidden="true" />
+					) : (
+						<Maximize2 className="h-3.5 w-3.5" aria-hidden="true" />
+					)}
+				</button>
 			</div>
 		</div>
 	);

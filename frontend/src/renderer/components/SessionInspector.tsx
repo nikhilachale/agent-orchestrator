@@ -1,6 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
-import { ArrowUpRight, GitPullRequest, Play, Shield, Terminal } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+	ArrowUpRight,
+	GitPullRequest,
+	Globe2,
+	ListChecks,
+	MessagesSquare,
+	Play,
+	Plus,
+	Shield,
+	Terminal,
+	X,
+} from "lucide-react";
 import type { components } from "../../api/schema";
 import { apiClient, apiErrorMessage } from "../lib/api-client";
 import { workspaceQueryKey } from "../hooks/useWorkspaceQuery";
@@ -23,42 +34,60 @@ type OpenReviewerTerminal = (target: { handleId: string; harness: string }) => v
 
 export type InspectorView = "summary" | "reviews" | "browser";
 
-const VIEWS: { id: InspectorView; label: string; icon: ReactNode }[] = [
+const inspectorVisibleSectionsStorageKey = "ao.inspector.visibleSections";
+
+const INSPECTOR_SECTIONS: { id: InspectorView; label: string; shortLabel: string; icon: ReactNode; shortcut: string }[] = [
 	{
 		id: "summary",
 		label: "Summary",
-		icon: (
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-				<line x1="8" y1="7" x2="20" y2="7" />
-				<line x1="8" y1="12" x2="20" y2="12" />
-				<line x1="8" y1="17" x2="16" y2="17" />
-				<circle cx="4" cy="7" r="1" />
-				<circle cx="4" cy="12" r="1" />
-				<circle cx="4" cy="17" r="1" />
-			</svg>
-		),
+		shortLabel: "Summary",
+		icon: <ListChecks aria-hidden="true" />,
+		shortcut: "S",
 	},
 	{
 		id: "reviews",
 		label: "Reviews",
-		icon: (
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-				<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-			</svg>
-		),
+		shortLabel: "Review",
+		icon: <MessagesSquare aria-hidden="true" />,
+		shortcut: "R",
 	},
 	{
 		id: "browser",
 		label: "Browser",
-		icon: (
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-				<circle cx="12" cy="12" r="9" />
-				<line x1="3" y1="12" x2="21" y2="12" />
-				<path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18" />
-			</svg>
-		),
+		shortLabel: "Browser",
+		icon: <Globe2 aria-hidden="true" />,
+		shortcut: "B",
 	},
 ];
+
+const allInspectorSectionIds = INSPECTOR_SECTIONS.map((entry) => entry.id);
+const inspectorSectionIdSet = new Set<InspectorView>(allInspectorSectionIds);
+
+function isInspectorView(value: unknown): value is InspectorView {
+	return typeof value === "string" && inspectorSectionIdSet.has(value as InspectorView);
+}
+
+function normalizeVisibleSections(value: unknown): InspectorView[] {
+	if (!Array.isArray(value)) return allInspectorSectionIds;
+	const next = value.filter(isInspectorView);
+	const unique = [...new Set(next)];
+	return unique.length > 0 ? unique : allInspectorSectionIds;
+}
+
+function loadVisibleSections(): InspectorView[] {
+	if (typeof window === "undefined") return allInspectorSectionIds;
+	try {
+		const raw = window.localStorage?.getItem(inspectorVisibleSectionsStorageKey);
+		return raw ? normalizeVisibleSections(JSON.parse(raw)) : allInspectorSectionIds;
+	} catch {
+		return allInspectorSectionIds;
+	}
+}
+
+function saveVisibleSections(ids: InspectorView[]) {
+	if (typeof window === "undefined") return;
+	window.localStorage?.setItem(inspectorVisibleSectionsStorageKey, JSON.stringify(ids));
+}
 
 const prStateTone: Record<SessionPRSummary["state"], string> = {
 	open: "border-success/40 bg-success/10 text-success",
@@ -91,15 +120,45 @@ export function SessionInspector({
 	onViewChange?: (view: InspectorView) => void;
 }) {
 	const [internalView, setInternalView] = useState<InspectorView>("summary");
+	const [visibleSections, setVisibleSections] = useState<InspectorView[]>(loadVisibleSections);
+	const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
 	const view = viewProp ?? internalView;
 	const setView = (next: InspectorView) => {
 		setInternalView(next);
 		onViewChange?.(next);
 	};
+	const setAndSaveVisibleSections = (updater: (current: InspectorView[]) => InspectorView[]) => {
+		setVisibleSections((current) => {
+			const next = normalizeVisibleSections(updater(current));
+			saveVisibleSections(next);
+			return next;
+		});
+	};
+	const addSection = (id: InspectorView) => {
+		setAndSaveVisibleSections((current) => (current.includes(id) ? current : [...current, id]));
+		setView(id);
+		setIsAddMenuOpen(false);
+	};
+	const removeSection = (id: InspectorView) => {
+		if (visibleSections.length <= 1) return;
+		const index = visibleSections.indexOf(id);
+		const next = visibleSections.filter((entry) => entry !== id);
+		setAndSaveVisibleSections(() => next);
+		if (view === id) {
+			setView(next[Math.min(index, next.length - 1)] ?? "summary");
+		}
+	};
+	const hiddenSections = INSPECTOR_SECTIONS.filter((entry) => !visibleSections.includes(entry.id));
+
+	useEffect(() => {
+		if (visibleSections.includes(view)) return;
+		setAndSaveVisibleSections((current) => (current.includes(view) ? current : [...current, view]));
+	}, [view, visibleSections]);
 
 	if (!session) {
 		return (
 			<aside className="session-inspector" aria-label="Session inspector">
+				<InspectorHeader title="Context" subtitle="Loading session" />
 				<div className="session-inspector__body">
 					<p className="inspector-empty">Loading session…</p>
 				</div>
@@ -109,20 +168,74 @@ export function SessionInspector({
 
 	return (
 		<aside className="session-inspector" aria-label="Session inspector">
-			<div className="session-inspector__tabs" role="tablist">
-				{VIEWS.map((entry) => (
+			<InspectorHeader
+				title="Context"
+				subtitle={view === "browser" ? "Preview and browser state" : view === "reviews" ? "Review terminals and checks" : "Task and PR state"}
+			/>
+			<div className="session-inspector__tabs-shell">
+				<div className="session-inspector__tabs" role="tablist" aria-label="Inspector sections">
+					{visibleSections.map((id) => {
+						const entry = INSPECTOR_SECTIONS.find((section) => section.id === id);
+						if (!entry) return null;
+						const canRemove = visibleSections.length > 1;
+						return (
+							<div key={entry.id} className={cn("session-inspector__tab-pill", view === entry.id && "is-active")}>
+								<button
+									type="button"
+									role="tab"
+									aria-selected={view === entry.id}
+									className="session-inspector__tab"
+									onClick={() => setView(entry.id)}
+								>
+									<span className="session-inspector__tab-icon">{entry.icon}</span>
+									<span className="session-inspector__tab-label">{entry.shortLabel}</span>
+								</button>
+								{canRemove ? (
+									<button
+										type="button"
+										aria-label={`Remove ${entry.label} section`}
+										className="session-inspector__tab-remove"
+										onClick={() => removeSection(entry.id)}
+									>
+										<X aria-hidden="true" />
+									</button>
+								) : null}
+							</div>
+						);
+					})}
+				</div>
+				<div className="session-inspector__add-wrap">
 					<button
-						key={entry.id}
 						type="button"
-						role="tab"
-						aria-selected={view === entry.id}
-						className={cn("session-inspector__tab", view === entry.id && "is-active")}
-						onClick={() => setView(entry.id)}
+						aria-label="Add inspector section"
+						aria-expanded={isAddMenuOpen}
+						className="session-inspector__add"
+						onClick={() => setIsAddMenuOpen((open) => !open)}
 					>
-						<span className="session-inspector__tab-icon">{entry.icon}</span>
-						<span className="session-inspector__tab-label">{entry.label}</span>
+						<Plus aria-hidden="true" />
 					</button>
-				))}
+					{isAddMenuOpen ? (
+						<div className="session-inspector__add-menu" role="menu" aria-label="Hidden inspector sections">
+							{hiddenSections.length === 0 ? (
+								<div className="session-inspector__add-empty">All sections visible</div>
+							) : (
+								hiddenSections.map((entry) => (
+									<button
+										key={entry.id}
+										type="button"
+										role="menuitem"
+										className="session-inspector__add-item"
+										onClick={() => addSection(entry.id)}
+									>
+										<span className="session-inspector__add-item-icon">{entry.icon}</span>
+										<span className="session-inspector__add-item-label">{entry.label}</span>
+										<span className="session-inspector__add-item-shortcut">{entry.shortcut}</span>
+									</button>
+								))
+							)}
+						</div>
+					) : null}
+				</div>
 			</div>
 
 			<div className="session-inspector__body">
@@ -139,6 +252,15 @@ export function SessionInspector({
 				) : null}
 			</div>
 		</aside>
+	);
+}
+
+function InspectorHeader({ title, subtitle }: { title: string; subtitle: string }) {
+	return (
+		<div className="session-inspector__header">
+			<div className="session-inspector__header-title">{title}</div>
+			<div className="session-inspector__header-subtitle">{subtitle}</div>
+		</div>
 	);
 }
 

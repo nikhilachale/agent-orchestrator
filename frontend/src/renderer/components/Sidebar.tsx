@@ -70,7 +70,7 @@ const noDragStyle = isMac ? ({ WebkitAppRegion: "no-drag" } as React.CSSProperti
 // orchestrator, kebab): a 20px square icon button that tints on hover, matching
 // the old SidebarMenuAction footprint.
 const HOVER_ACTION_CLASS =
-	"grid size-5 shrink-0 place-items-center rounded-md text-passive transition-colors hover:bg-interactive-hover hover:text-foreground disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-interactive-hover data-[state=open]:text-foreground [&_svg]:size-[15px]";
+	"grid size-6 shrink-0 place-items-center rounded-md text-passive opacity-0 transition-[background-color,color,opacity] hover:bg-interactive-hover hover:text-foreground group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-interactive-hover data-[state=open]:text-foreground data-[state=open]:opacity-100 [&_svg]:size-[14px]";
 
 // Mirrors the daemon's display-name cap (maxDisplayNameLen) and the spawn
 // `--name` flag, so inline edits never round-trip a value the API would reject.
@@ -184,7 +184,7 @@ export function Sidebar({
 			<SidebarHeader className="gap-0 p-0 pl-2.5 pr-[7px] pt-3.5 group-data-[collapsible=icon]:px-1.5">
 				{/* Brand (project-sidebar__brand); in the icon rail it becomes the old
             36px board button wrapping the 22px accent mark. */}
-				<div className="flex shrink-0 items-center gap-2.5 px-2 pb-[18px] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:pb-2">
+				<div className="flex shrink-0 items-center gap-2 px-2 pb-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:pb-2">
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<button
@@ -206,7 +206,7 @@ export function Sidebar({
 							Orchestrator board
 						</TooltipContent>
 					</Tooltip>
-					<span className="min-w-0 flex-1 truncate text-[14px] font-bold tracking-[-0.015em] text-foreground group-data-[collapsible=icon]:hidden">
+					<span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground group-data-[collapsible=icon]:hidden">
 						Agent Orchestrator
 					</span>
 					{isNightly && (
@@ -232,11 +232,11 @@ export function Sidebar({
 				</div>
 			</SidebarHeader>
 
-			<SidebarContent className="gap-0 pl-2.5 pr-[7px] group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1.5">
+			<SidebarContent className="gap-0 pl-2 pr-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1.5">
 				<SidebarGroup className="p-0">
 					{/* Section label (project-sidebar__nav-label) */}
-					<div className="flex shrink-0 items-center justify-between px-2 pb-2 group-data-[collapsible=icon]:hidden">
-						<SidebarGroupLabel className="h-auto rounded-none p-0 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-passive">
+					<div className="flex shrink-0 items-center justify-between px-2 pb-1.5 group-data-[collapsible=icon]:hidden">
+						<SidebarGroupLabel className="h-auto rounded-none p-0 text-[11px] font-medium text-passive">
 							Projects
 						</SidebarGroupLabel>
 						<CreateProjectButton onCreateProject={onCreateProject} />
@@ -280,13 +280,13 @@ export function Sidebar({
           (flex-1) with a uniform 7px footer inset on all sides (reference uses
           12px top, 0 bottom, content-hugging button). The icon rail keeps the
           icon-only settings action plus expand toggle (off macOS). */}
-			<SidebarFooter className="mt-auto gap-0 border-t border-border p-[7px] group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1.5 group-data-[collapsible=icon]:pb-0 group-data-[collapsible=icon]:pt-2">
+			<SidebarFooter className="mt-auto gap-0 border-t border-border p-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1.5 group-data-[collapsible=icon]:pb-0 group-data-[collapsible=icon]:pt-2">
 				<div className="relative flex w-full items-center group-data-[collapsible=icon]:hidden">
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<button
 								aria-label="Settings"
-								className="flex flex-1 items-center justify-start gap-2.5 rounded-md p-2 text-[13px] font-medium text-passive transition-colors hover:bg-interactive-hover hover:text-foreground data-[state=open]:bg-interactive-hover data-[state=open]:text-foreground [&_svg]:size-[15px] [&_svg]:text-passive"
+								className="flex flex-1 items-center justify-start gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium text-passive transition-colors hover:bg-interactive-hover hover:text-foreground data-[state=open]:bg-interactive-hover data-[state=open]:text-foreground [&_svg]:size-[15px] [&_svg]:text-passive"
 								type="button"
 							>
 								<Settings aria-hidden="true" />
@@ -488,7 +488,7 @@ function ProjectItem({
 	};
 
 	return (
-		<SidebarMenuItem className="mb-px group-data-[collapsible=icon]:mb-0">
+		<SidebarMenuItem className="mb-0.5 group-data-[collapsible=icon]:mb-0">
 			{/* project-sidebar__proj-row */}
 			<SidebarMenuButton
 				aria-current={projectActive ? "page" : undefined}
@@ -497,10 +497,10 @@ function ProjectItem({
 				onClick={onProjectClick}
 				tooltip={workspace.name}
 				className={cn(
-					"relative h-9 gap-[9px] rounded-[5px] px-1.5 py-0 text-[13px] font-medium text-muted-foreground transition-[background-color,padding,color]",
+					"relative h-8 gap-2 rounded-md px-1.5 py-0 text-[13px] font-medium text-muted-foreground transition-[background-color,padding,color]",
 					"before:absolute before:top-2 before:bottom-2 before:left-0 before:w-px before:rounded-full before:bg-transparent",
 					"hover:bg-interactive-hover hover:text-foreground active:bg-interactive-hover active:text-foreground",
-					"data-[active=true]:bg-interactive-active data-[active=true]:font-semibold data-[active=true]:text-foreground data-[active=true]:before:bg-accent",
+					"data-[active=true]:bg-interactive-active data-[active=true]:font-medium data-[active=true]:text-foreground data-[active=true]:before:bg-accent",
 					// Always reserve room for the action cluster (dashboard,
 					// orchestrator, kebab) — icons are always visible, not hover-gated.
 					"pr-[84px]",
@@ -527,7 +527,7 @@ function ProjectItem({
 			propagation issues in Electron's Chromium. Hidden in the icon rail. */}
 			<div
 				className={cn(
-					"absolute top-0 right-1 z-10 flex h-9 items-center gap-px",
+					"absolute top-0 right-1 z-10 flex h-8 items-center gap-px",
 					"group-data-[collapsible=icon]:hidden",
 				)}
 			>
@@ -591,7 +591,7 @@ function ProjectItem({
 			{/* project-sidebar__sessions: indented under the project parent so worker
           sessions read as children without adding a persistent guide rail. */}
 			{expanded && sessions.length > 0 && (
-				<SidebarMenuSub className="mx-0 ml-[18px] translate-x-0 gap-0 border-l-0 px-0 py-1 pl-2.5">
+				<SidebarMenuSub className="mx-0 ml-[18px] translate-x-0 gap-0 border-l border-border px-0 py-1 pl-2.5">
 					{sessions.map((session) => (
 						<SessionRow
 							key={session.id}
@@ -642,7 +642,7 @@ function SessionRow({ session, active, onOpen }: { session: WorkspaceSession; ac
 	if (isEditing) {
 		return (
 			<SidebarMenuSubItem>
-				<div className="relative flex h-auto w-full items-center gap-[9px] rounded-[4px] py-[5px] pl-2.5 pr-1.5">
+				<div className="relative flex h-auto w-full items-center gap-2 rounded-md py-[5px] pl-2.5 pr-1.5">
 					<SessionDot session={session} />
 					<input
 						aria-label={`Rename ${session.title}`}
@@ -675,10 +675,10 @@ function SessionRow({ session, active, onOpen }: { session: WorkspaceSession; ac
 				aria-current={active ? "page" : undefined}
 				aria-label={`Open ${session.title}`}
 				className={cn(
-					"relative flex h-auto w-full items-center gap-[9px] rounded-[4px] py-[5px] pl-2.5 pr-7 text-left outline-hidden transition-[color]",
+					"relative flex h-7 w-full items-center gap-2 rounded-md py-0 pl-2.5 pr-7 text-left outline-hidden transition-[background-color,color]",
 					"before:absolute before:top-1.5 before:bottom-1.5 before:left-0 before:w-px before:rounded-full before:bg-transparent",
-					"hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-					active && "text-foreground before:bg-accent",
+					"hover:bg-interactive-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+					active && "bg-interactive-active text-foreground before:bg-accent",
 				)}
 				onClick={onOpen}
 				type="button"

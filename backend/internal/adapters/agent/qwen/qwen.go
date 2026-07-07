@@ -19,6 +19,7 @@ package qwen
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"path/filepath"
@@ -242,6 +243,9 @@ func qwenWorkerRemoteInputCommand(qwenCmd []string, cfg ports.LaunchConfig) ([]s
 }
 
 func safeQwenSessionKey(sessionID string) string {
+	if sessionID == "" {
+		return ""
+	}
 	var b strings.Builder
 	for _, r := range sessionID {
 		switch {
@@ -255,7 +259,11 @@ func safeQwenSessionKey(sessionID string) string {
 			b.WriteByte('_')
 		}
 	}
-	return strings.Trim(b.String(), "_")
+	label := strings.Trim(b.String(), "_")
+	if label == "" {
+		label = "session"
+	}
+	return label + "-" + hex.EncodeToString([]byte(sessionID))
 }
 
 func qwenShellQuote(value string) string {

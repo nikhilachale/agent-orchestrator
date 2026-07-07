@@ -129,12 +129,13 @@ func TestGetLaunchCommandWorkerStartsInteractive(t *testing.T) {
 		t.Fatalf("unexpected command prefix\nwant: %#v\n got: %#v", want, cmd)
 	}
 	script := cmd[2]
+	sessionKey := safeQwenSessionKey("repo/issue#42")
 	for _, part := range []string{
 		"umask 077; ",
 		"mkdir -p ",
-		filepath.Join(dataDir, "agent-runtime", "qwen", "repo_issue_42", "repo_issue_42.input.jsonl"),
-		"repo_issue_42.input.jsonl",
-		"repo_issue_42.output.jsonl",
+		filepath.Join(dataDir, "agent-runtime", "qwen", sessionKey, sessionKey+".input.jsonl"),
+		sessionKey + ".input.jsonl",
+		sessionKey + ".output.jsonl",
 		`"type":"submit"`,
 		`"text":"-fix this"`,
 		`"session_start"`,
@@ -150,6 +151,20 @@ func TestGetLaunchCommandWorkerStartsInteractive(t *testing.T) {
 	}
 	if strings.Contains(script, workspace) || strings.Contains(script, ".qwen-remote-input") {
 		t.Fatalf("worker script must not store remote-input files in workspace: %s", script)
+	}
+}
+
+func TestSafeQwenSessionKeyDisambiguatesSanitizedCollisions(t *testing.T) {
+	first := safeQwenSessionKey("a.b-1")
+	second := safeQwenSessionKey("a_b-1")
+	if first == second {
+		t.Fatalf("safeQwenSessionKey collision: %q", first)
+	}
+	if first != "a_b-1-612e622d31" {
+		t.Fatalf("first key = %q, want readable prefix plus raw hex suffix", first)
+	}
+	if second != "a_b-1-615f622d31" {
+		t.Fatalf("second key = %q, want readable prefix plus raw hex suffix", second)
 	}
 }
 

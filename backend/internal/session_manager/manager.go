@@ -284,7 +284,7 @@ func (m *Manager) Spawn(ctx context.Context, cfg ports.SpawnConfig) (domain.Sess
 	}
 	delivery, err := agent.GetPromptDeliveryStrategy(ctx, launchCfg)
 	if err != nil {
-		_ = m.workspace.Destroy(ctx, ws)
+		m.destroySpawnWorkspace(ctx, ws, workspaceProject)
 		m.rollbackSpawnSeedRow(ctx, id)
 		return domain.SessionRecord{}, fmt.Errorf("spawn %s: prompt delivery: %w", id, err)
 	}
@@ -328,7 +328,7 @@ func (m *Manager) Spawn(ctx context.Context, cfg ports.SpawnConfig) (domain.Sess
 	if delivery == ports.PromptDeliveryAfterStart && prompt != "" {
 		if err := m.messenger.Send(ctx, id, prompt); err != nil {
 			_ = m.runtime.Destroy(ctx, handle)
-			_ = m.workspace.Destroy(ctx, ws)
+			m.destroySpawnWorkspace(ctx, ws, workspaceProject)
 			m.markSpawnFailedTerminatedWithoutWorkspace(ctx, id)
 			return domain.SessionRecord{}, fmt.Errorf("spawn %s: deliver prompt: %w", id, err)
 		}
@@ -413,10 +413,12 @@ func (m *Manager) destroySpawnWorkspace(ctx context.Context, ws ports.WorkspaceI
 	if workspaceProject != nil {
 		if adapter, ok := m.workspace.(ports.WorkspaceProject); ok {
 			_ = adapter.DestroyWorkspaceProject(ctx, *workspaceProject)
+			_ = m.store.DeleteSessionWorktrees(ctx, ws.SessionID)
 			return
 		}
 	}
 	_ = m.workspace.Destroy(ctx, ws)
+	_ = m.store.DeleteSessionWorktrees(ctx, ws.SessionID)
 }
 
 // effectiveHarness resolves the harness for a spawn: an explicit harness wins;

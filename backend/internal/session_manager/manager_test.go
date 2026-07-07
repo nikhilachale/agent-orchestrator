@@ -287,6 +287,15 @@ func (a afterStartAgent) GetPromptDeliveryStrategy(context.Context, ports.Launch
 	return ports.PromptDeliveryAfterStart, nil
 }
 
+type promptStrategyErrorAgent struct {
+	*recordingAgent
+	err error
+}
+
+func (a promptStrategyErrorAgent) GetPromptDeliveryStrategy(context.Context, ports.LaunchConfig) (ports.PromptDeliveryStrategy, error) {
+	return "", a.err
+}
+
 type singleAgent struct{ agent ports.Agent }
 
 func (s singleAgent) Agent(domain.AgentHarness) (ports.Agent, bool) { return s.agent, true }
@@ -902,6 +911,90 @@ func TestSpawn_AfterStartPromptFailureCleansUpSpawn(t *testing.T) {
 	}
 	if rec := st.sessions["mer-1"]; rec.Metadata.WorkspacePath != "" || rec.Metadata.Branch != "" || rec.Metadata.RuntimeHandleID != "" {
 		t.Fatalf("failed prompt delivery kept stale launch metadata: %#v", rec.Metadata)
+	}
+}
+
+func TestSpawn_AfterStartPromptFailureCleansUpWorkspaceProjectRows(t *testing.T) {
+	st := newFakeStore()
+	st.projects["mer"] = domain.ProjectRecord{
+		ID:     "mer",
+		Path:   "/repo/mer",
+		Kind:   domain.ProjectKindWorkspace,
+		Config: testRoleAgents(),
+	}
+	st.workspaceRepo["mer"] = []domain.WorkspaceRepoRecord{{Name: "api", RelativePath: "api"}}
+	rt := &fakeRuntime{}
+	ws := &fakeWorkspace{}
+	msg := &fakeMessenger{err: errors.New("pane unavailable")}
+	agent := &recordingAgent{}
+	lcm := &fakeLCM{store: st}
+	m := New(Deps{
+		Runtime:   rt,
+		Agents:    singleAgent{agent: afterStartAgent{recordingAgent: agent}},
+		Workspace: ws,
+		Store:     st,
+		Messenger: msg,
+		Lifecycle: lcm,
+		LookPath:  func(string) (string, error) { return "/bin/true", nil },
+	})
+
+	_, err := m.Spawn(ctx, ports.SpawnConfig{ProjectID: "mer", Kind: domain.KindWorker, Prompt: "fix the button"})
+	if err == nil || !strings.Contains(err.Error(), "deliver prompt") {
+		t.Fatalf("Spawn err = %v, want deliver prompt failure", err)
+	}
+	if ws.projectDestroyed != 1 {
+		t.Fatalf("workspace project destroy calls = %d, want 1", ws.projectDestroyed)
+	}
+	if ws.destroyed != 0 {
+		t.Fatalf("single-workspace destroy calls = %d, want 0", ws.destroyed)
+	}
+	if rows := st.worktrees["mer-1"]; len(rows) != 0 {
+		t.Fatalf("stale session worktree rows = %#v, want deleted", rows)
+	}
+	if rec := st.sessions["mer-1"]; !rec.IsTerminated || rec.Metadata.WorkspacePath != "" || rec.Metadata.Branch != "" || rec.Metadata.RuntimeHandleID != "" {
+		t.Fatalf("session after failed prompt delivery = %#v, want terminated with workspace metadata cleared", rec)
+	}
+}
+
+func TestSpawn_PromptDeliveryStrategyFailureCleansUpWorkspaceProjectRows(t *testing.T) {
+	st := newFakeStore()
+	st.projects["mer"] = domain.ProjectRecord{
+		ID:     "mer",
+		Path:   "/repo/mer",
+		Kind:   domain.ProjectKindWorkspace,
+		Config: testRoleAgents(),
+	}
+	st.workspaceRepo["mer"] = []domain.WorkspaceRepoRecord{{Name: "api", RelativePath: "api"}}
+	rt := &fakeRuntime{}
+	ws := &fakeWorkspace{}
+	m := New(Deps{
+		Runtime:   rt,
+		Agents:    singleAgent{agent: promptStrategyErrorAgent{recordingAgent: &recordingAgent{}, err: errors.New("strategy unsupported")}},
+		Workspace: ws,
+		Store:     st,
+		Messenger: &fakeMessenger{},
+		Lifecycle: &fakeLCM{store: st},
+		LookPath:  func(string) (string, error) { return "/bin/true", nil },
+	})
+
+	_, err := m.Spawn(ctx, ports.SpawnConfig{ProjectID: "mer", Kind: domain.KindWorker, Prompt: "fix the button"})
+	if err == nil || !strings.Contains(err.Error(), "prompt delivery") {
+		t.Fatalf("Spawn err = %v, want prompt delivery failure", err)
+	}
+	if rt.created != 0 {
+		t.Fatalf("runtime created = %d, want 0", rt.created)
+	}
+	if ws.projectDestroyed != 1 {
+		t.Fatalf("workspace project destroy calls = %d, want 1", ws.projectDestroyed)
+	}
+	if ws.destroyed != 0 {
+		t.Fatalf("single-workspace destroy calls = %d, want 0", ws.destroyed)
+	}
+	if _, present := st.sessions["mer-1"]; present {
+		t.Fatal("seed row should be deleted after prompt strategy failure")
+	}
+	if rows := st.worktrees["mer-1"]; len(rows) != 0 {
+		t.Fatalf("stale session worktree rows = %#v, want deleted", rows)
 	}
 }
 

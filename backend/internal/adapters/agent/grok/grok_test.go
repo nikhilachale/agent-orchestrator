@@ -58,7 +58,7 @@ func TestGetLaunchCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	wantPrefix := []string{"grok", "--no-auto-update", "--permission-mode", "bypassPermissions", "do the thing"}
+	wantPrefix := []string{"grok", "--no-auto-update", "--permission-mode", "bypassPermissions", "--", "do the thing"}
 	if !reflect.DeepEqual(cmd, wantPrefix) {
 		t.Fatalf("cmd = %#v, want prefix %#v", cmd, wantPrefix)
 	}
@@ -73,7 +73,7 @@ func TestGetLaunchCommandDefaultPerms(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	want := []string{"grok", "--no-auto-update", "fix it"}
+	want := []string{"grok", "--no-auto-update", "--", "fix it"}
 	if !reflect.DeepEqual(cmd, want) {
 		t.Fatalf("cmd = %#v, want %#v", cmd, want)
 	}
@@ -92,7 +92,22 @@ func TestGetLaunchCommandAcceptEdits(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	want := []string{"grok", "--no-auto-update", "--permission-mode", "acceptEdits", "refactor auth"}
+	want := []string{"grok", "--no-auto-update", "--permission-mode", "acceptEdits", "--", "refactor auth"}
+	if !reflect.DeepEqual(cmd, want) {
+		t.Fatalf("cmd = %#v, want %#v", cmd, want)
+	}
+	assertNoPromptFlag(t, cmd)
+}
+
+func TestGetLaunchCommandTerminatesFlagsBeforeLeadingDashPrompt(t *testing.T) {
+	plugin := &Plugin{resolvedBinary: "grok"}
+	cmd, err := plugin.GetLaunchCommand(context.Background(), ports.LaunchConfig{
+		Prompt: "-add a health check",
+	})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	want := []string{"grok", "--no-auto-update", "--", "-add a health check"}
 	if !reflect.DeepEqual(cmd, want) {
 		t.Fatalf("cmd = %#v, want %#v", cmd, want)
 	}

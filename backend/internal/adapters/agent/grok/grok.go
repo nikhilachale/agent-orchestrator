@@ -67,7 +67,7 @@ func (p *Plugin) Manifest() adapters.Manifest {
 	}
 }
 
-// GetLaunchCommand builds `grok --no-auto-update [--permission-mode <mode>] [prompt]`.
+// GetLaunchCommand builds `grok --no-auto-update [--permission-mode <mode>] [-- prompt]`.
 // Prompt is delivered positionally so Grok starts an interactive coding session.
 //
 // Uses --permission-mode (acceptEdits / auto / bypassPermissions) to match
@@ -82,7 +82,7 @@ func (p *Plugin) GetLaunchCommand(ctx context.Context, cfg ports.LaunchConfig) (
 	appendApprovalFlags(&cmd, cfg.Permissions)
 
 	if cfg.Prompt != "" {
-		cmd = append(cmd, cfg.Prompt)
+		cmd = append(cmd, "--", cfg.Prompt)
 	}
 
 	return cmd, nil

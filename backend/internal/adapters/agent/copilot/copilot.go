@@ -89,6 +89,9 @@ func (p *Plugin) GetLaunchCommand(ctx context.Context, cfg ports.LaunchConfig) (
 	cmd = envPrefix
 	cmd = append(cmd, binary)
 	appendApprovalFlags(&cmd, cfg.Permissions)
+	if agentName := copilotAgentName(cfg.SessionID, cfg.SystemPrompt, cfg.SystemPromptFile); agentName != "" {
+		cmd = append(cmd, "--agent="+agentName)
+	}
 	if cfg.Prompt != "" {
 		cmd = append(cmd, "--interactive", cfg.Prompt)
 	}
@@ -135,6 +138,9 @@ func (p *Plugin) GetRestoreCommand(ctx context.Context, cfg ports.RestoreConfig)
 	cmd = envPrefix
 	cmd = append(cmd, binary)
 	appendApprovalFlags(&cmd, cfg.Permissions)
+	if agentName := copilotAgentName(cfg.Session.ID, cfg.SystemPrompt, cfg.SystemPromptFile); agentName != "" {
+		cmd = append(cmd, "--agent="+agentName)
+	}
 	cmd = append(cmd, "--resume", agentSessionID)
 	return cmd, true, nil
 }
@@ -272,13 +278,9 @@ func copilotInstructionsEnvPrefix(inlinePrompt, promptFile string) ([]string, er
 		return nil, fmt.Errorf("copilot: system prompt file required to build custom instructions")
 	}
 	dir := filepath.Dir(promptFile)
-	prompt := inlinePrompt
-	if prompt == "" {
-		data, err := os.ReadFile(promptFile) //nolint:gosec // path is AO-owned launch config
-		if err != nil {
-			return nil, fmt.Errorf("copilot: read system prompt file: %w", err)
-		}
-		prompt = string(data)
+	prompt, err := copilotSystemPromptText(inlinePrompt, promptFile)
+	if err != nil {
+		return nil, err
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("copilot: create custom instructions dir: %w", err)
@@ -292,6 +294,39 @@ func copilotInstructionsEnvPrefix(inlinePrompt, promptFile string) ([]string, er
 	}
 	return []string{"env", copilotCustomInstructionsEnvVar + "=" + value}, nil
 }
+
+func copilotSystemPromptText(inline, file string) (string, error) {
+	if strings.TrimSpace(inline) != "" {
+		return strings.TrimRight(inline, "\n"), nil
+	}
+	if strings.TrimSpace(file) == "" {
+		return "", nil
+	}
+	data, err := os.ReadFile(file) //nolint:gosec // path is AO-owned launch config
+	if err != nil {
+		return "", fmt.Errorf("copilot: read system prompt file: %w", err)
+	}
+	return strings.TrimRight(string(data), "\n"), nil
+}
+
+func copilotAgentName(sessionID, inlinePrompt, promptFile string) string {
+	if strings.TrimSpace(sessionID) == "" {
+		return ""
+	}
+	if strings.TrimSpace(inlinePrompt) == "" && strings.TrimSpace(promptFile) == "" {
+		return ""
+	}
+	return "ao-" + copilotAgentNameReplacer.Replace(strings.TrimSpace(sessionID))
+}
+
+var copilotAgentNameReplacer = strings.NewReplacer(
+	"/", "-",
+	"\\", "-",
+	" ", "-",
+	"_", "-",
+	".", "-",
+	":", "-",
+)
 
 // appendApprovalFlags maps AO's 4 permission modes onto Copilot CLI approval
 // flags (https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-programmatic-reference):

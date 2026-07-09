@@ -1478,6 +1478,10 @@ func (m *Manager) applyWorkspaceProjectPreserved(ctx context.Context, rows []por
 // the session is active or the budget is exhausted. Confirmation never fails
 // the send: it only decides whether to nudge again.
 func (m *Manager) Send(ctx context.Context, id domain.SessionID, message string) error {
+	message, err := m.prepareOutboundMessage(ctx, id, message)
+	if err != nil {
+		return err
+	}
 	outcome, err := m.messenger.Deliver(ctx, id, message)
 	if err != nil {
 		return fmt.Errorf("send %s: %w", id, err)
@@ -1512,6 +1516,39 @@ func (m *Manager) Send(ctx context.Context, id domain.SessionID, message string)
 		m.confirmActive(ctx, m.messenger, id)
 	}
 	return nil
+}
+
+func (m *Manager) prepareOutboundMessage(ctx context.Context, id domain.SessionID, message string) (string, error) {
+	rec, ok, err := m.store.GetSession(ctx, id)
+	if err != nil {
+		return "", fmt.Errorf("send %s: session: %w", id, err)
+	}
+	if !ok {
+		return message, nil
+	}
+	if rec.Harness != domain.HarnessCopilot || rec.Kind != domain.KindOrchestrator {
+		return message, nil
+	}
+	return copilotOrchestratorMessage(rec.ProjectID, message), nil
+}
+
+func copilotOrchestratorMessage(projectID domain.ProjectID, message string) string {
+	project := strings.TrimSpace(string(projectID))
+	if project == "" {
+		project = "<project>"
+	}
+	return fmt.Sprintf(`AO ORCHESTRATOR DIRECTIVE
+
+You are acting as the AO orchestrator for project %s. Do not implement code changes, edit files, run implementation tests, or complete the user's task yourself.
+
+Your next action for any implementation, fix, UI change, test, PR, or code-review task must be to spawn or redirect a worker session. Use:
+
+ao spawn --project %s --name "<label, max 20 chars>" --prompt "<clear worker task>"
+
+If a suitable worker already exists, use ao send to redirect that worker instead. After spawning or redirecting, report the worker session id and stop. Do not do the worker's task in this orchestrator session.
+
+USER MESSAGE:
+%s`, project, project, message)
 }
 
 // harnessNudgeSafe reports whether the session's harness is safe to nudge with

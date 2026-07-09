@@ -1911,6 +1911,16 @@ func (m *Manager) waitForPromptReadiness(ctx context.Context, agent ports.Agent,
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-deadline.C:
+			// Prompt readiness is best-effort: a missing terminal marker must not
+			// block spawn forever or be treated as confirmed readiness. Fall back
+			// to delivering the prompt and make the degraded path observable.
+			m.logger.Warn("prompt readiness timed out; falling back to after-start prompt delivery",
+				"sessionID", cfg.SessionID,
+				"kind", string(cfg.Kind),
+				"timeout", hints.Timeout.String(),
+				"pollInterval", poll.String(),
+				"lines", lines,
+			)
 			return nil
 		case <-ticker.C:
 		}

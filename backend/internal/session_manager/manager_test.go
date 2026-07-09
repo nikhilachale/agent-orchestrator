@@ -659,6 +659,7 @@ func TestSpawn_AfterStartPromptFallsBackWhenReadinessTimesOut(t *testing.T) {
 	ws := &fakeWorkspace{}
 	msg := &fakeMessenger{}
 	agent := &recordingAgent{}
+	var logBuf bytes.Buffer
 	m := New(Deps{
 		Runtime: rt,
 		Agents: singleAgent{agent: readinessAgent{
@@ -674,6 +675,7 @@ func TestSpawn_AfterStartPromptFallsBackWhenReadinessTimesOut(t *testing.T) {
 		Messenger: msg,
 		Lifecycle: &fakeLCM{store: st},
 		LookPath:  func(string) (string, error) { return "/bin/true", nil },
+		Logger:    slog.New(slog.NewTextHandler(&logBuf, nil)),
 	})
 
 	if _, err := m.Spawn(ctx, ports.SpawnConfig{ProjectID: "mer", Kind: domain.KindWorker, Prompt: "fix the button"}); err != nil {
@@ -684,6 +686,16 @@ func TestSpawn_AfterStartPromptFallsBackWhenReadinessTimesOut(t *testing.T) {
 	}
 	if len(msg.msgs) != 1 || msg.msgs[0] != "fix the button" {
 		t.Fatalf("delivered prompts = %#v, want fallback prompt delivery", msg.msgs)
+	}
+	logText := logBuf.String()
+	if !strings.Contains(logText, "prompt readiness timed out") {
+		t.Fatalf("log = %q, want readiness timeout warning", logText)
+	}
+	if !strings.Contains(logText, "falling back to after-start prompt delivery") {
+		t.Fatalf("log = %q, want fallback delivery context", logText)
+	}
+	if !strings.Contains(logText, "sessionID=mer-1") {
+		t.Fatalf("log = %q, want session id", logText)
 	}
 }
 

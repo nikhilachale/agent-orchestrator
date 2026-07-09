@@ -542,7 +542,7 @@ describe("XtermTerminal", () => {
 		expect(onInput).toHaveBeenLastCalledWith("\x1b[<64;1;1M".repeat(3), "wheel");
 	});
 
-	it("sends PageUp/PageDown for keyboard-scroll panes even under a mux (opencode on macOS/Linux)", () => {
+	it("sends PageUp/PageDown for keyboard-scroll panes even under a mux (OpenCode/Kilo Code on macOS/Linux)", () => {
 		const onInput = vi.fn();
 		render(<XtermTerminal theme="dark" paneScrollsByKeyboard onReady={(terminal) => terminal.onUserInput(onInput)} />);
 		// Linux (beforeEach) + mouse tracking on: without the paneScrollsByKeyboard

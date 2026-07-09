@@ -2,10 +2,18 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { WorkspaceSession } from "../types/workspace";
-import { TerminalPane, providerScrollsByKeyboard } from "./TerminalPane";
+import { TerminalPane } from "./TerminalPane";
+import type { XtermTerminalProps } from "./XtermTerminal";
+
+const terminalProps = vi.hoisted(() => ({
+	last: undefined as XtermTerminalProps | undefined,
+}));
 
 vi.mock("./XtermTerminal", () => ({
-	XtermTerminal: () => <div data-testid="xterm" />,
+	XtermTerminal: (props: XtermTerminalProps) => {
+		terminalProps.last = props;
+		return <div data-testid="xterm" />;
+	},
 }));
 
 vi.mock("../hooks/useTerminalSession", () => ({
@@ -36,7 +44,17 @@ const orchestrator = {
 	kind: "orchestrator",
 } satisfies WorkspaceSession;
 
+function workerWithProvider(provider: WorkspaceSession["provider"]): WorkspaceSession {
+	return {
+		...worker,
+		id: `sess-${provider}`,
+		terminalHandleId: `term-${provider}`,
+		provider,
+	};
+}
+
 function renderPane(session?: WorkspaceSession) {
+	terminalProps.last = undefined;
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	const previousAO = window.ao;
 	window.ao = {} as typeof window.ao;
@@ -95,21 +113,24 @@ describe("TerminalPane empty states", () => {
 	});
 });
 
-describe("providerScrollsByKeyboard", () => {
-	// opencode and its fork kilocode share a TUI that scrolls its own transcript
-	// by keyboard and ignores SGR wheel reports, so both must opt into the
-	// PageUp/PageDown wheel routing (see XtermTerminal's paneScrollsByKeyboard).
-	it("is true for keyboard-scroll TUIs (opencode and its kilocode fork)", () => {
-		expect(providerScrollsByKeyboard("opencode")).toBe(true);
-		expect(providerScrollsByKeyboard("kilocode")).toBe(true);
+describe("TerminalPane keyboard-scroll providers", () => {
+	it("passes keyboard wheel scrolling through to Kilo Code terminals", () => {
+		const view = renderPane(workerWithProvider("kilocode"));
+		try {
+			expect(screen.getByTestId("xterm")).toBeInTheDocument();
+			expect(terminalProps.last?.paneScrollsByKeyboard).toBe(true);
+		} finally {
+			view.restore();
+		}
 	});
 
-	it("is false for mouse-report/native-scroll providers", () => {
-		expect(providerScrollsByKeyboard("codex")).toBe(false);
-		expect(providerScrollsByKeyboard("claude-code")).toBe(false);
-	});
-
-	it("is false when the provider is unknown", () => {
-		expect(providerScrollsByKeyboard(undefined)).toBe(false);
+	it("leaves ordinary terminal sessions on SGR wheel reports", () => {
+		const view = renderPane(workerWithProvider("codex"));
+		try {
+			expect(screen.getByTestId("xterm")).toBeInTheDocument();
+			expect(terminalProps.last?.paneScrollsByKeyboard).toBe(false);
+		} finally {
+			view.restore();
+		}
 	});
 });

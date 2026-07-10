@@ -310,7 +310,7 @@ func removeCursorWorkspaceTrustAt(trustPath, absWorkspace string) error {
 	}
 	var trust cursorWorkspaceTrust
 	if err := json.Unmarshal(data, &trust); err != nil {
-		return nil
+		return fmt.Errorf("decode %s: %w", trustPath, err)
 	}
 	if !trust.AOManaged || trust.WorkspacePath != absWorkspace {
 		return nil

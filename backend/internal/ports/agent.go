@@ -170,6 +170,7 @@ type LaunchConfig struct {
 type WorkspaceHookConfig struct {
 	Config        AgentConfig
 	DataDir       string
+	Env           map[string]string
 	SessionID     string
 	SystemPrompt  string
 	WorkspacePath string

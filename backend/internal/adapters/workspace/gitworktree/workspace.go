@@ -42,6 +42,7 @@ var (
 	ErrBranchCheckedOutElsewhere = ports.ErrWorkspaceBranchCheckedOutElsewhere
 	ErrBranchNotFetched          = ports.ErrWorkspaceBranchNotFetched
 	ErrBranchInvalid             = ports.ErrWorkspaceBranchInvalid
+	ErrWorkspaceStale            = ports.ErrWorkspaceStale
 )
 
 // RepoResolver maps a project to the absolute path of its source git repo.
@@ -351,10 +352,21 @@ func (w *Workspace) StashUncommitted(ctx context.Context, info ports.WorkspaceIn
 	if info.SessionID == "" {
 		return "", errors.New("gitworktree: session id is required for StashUncommitted")
 	}
+	path, err := w.validateManagedPath(info.Path)
+	if err != nil {
+		return "", err
+	}
+	info.Path = path
+	if err := w.ensureRegisteredWorktree(ctx, info); err != nil {
+		return "", err
+	}
 
 	// Early exit for clean worktrees: nothing to preserve.
 	dirty, err := w.isDirty(ctx, info.Path)
 	if err != nil {
+		if isNotGitRepositoryError(err) {
+			return "", fmt.Errorf("%w: %q is not a git worktree (%w)", ErrWorkspaceStale, info.Path, err)
+		}
 		return "", fmt.Errorf("gitworktree: StashUncommitted dirty check: %w", err)
 	}
 	if !dirty {
@@ -437,6 +449,36 @@ func (w *Workspace) StashUncommitted(ctx context.Context, info ports.WorkspaceIn
 		return "", fmt.Errorf("gitworktree: update-ref %q: %w", ref, err)
 	}
 	return ref, nil
+}
+
+func (w *Workspace) ensureRegisteredWorktree(ctx context.Context, info ports.WorkspaceInfo) error {
+	stat, err := os.Stat(info.Path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("%w: path %q does not exist", ErrWorkspaceStale, info.Path)
+		}
+		return fmt.Errorf("gitworktree: stat %q: %w", info.Path, err)
+	}
+	if !stat.IsDir() {
+		return fmt.Errorf("%w: path %q is not a directory", ErrWorkspaceStale, info.Path)
+	}
+	repo, err := w.repoPathForInfo(info)
+	if err != nil {
+		return err
+	}
+	records, err := w.listRecords(ctx, repo)
+	if err != nil {
+		return err
+	}
+	if _, ok := findWorktree(records, info.Path); !ok {
+		return fmt.Errorf("%w: path %q is not registered in repo %q", ErrWorkspaceStale, info.Path, repo)
+	}
+	return nil
+}
+
+func isNotGitRepositoryError(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "not a git repository") || strings.Contains(msg, "not a git worktree")
 }
 
 // countIgnoredPaths returns the number of entries listed by

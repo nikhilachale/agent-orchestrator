@@ -636,7 +636,7 @@ func (m *Manager) RetireForReplacement(ctx context.Context, id domain.SessionID)
 	}
 
 	ws := workspaceInfo(rec)
-	if _, err := m.workspace.StashUncommitted(ctx, ws); err != nil {
+	if err := m.stashReplacementWorkspace(ctx, rec.ID, "", ws); err != nil {
 		return fmt.Errorf("retire replacement %s: stash: %w", id, err)
 	}
 	if err := m.store.DeleteSessionWorktrees(ctx, rec.ID); err != nil {
@@ -659,7 +659,7 @@ func (m *Manager) RetireForReplacement(ctx context.Context, id domain.SessionID)
 
 func (m *Manager) retireWorkspaceProjectForReplacement(ctx context.Context, rec domain.SessionRecord, rows []ports.WorkspaceRepoInfo) error {
 	for _, row := range rows {
-		if _, err := m.workspace.StashUncommitted(ctx, workspaceInfoFromRepoInfo(row)); err != nil {
+		if err := m.stashReplacementWorkspace(ctx, rec.ID, row.RepoName, workspaceInfoFromRepoInfo(row)); err != nil {
 			return fmt.Errorf("retire replacement %s repo %s: stash: %w", rec.ID, row.RepoName, err)
 		}
 	}
@@ -679,6 +679,21 @@ func (m *Manager) retireWorkspaceProjectForReplacement(ctx context.Context, rec 
 	}
 	if err := m.lcm.MarkTerminated(ctx, rec.ID); err != nil {
 		return fmt.Errorf("retire replacement %s: mark terminated: %w", rec.ID, err)
+	}
+	return nil
+}
+
+func (m *Manager) stashReplacementWorkspace(ctx context.Context, id domain.SessionID, repoName string, ws ports.WorkspaceInfo) error {
+	if _, err := m.workspace.StashUncommitted(ctx, ws); err != nil {
+		if errors.Is(err, ports.ErrWorkspaceStale) {
+			args := []any{"sessionID", id, "path", ws.Path, "error", err}
+			if repoName != "" {
+				args = append(args, "repo", repoName)
+			}
+			m.logger.Warn("retire replacement: stale workspace; skipping preserve", args...)
+			return nil
+		}
+		return err
 	}
 	return nil
 }

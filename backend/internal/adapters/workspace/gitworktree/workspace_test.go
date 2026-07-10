@@ -117,6 +117,81 @@ func TestManagedPathSafety(t *testing.T) {
 	}
 }
 
+func TestStashUncommittedMissingPathReturnsWorkspaceStale(t *testing.T) {
+	root := t.TempDir()
+	repo := t.TempDir()
+	ws, err := New(Options{ManagedRoot: root, RepoResolver: StaticRepoResolver{"proj": repo}})
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	path := filepath.Join(ws.managedRoot, "proj", "sess")
+
+	_, err = ws.StashUncommitted(context.Background(), ports.WorkspaceInfo{ProjectID: "proj", SessionID: "sess", Path: path, Branch: "feature/test"})
+	if !errors.Is(err, ports.ErrWorkspaceStale) {
+		t.Fatalf("StashUncommitted err = %v, want ErrWorkspaceStale", err)
+	}
+}
+
+func TestStashUncommittedUnregisteredPathReturnsWorkspaceStale(t *testing.T) {
+	root := t.TempDir()
+	repo := t.TempDir()
+	ws, err := New(Options{ManagedRoot: root, RepoResolver: StaticRepoResolver{"proj": repo}})
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	path := filepath.Join(ws.managedRoot, "proj", "sess")
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatalf("mkdir path: %v", err)
+	}
+	ws.run = func(_ context.Context, _ string, args ...string) ([]byte, error) {
+		joined := strings.Join(args, " ")
+		if strings.Contains(joined, "worktree list --porcelain") {
+			return []byte("worktree " + repo + "\nbranch refs/heads/main\n"), nil
+		}
+		t.Fatalf("unexpected git invocation: %v", args)
+		return nil, nil
+	}
+
+	_, err = ws.StashUncommitted(context.Background(), ports.WorkspaceInfo{ProjectID: "proj", SessionID: "sess", Path: path, Branch: "feature/test"})
+	if !errors.Is(err, ports.ErrWorkspaceStale) {
+		t.Fatalf("StashUncommitted err = %v, want ErrWorkspaceStale", err)
+	}
+}
+
+func TestStashUncommittedNotGitRepositoryReturnsWorkspaceStale(t *testing.T) {
+	root := t.TempDir()
+	repo := t.TempDir()
+	ws, err := New(Options{ManagedRoot: root, RepoResolver: StaticRepoResolver{"proj": repo}})
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	path := filepath.Join(ws.managedRoot, "proj", "sess")
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatalf("mkdir path: %v", err)
+	}
+	ws.run = func(_ context.Context, binary string, args ...string) ([]byte, error) {
+		joined := strings.Join(args, " ")
+		switch {
+		case strings.Contains(joined, "worktree list --porcelain"):
+			return []byte("worktree " + repo + "\nbranch refs/heads/main\n\nworktree " + path + "\nbranch refs/heads/feature/test\n"), nil
+		case strings.Contains(joined, "status --porcelain"):
+			return nil, commandError{
+				args:   append([]string{binary}, args...),
+				output: "fatal: not a git repository",
+				err:    errors.New("exit status 128"),
+			}
+		default:
+			t.Fatalf("unexpected git invocation: %v", args)
+			return nil, nil
+		}
+	}
+
+	_, err = ws.StashUncommitted(context.Background(), ports.WorkspaceInfo{ProjectID: "proj", SessionID: "sess", Path: path, Branch: "feature/test"})
+	if !errors.Is(err, ports.ErrWorkspaceStale) {
+		t.Fatalf("StashUncommitted err = %v, want ErrWorkspaceStale", err)
+	}
+}
+
 func TestOrchestratorManagedPath(t *testing.T) {
 	root := t.TempDir()
 	ws, err := New(Options{ManagedRoot: root, RepoResolver: StaticRepoResolver{"proj": root}})

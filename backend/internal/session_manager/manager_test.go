@@ -2315,6 +2315,79 @@ func TestRetireForReplacementCapturesAndReleasesWorkspace(t *testing.T) {
 	}
 }
 
+func TestRetireForReplacementStaleWorkspaceStillRetires(t *testing.T) {
+	m, st, rt, ws := newLifecycleManager()
+	ws.stashErr = fmt.Errorf("dirty check: %w", ports.ErrWorkspaceStale)
+	st.sessions["mer-orch"] = domain.SessionRecord{
+		ID:        "mer-orch",
+		ProjectID: "mer",
+		Kind:      domain.KindOrchestrator,
+		Metadata:  domain.SessionMetadata{WorkspacePath: "/ws/mer-orch", Branch: "ao/mer-orchestrator", RuntimeHandleID: "orch-handle"},
+		Activity:  domain.Activity{State: domain.ActivityActive},
+	}
+	st.worktrees["mer-orch"] = []domain.SessionWorktreeRecord{{
+		SessionID:    "mer-orch",
+		RepoName:     domain.RootWorkspaceRepoName,
+		Branch:       "ao/mer-orchestrator",
+		WorktreePath: "/ws/mer-orch",
+		PreservedRef: "refs/ao/preserved/old",
+	}}
+
+	if err := m.RetireForReplacement(ctx, "mer-orch"); err != nil {
+		t.Fatalf("RetireForReplacement err = %v", err)
+	}
+
+	if !st.sessions["mer-orch"].IsTerminated {
+		t.Fatal("stale retired orchestrator must be marked terminated")
+	}
+	if rows := st.worktrees["mer-orch"]; len(rows) != 0 {
+		t.Fatalf("stale retirement must clear restore markers, got %#v", rows)
+	}
+	if rt.destroyed != 1 || rt.destroyedIDs[0] != "orch-handle" {
+		t.Fatalf("runtime destroyed = %d ids=%v, want orch-handle", rt.destroyed, rt.destroyedIDs)
+	}
+	if ws.stashCalls != 1 {
+		t.Fatalf("stash calls = %d, want 1", ws.stashCalls)
+	}
+	foundForceDestroy := false
+	for _, call := range ws.calls {
+		if call == "ForceDestroy:mer-orch" {
+			foundForceDestroy = true
+		}
+	}
+	if !foundForceDestroy {
+		t.Fatalf("stale retirement must still release managed path; calls=%v", ws.calls)
+	}
+}
+
+func TestRetireForReplacementStashFailureLeavesSessionActive(t *testing.T) {
+	m, st, rt, ws := newLifecycleManager()
+	ws.stashErr = errors.New("git object database unavailable")
+	st.sessions["mer-orch"] = domain.SessionRecord{
+		ID:        "mer-orch",
+		ProjectID: "mer",
+		Kind:      domain.KindOrchestrator,
+		Metadata:  domain.SessionMetadata{WorkspacePath: "/ws/mer-orch", Branch: "ao/mer-orchestrator", RuntimeHandleID: "orch-handle"},
+		Activity:  domain.Activity{State: domain.ActivityActive},
+	}
+
+	err := m.RetireForReplacement(ctx, "mer-orch")
+	if err == nil || !strings.Contains(err.Error(), "stash") {
+		t.Fatalf("RetireForReplacement err = %v, want stash failure", err)
+	}
+	if st.sessions["mer-orch"].IsTerminated {
+		t.Fatal("session must remain active when work preservation fails")
+	}
+	if rt.destroyed != 0 {
+		t.Fatalf("runtime destroyed = %d, want 0", rt.destroyed)
+	}
+	for _, call := range ws.calls {
+		if call == "ForceDestroy:mer-orch" {
+			t.Fatalf("ForceDestroy must not run after preserve failure; calls=%v", ws.calls)
+		}
+	}
+}
+
 func TestRetireForReplacementWorkspaceProjectCapturesAndReleasesEveryRepo(t *testing.T) {
 	m, st, rt, ws := newLifecycleManager()
 	var sharedLog []string

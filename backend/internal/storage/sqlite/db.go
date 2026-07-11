@@ -35,6 +35,10 @@ const pragmas = "?_pragma=journal_mode(WAL)" +
 	"&_pragma=foreign_keys(ON)" +
 	"&_pragma=synchronous(NORMAL)"
 
+const readOnlyPragmas = "?mode=ro" +
+	"&_pragma=busy_timeout(5000)" +
+	"&_pragma=foreign_keys(ON)"
+
 // maxReaders caps the reader pool. WAL allows many concurrent readers.
 const maxReaders = 8
 
@@ -73,6 +77,38 @@ func Open(dataDir string) (*Store, error) {
 	}
 	readDB.SetMaxOpenConns(maxReaders)
 	readDB.SetMaxIdleConns(maxReaders)
+
+	return sqlitestore.NewStore(writeDB, readDB), nil
+}
+
+// OpenReadOnly opens an existing SQLite database under dataDir without creating
+// the directory, opening a writable connection, or running migrations.
+func OpenReadOnly(dataDir string) (*Store, error) {
+	dsn := "file:" + filepath.Join(dataDir, "ao.db") + readOnlyPragmas
+
+	writeDB, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("open sqlite read-only writer: %w", err)
+	}
+	writeDB.SetMaxOpenConns(1)
+	writeDB.SetMaxIdleConns(1)
+	if err := writeDB.Ping(); err != nil {
+		_ = writeDB.Close()
+		return nil, fmt.Errorf("open sqlite read-only writer: %w", err)
+	}
+
+	readDB, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		_ = writeDB.Close()
+		return nil, fmt.Errorf("open sqlite read-only reader: %w", err)
+	}
+	readDB.SetMaxOpenConns(maxReaders)
+	readDB.SetMaxIdleConns(maxReaders)
+	if err := readDB.Ping(); err != nil {
+		_ = readDB.Close()
+		_ = writeDB.Close()
+		return nil, fmt.Errorf("open sqlite read-only reader: %w", err)
+	}
 
 	return sqlitestore.NewStore(writeDB, readDB), nil
 }

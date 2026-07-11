@@ -13,6 +13,7 @@ import (
 
 	"github.com/aoagents/agent-orchestrator/backend/internal/config"
 	"github.com/aoagents/agent-orchestrator/backend/internal/devimport"
+	"github.com/aoagents/agent-orchestrator/backend/internal/domain"
 	"github.com/aoagents/agent-orchestrator/backend/internal/runfile"
 	"github.com/aoagents/agent-orchestrator/backend/internal/storage/sqlite"
 )
@@ -99,23 +100,60 @@ func (c *commandContext) runDevImportProjects(cmd *cobra.Command, opts devImport
 }
 
 func (c *commandContext) executeDevImportProjects(ctx context.Context, sourceDataDir, targetDataDir string, dryRun bool) (devimport.Report, error) {
-	source, err := sqlite.Open(sourceDataDir)
+	source, err := sqlite.OpenReadOnly(sourceDataDir)
 	if err != nil {
 		return devimport.Report{}, fmt.Errorf("open source store: %w", err)
 	}
 	defer func() { _ = source.Close() }()
 
-	target, err := sqlite.Open(targetDataDir)
+	target, closeTarget, err := openDevImportTarget(targetDataDir, dryRun)
 	if err != nil {
 		return devimport.Report{}, fmt.Errorf("open target store: %w", err)
 	}
-	defer func() { _ = target.Close() }()
+	defer closeTarget()
 
 	return devimport.Run(ctx, source, target, devimport.Options{
 		SourceDataDir: sourceDataDir,
 		TargetDataDir: targetDataDir,
 		DryRun:        dryRun,
 	})
+}
+
+func openDevImportTarget(targetDataDir string, dryRun bool) (devimport.Store, func(), error) {
+	if !dryRun {
+		target, err := sqlite.Open(targetDataDir)
+		if err != nil {
+			return nil, func() {}, err
+		}
+		return target, func() { _ = target.Close() }, nil
+	}
+
+	if _, err := os.Stat(filepath.Join(targetDataDir, "ao.db")); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return emptyDevImportStore{}, func() {}, nil
+		}
+		return nil, func() {}, err
+	}
+
+	target, err := sqlite.OpenReadOnly(targetDataDir)
+	if err != nil {
+		return nil, func() {}, err
+	}
+	return target, func() { _ = target.Close() }, nil
+}
+
+type emptyDevImportStore struct{}
+
+func (emptyDevImportStore) ListProjects(context.Context) ([]domain.ProjectRecord, error) {
+	return nil, nil
+}
+
+func (emptyDevImportStore) ListWorkspaceRepos(context.Context, string) ([]domain.WorkspaceRepoRecord, error) {
+	return nil, nil
+}
+
+func (emptyDevImportStore) UpsertWorkspaceProject(context.Context, domain.ProjectRecord, []domain.WorkspaceRepoRecord) error {
+	return errors.New("empty dev import store is read-only")
 }
 
 func writeDevImportProjectsSummary(w io.Writer, rep devimport.Report) error {

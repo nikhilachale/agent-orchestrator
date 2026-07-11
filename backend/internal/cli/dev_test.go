@@ -42,6 +42,36 @@ func TestDevImportProjectsDryRunWritesNothing(t *testing.T) {
 	}
 }
 
+func TestDevImportProjectsDryRunDoesNotCreateMissingTarget(t *testing.T) {
+	cfg := setConfigEnv(t)
+	sourceDir := filepath.Join(t.TempDir(), "source")
+	writeDevImportProject(t, sourceDir, "alpha", "/repos/alpha")
+
+	out, _, err := executeCLI(t, Deps{}, "dev", "import-projects", "--from-data-dir", sourceDir, "--dry-run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "Inserted: 1") {
+		t.Fatalf("out = %q, want planned insert", out)
+	}
+	if _, err := os.Stat(cfg.dataDir); !os.IsNotExist(err) {
+		t.Fatalf("target data dir stat err = %v, want not exist", err)
+	}
+}
+
+func TestDevImportProjectsReadOnlySourceDoesNotCreateMissingSource(t *testing.T) {
+	setConfigEnv(t)
+	sourceDir := filepath.Join(t.TempDir(), "missing-source")
+
+	_, _, err := executeCLI(t, Deps{}, "dev", "import-projects", "--from-data-dir", sourceDir, "--dry-run")
+	if err == nil || !strings.Contains(err.Error(), "open source store") {
+		t.Fatalf("err = %v, want source open failure", err)
+	}
+	if _, err := os.Stat(sourceDir); !os.IsNotExist(err) {
+		t.Fatalf("source data dir stat err = %v, want not exist", err)
+	}
+}
+
 func TestDevImportProjectsJSON(t *testing.T) {
 	setConfigEnv(t)
 	sourceDir := filepath.Join(t.TempDir(), "source")

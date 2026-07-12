@@ -80,7 +80,7 @@ func (p *Plugin) GetLaunchCommand(ctx context.Context, cfg ports.LaunchConfig) (
 
 	cmd = []string{binary, "chat"}
 	if (cfg.SystemPrompt != "" || cfg.SystemPromptFile != "") && strings.TrimSpace(cfg.WorkspacePath) != "" {
-		if _, err := kiroAgentFlag(cfg.SystemPrompt, cfg.SystemPromptFile, cfg.WorkspacePath); err != nil {
+		if err := kiroAgentFlag(cfg.SystemPrompt, cfg.SystemPromptFile, cfg.WorkspacePath); err != nil {
 			return nil, err
 		}
 	}
@@ -151,7 +151,7 @@ func (p *Plugin) GetRestoreCommand(ctx context.Context, cfg ports.RestoreConfig)
 	cmd = make([]string, 0, 8)
 	cmd = append(cmd, binary, "chat")
 	if (cfg.SystemPrompt != "" || cfg.SystemPromptFile != "") && strings.TrimSpace(cfg.Session.WorkspacePath) != "" {
-		if _, err := kiroAgentFlag(cfg.SystemPrompt, cfg.SystemPromptFile, cfg.Session.WorkspacePath); err != nil {
+		if err := kiroAgentFlag(cfg.SystemPrompt, cfg.SystemPromptFile, cfg.Session.WorkspacePath); err != nil {
 			return nil, false, err
 		}
 	}
@@ -186,14 +186,12 @@ var kiroBinarySpec = binaryutil.BinarySpec{
 	},
 }
 
-const kiroPromptAgentName = "ao"
-
-func kiroAgentFlag(inlinePrompt, promptFile, workspacePath string) (string, error) {
+func kiroAgentFlag(inlinePrompt, promptFile, workspacePath string) error {
 	if inlinePrompt == "" && promptFile == "" {
-		return "", nil
+		return nil
 	}
 	if strings.TrimSpace(workspacePath) == "" {
-		return "", fmt.Errorf("kiro: workspace path required to build agent config")
+		return fmt.Errorf("kiro: workspace path required to build agent config")
 	}
 	prompt := inlinePrompt
 	if prompt == "" {
@@ -202,12 +200,12 @@ func kiroAgentFlag(inlinePrompt, promptFile, workspacePath string) (string, erro
 	agentPath := kiroAgentPath(workspacePath)
 	topLevel, rawHooks, err := readKiroHooks(agentPath)
 	if err != nil {
-		return "", err
+		return err
 	}
 	if err := writeKiroHooks(agentPath, topLevel, rawHooks, prompt, promptFile, ports.AgentConfig{}); err != nil {
-		return "", err
+		return err
 	}
-	return kiroPromptAgentName, nil
+	return nil
 }
 
 // ResolveKiroBinary returns the path to the kiro-cli binary on this machine,

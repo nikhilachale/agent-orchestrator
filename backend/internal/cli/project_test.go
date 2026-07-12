@@ -249,7 +249,7 @@ func TestProjectSetConfig_RulesFlags(t *testing.T) {
 		t.Fatalf("request = %s %s, want PUT /api/v1/projects/demo/config", capture.method, capture.path)
 	}
 	var got setConfigRequest
-	if err := json.Unmarshal([]byte(capture.body), &got); err != nil {
+	if err := json.Unmarshal(capture.body, &got); err != nil {
 		t.Fatalf("decode request body: %v\nbody=%s", err, capture.body)
 	}
 	if got.Config.AgentRules != "Run tests." || got.Config.AgentRulesFile != "docs/rules.md" || got.Config.OrchestratorRules != "Delegate." {

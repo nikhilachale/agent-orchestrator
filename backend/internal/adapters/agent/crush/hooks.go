@@ -190,7 +190,7 @@ func readCrushConfig(path string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(strings.TrimSpace(string(data))) == 0 {
+	if strings.TrimSpace(string(data)) == "" {
 		return map[string]any{}, nil
 	}
 	var cfg map[string]any

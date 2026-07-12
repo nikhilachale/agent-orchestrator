@@ -83,11 +83,11 @@ func ampSystemPromptPluginSource(inline, file string) string {
 	b.WriteString("import type { PluginAPI } from \"@ampcode/plugin\";\n")
 	b.WriteString("import { readFile } from \"node:fs/promises\";\n\n")
 	b.WriteString("const systemPromptFile = ")
-	b.WriteString(fmt.Sprintf("%q", file))
+	fmt.Fprintf(&b, "%q", file)
 	b.WriteString(";\n")
 	b.WriteString("const inlineSystemPrompt = ")
 	if file == "" {
-		b.WriteString(fmt.Sprintf("%q", inline))
+		fmt.Fprintf(&b, "%q", inline)
 	} else {
 		b.WriteString("\"\"")
 	}

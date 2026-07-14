@@ -34,8 +34,6 @@ const (
 	cursorHookCommandPrefix = "ao hooks cursor "
 )
 
-var cursorUserHomeDir = os.UserHomeDir
-
 // cursorHookFile is the on-disk shape of .cursor/hooks.json. It is used by tests
 // to decode the written file. Cursor keys hooks by camelCase native event name;
 // each value is an array of objects carrying a "command" string.
@@ -243,7 +241,7 @@ func ensureCursorWorkspaceTrusted(cfg ports.WorkspaceHookConfig) error {
 	trust := cursorWorkspaceTrust{
 		TrustedAt:     time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
 		WorkspacePath: absWorkspace,
-		TrustMethod:   "cli-flag",
+		TrustMethod:   "ao-session",
 		AOManaged:     true,
 	}
 	data, err := json.MarshalIndent(trust, "", "  ")
@@ -255,7 +253,7 @@ func ensureCursorWorkspaceTrusted(cfg ports.WorkspaceHookConfig) error {
 	if err := os.MkdirAll(filepath.Dir(trustPath), 0o750); err != nil {
 		return fmt.Errorf("create trust dir: %w", err)
 	}
-	if err := os.WriteFile(trustPath, data, 0o644); err != nil { //nolint:gosec // Cursor trust path is derived from the caller-owned workspace path.
+	if err := os.WriteFile(trustPath, data, 0o644); err != nil { //nolint:gosec // Cursor trust path is derived from AO-owned Cursor data dir plus workspace path.
 		return fmt.Errorf("write %s: %w", trustPath, err)
 	}
 	return nil
@@ -364,11 +362,10 @@ func cursorWorkspaceTrustBase(cfg ports.WorkspaceHookConfig) (string, error) {
 	if override := strings.TrimSpace(cfg.Env[cursorDataDirEnv]); override != "" {
 		return override, nil
 	}
-	home, err := cursorUserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("resolve home: %w", err)
+	if strings.TrimSpace(cfg.DataDir) != "" {
+		return CursorDataDir(cfg.DataDir), nil
 	}
-	return filepath.Join(home, ".cursor"), nil
+	return "", errors.New("AO data dir is required for Cursor workspace trust")
 }
 
 func cursorWorkspaceTrustPath(base, workspacePath string) string {

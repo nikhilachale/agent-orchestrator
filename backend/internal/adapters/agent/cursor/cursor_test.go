@@ -275,7 +275,6 @@ func TestContextCancellationPerMethod(t *testing.T) {
 }
 
 func TestGetAgentHooksInstallsCursorHooks(t *testing.T) {
-	home := isolateCursorHome(t)
 	plugin := &Plugin{resolvedBinary: "cursor-agent"}
 	workspace := t.TempDir()
 	hooksDir := filepath.Join(workspace, ".cursor")
@@ -330,7 +329,7 @@ func TestGetAgentHooksInstallsCursorHooks(t *testing.T) {
 	if !strings.Contains(string(data), "keep me") {
 		t.Fatalf("unmanaged field 'customField' was dropped: %s", data)
 	}
-	trustPath := cursorWorkspaceTrustPath(filepath.Join(home, ".cursor"), workspace)
+	trustPath := cursorWorkspaceTrustPath(CursorDataDir(cfg.DataDir), workspace)
 	trustData, err := os.ReadFile(trustPath)
 	if err != nil {
 		t.Fatalf("read trust marker: %v", err)
@@ -342,8 +341,8 @@ func TestGetAgentHooksInstallsCursorHooks(t *testing.T) {
 	if trust.WorkspacePath != workspace {
 		t.Fatalf("trust workspacePath = %q, want %q", trust.WorkspacePath, workspace)
 	}
-	if trust.TrustMethod != "cli-flag" {
-		t.Fatalf("trustMethod = %q, want cli-flag", trust.TrustMethod)
+	if trust.TrustMethod != "ao-session" {
+		t.Fatalf("trustMethod = %q, want ao-session", trust.TrustMethod)
 	}
 	if trust.TrustedAt == "" {
 		t.Fatal("trustedAt is empty")
@@ -354,21 +353,28 @@ func TestGetAgentHooksInstallsCursorHooks(t *testing.T) {
 }
 
 func TestGetAgentHooksTrustSeedIsBestEffort(t *testing.T) {
-	original := cursorUserHomeDir
-	cursorUserHomeDir = func() (string, error) { return "", errors.New("no home") }
-	t.Cleanup(func() { cursorUserHomeDir = original })
-
 	plugin := &Plugin{resolvedBinary: "cursor-agent"}
 	if err := plugin.GetAgentHooks(context.Background(), ports.WorkspaceHookConfig{WorkspacePath: t.TempDir()}); err != nil {
 		t.Fatalf("GetAgentHooks returned trust seed error; want best-effort nil: %v", err)
 	}
 }
 
+func TestAugmentRuntimeEnvUsesAODataDir(t *testing.T) {
+	plugin := &Plugin{resolvedBinary: "cursor-agent"}
+	env := map[string]string{cursorDataDirEnv: "/outside-ao"}
+	dataDir := t.TempDir()
+
+	plugin.AugmentRuntimeEnv(env, dataDir)
+
+	if got, want := env[cursorDataDirEnv], CursorDataDir(dataDir); got != want {
+		t.Fatalf("%s = %q, want %q", cursorDataDirEnv, got, want)
+	}
+}
+
 func TestGetAgentHooksUsesCursorDataDirOverride(t *testing.T) {
-	isolateCursorHome(t)
 	plugin := &Plugin{resolvedBinary: "cursor-agent"}
 	workspace := t.TempDir()
-	cursorDataDir := t.TempDir()
+	cursorDataDir := CursorDataDir(t.TempDir())
 	aoDataDir := t.TempDir()
 
 	cfg := ports.WorkspaceHookConfig{
@@ -392,11 +398,10 @@ func TestGetAgentHooksUsesCursorDataDirOverride(t *testing.T) {
 }
 
 func TestCleanupWorkspaceUsesRecordedTrustPathWhenEnvChanges(t *testing.T) {
-	isolateCursorHome(t)
 	plugin := &Plugin{resolvedBinary: "cursor-agent"}
 	workspace := t.TempDir()
-	originalCursorDataDir := t.TempDir()
-	newCursorDataDir := t.TempDir()
+	originalCursorDataDir := CursorDataDir(t.TempDir())
+	newCursorDataDir := CursorDataDir(t.TempDir())
 	aoDataDir := t.TempDir()
 
 	installCfg := ports.WorkspaceHookConfig{
@@ -427,11 +432,10 @@ func TestCleanupWorkspaceUsesRecordedTrustPathWhenEnvChanges(t *testing.T) {
 }
 
 func TestCleanupWorkspaceRemovesOnlyAOManagedTrustMarker(t *testing.T) {
-	home := isolateCursorHome(t)
 	plugin := &Plugin{resolvedBinary: "cursor-agent"}
 	workspace := t.TempDir()
-	cfg := ports.WorkspaceHookConfig{SessionID: "sess-1", WorkspacePath: workspace}
-	trustPath := cursorWorkspaceTrustPath(filepath.Join(home, ".cursor"), workspace)
+	cfg := ports.WorkspaceHookConfig{DataDir: t.TempDir(), SessionID: "sess-1", WorkspacePath: workspace}
+	trustPath := cursorWorkspaceTrustPath(CursorDataDir(cfg.DataDir), workspace)
 
 	if err := plugin.GetAgentHooks(context.Background(), cfg); err != nil {
 		t.Fatal(err)
@@ -467,7 +471,6 @@ func TestCleanupWorkspaceRemovesOnlyAOManagedTrustMarker(t *testing.T) {
 }
 
 func TestUninstallHooksRemovesOnlyAOHooks(t *testing.T) {
-	isolateCursorHome(t)
 	plugin := &Plugin{resolvedBinary: "cursor-agent"}
 	workspace := t.TempDir()
 	hooksPath := filepath.Join(workspace, ".cursor", "hooks.json")
@@ -559,15 +562,6 @@ func TestCursorWorkspaceProjectName(t *testing.T) {
 			t.Fatalf("project name for %q = %q, want %q", tt.path, got, tt.want)
 		}
 	}
-}
-
-func isolateCursorHome(t *testing.T) string {
-	t.Helper()
-	home := t.TempDir()
-	original := cursorUserHomeDir
-	cursorUserHomeDir = func() (string, error) { return home, nil }
-	t.Cleanup(func() { cursorUserHomeDir = original })
-	return home
 }
 
 func contains(values []string, needle string) bool {

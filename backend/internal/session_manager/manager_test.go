@@ -305,6 +305,25 @@ func (a *cleaningAgent) CleanupWorkspace(_ context.Context, cfg ports.WorkspaceH
 	return nil
 }
 
+type hookErrorCleaningAgent struct {
+	cleaningAgent
+	hookErr error
+}
+
+func (a *hookErrorCleaningAgent) GetAgentHooks(context.Context, ports.WorkspaceHookConfig) error {
+	return a.hookErr
+}
+
+type envAugmentingAgent struct {
+	fakeAgent
+	key   string
+	value string
+}
+
+func (a envAugmentingAgent) AugmentRuntimeEnv(env map[string]string, dataDir string) {
+	env[a.key] = filepath.Join(dataDir, a.value)
+}
+
 // alwaysResumeAgent mimics Claude Code: it pins a deterministic session id, so
 // GetRestoreCommand can resume any session even with no captured agentSessionId
 // and no prompt.
@@ -924,6 +943,69 @@ func TestSpawn_RuntimeFailureCleansAgentWorkspaceAfterDestroy(t *testing.T) {
 	}
 	if rec, present := st.sessions["mer-1"]; present {
 		t.Fatalf("seed row must be deleted after cleanup, got %+v", rec)
+	}
+}
+
+func TestSpawn_PrepareFailureCleansAgentWorkspaceState(t *testing.T) {
+	st := newFakeStore()
+	st.projects["mer"] = domain.ProjectRecord{ID: "mer", Config: testRoleAgents()}
+	ws := &fakeWorkspace{path: "/ws/mer-1"}
+	agent := &hookErrorCleaningAgent{hookErr: errors.New("hooks failed")}
+	m := New(Deps{
+		Runtime:    &fakeRuntime{},
+		Agents:     singleAgent{agent: agent},
+		Workspace:  ws,
+		Store:      st,
+		Messenger:  &fakeMessenger{},
+		Lifecycle:  &fakeLCM{store: st},
+		DataDir:    "/ao/data",
+		LookPath:   func(string) (string, error) { return "/bin/true", nil },
+		Executable: func() (string, error) { return "/daemon/ao", nil },
+	})
+
+	if _, err := m.Spawn(ctx, ports.SpawnConfig{ProjectID: "mer", Kind: domain.KindWorker}); err == nil || !strings.Contains(err.Error(), "install hooks") {
+		t.Fatalf("Spawn err = %v, want install hooks failure", err)
+	}
+	if agent.cleanupCalls != 1 {
+		t.Fatalf("agent cleanup calls = %d, want 1", agent.cleanupCalls)
+	}
+	cleanup := agent.cleanupConfigs[0]
+	if cleanup.WorkspacePath != "/ws/mer-1" {
+		t.Fatalf("cleanup workspace path = %q, want /ws/mer-1", cleanup.WorkspacePath)
+	}
+	if cleanup.DataDir != "/ao/data" {
+		t.Fatalf("cleanup data dir = %q, want /ao/data", cleanup.DataDir)
+	}
+	if ws.destroyed != 1 {
+		t.Fatalf("workspace destroy calls = %d, want 1", ws.destroyed)
+	}
+	if rec, present := st.sessions["mer-1"]; present {
+		t.Fatalf("seed row must be deleted after cleanup, got %+v", rec)
+	}
+}
+
+func TestSpawn_AgentRuntimeEnvAugmenterReachesRuntime(t *testing.T) {
+	st := newFakeStore()
+	st.projects["mer"] = domain.ProjectRecord{ID: "mer", Config: testRoleAgents()}
+	rt := &fakeRuntime{}
+	agent := envAugmentingAgent{key: "AGENT_DATA_DIR", value: "agent"}
+	m := New(Deps{
+		Runtime:    rt,
+		Agents:     singleAgent{agent: agent},
+		Workspace:  &fakeWorkspace{path: "/ws/mer-1"},
+		Store:      st,
+		Messenger:  &fakeMessenger{},
+		Lifecycle:  &fakeLCM{store: st},
+		DataDir:    "/ao/data",
+		LookPath:   func(string) (string, error) { return "/bin/true", nil },
+		Executable: func() (string, error) { return "/daemon/ao", nil },
+	})
+
+	if _, err := m.Spawn(ctx, ports.SpawnConfig{ProjectID: "mer", Kind: domain.KindWorker}); err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+	if got, want := rt.lastCfg.Env["AGENT_DATA_DIR"], filepath.Join("/ao/data", "agent"); got != want {
+		t.Fatalf("runtime env AGENT_DATA_DIR = %q, want %q", got, want)
 	}
 }
 

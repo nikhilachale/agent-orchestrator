@@ -258,6 +258,7 @@ func (m *Manager) Spawn(ctx context.Context, cfg ports.SpawnConfig) (domain.Sess
 	}
 	agentConfig := effectiveAgentConfig(cfg.Kind, project.Config)
 	env := m.runtimeEnv(id, cfg.ProjectID, cfg.IssueID, project.Config.Env)
+	m.augmentAgentRuntimeEnv(agent, env)
 	if err := m.prepareWorkspace(ctx, agent, id, ws.Path, systemPrompt, agentConfig, env); err != nil {
 		m.destroySpawnWorkspace(ctx, ws, workspaceProject)
 		m.rollbackSpawnSeedRow(ctx, id)
@@ -751,6 +752,7 @@ func (m *Manager) relaunchRestoredSession(ctx context.Context, rec domain.Sessio
 	// model/permissions carry across a restore, matching fresh spawn.
 	agentConfig := effectiveAgentConfig(rec.Kind, project.Config)
 	env := m.runtimeEnv(rec.ID, rec.ProjectID, rec.IssueID, project.Config.Env)
+	m.augmentAgentRuntimeEnv(agent, env)
 	if err := m.prepareWorkspace(ctx, agent, rec.ID, ws.Path, systemPrompt, agentConfig, env); err != nil {
 		return domain.SessionRecord{}, fmt.Errorf("restore %s: %w", rec.ID, err)
 	}
@@ -1875,6 +1877,16 @@ type workspaceCleaner interface {
 	CleanupWorkspace(ctx context.Context, cfg ports.WorkspaceHookConfig) error
 }
 
+type runtimeEnvAugmenter interface {
+	AugmentRuntimeEnv(env map[string]string, dataDir string)
+}
+
+func (m *Manager) augmentAgentRuntimeEnv(agent ports.Agent, env map[string]string) {
+	if augmenter, ok := agent.(runtimeEnvAugmenter); ok {
+		augmenter.AugmentRuntimeEnv(env, m.dataDir)
+	}
+}
+
 // prepareWorkspace runs the per-session pre-launch steps before the runtime
 // starts the agent: installing the workspace-local activity hooks (so early
 // startup hooks can update the already-created session row), then any optional
@@ -1888,14 +1900,32 @@ func (m *Manager) prepareWorkspace(ctx context.Context, agent ports.Agent, id do
 		SystemPrompt:  systemPrompt,
 		Config:        agentConfig,
 	}); err != nil {
+		m.cleanupPreparedAgentWorkspace(ctx, agent, id, workspacePath, env)
 		return fmt.Errorf("install hooks: %w", err)
 	}
 	if pl, ok := agent.(preLauncher); ok {
 		if err := pl.PreLaunch(ctx, ports.LaunchConfig{DataDir: m.dataDir, SessionID: string(id), WorkspacePath: workspacePath}); err != nil {
+			m.cleanupPreparedAgentWorkspace(ctx, agent, id, workspacePath, env)
 			return fmt.Errorf("pre-launch: %w", err)
 		}
 	}
 	return nil
+}
+
+func (m *Manager) cleanupPreparedAgentWorkspace(ctx context.Context, agent ports.Agent, id domain.SessionID, workspacePath string, env map[string]string) {
+	cleaner, ok := agent.(workspaceCleaner)
+	if !ok {
+		return
+	}
+	if err := cleaner.CleanupWorkspace(ctx, ports.WorkspaceHookConfig{
+		SessionID:     string(id),
+		WorkspacePath: workspacePath,
+		DataDir:       m.dataDir,
+		Env:           env,
+	}); err != nil {
+		m.logger.Warn("session prepare rollback: failed to clean agent workspace state",
+			"session", id, "workspacePath", workspacePath, "error", err)
+	}
 }
 
 func (m *Manager) cleanupAgentWorkspace(ctx context.Context, rec domain.SessionRecord, workspacePath string) {

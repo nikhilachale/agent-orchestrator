@@ -22,6 +22,7 @@ export type CreateProjectAgentSelection = {
 };
 
 const EMPTY_INTAKE: IntakeForm = { enabled: false, repo: "", assignee: "" };
+const DEFAULT_AGENT_PRIORITY = ["claude-code", "codex", "cursor", "opencode", "aider"] as const;
 
 type CreateProjectAgentSheetProps = {
 	error?: string | null;
@@ -117,6 +118,13 @@ export function CreateProjectAgentSheet({
 	const intakeIncomplete = intakeNeedsRule(intake);
 	const canSubmit = workerAgent !== "" && orchestratorAgent !== "" && !intakeIncomplete && !isBusy && !isLoadingAgents;
 	const sheetError = error ? projectSheetError(error) : null;
+
+	useEffect(() => {
+		if (!open || agentOptions.length === 0) return;
+		const defaultAgent = defaultAuthorizedAgent(agentOptions);
+		setWorkerAgent((current) => current || defaultAgent);
+		setOrchestratorAgent((current) => current || defaultAgent);
+	}, [agentOptions, open]);
 
 	useEffect(() => {
 		if (!open) {
@@ -353,3 +361,8 @@ export const RequiredAgentField = memo(function RequiredAgentField({
 		</div>
 	);
 });
+
+export function defaultAuthorizedAgent(authorizedAgents: AgentInfo[]): string {
+	const authorizedIds = new Set(authorizedAgents.map((agent) => agent.id));
+	return DEFAULT_AGENT_PRIORITY.find((agent) => authorizedIds.has(agent)) ?? authorizedAgents[0]?.id ?? "";
+}

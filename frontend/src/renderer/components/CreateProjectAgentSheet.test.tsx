@@ -51,8 +51,13 @@ describe("CreateProjectAgentSheet", () => {
 		).toBe("codex");
 	});
 
-	it("falls back to the first authorized agent when no priority agent is authorized", () => {
-		expect(defaultAuthorizedAgent([{ id: "goose", label: "Goose", authStatus: "authorized" }])).toBe("goose");
+	it("falls back to the alphabetically first authorized agent when no priority agent is authorized", () => {
+		expect(
+			defaultAuthorizedAgent([
+				{ id: "goose", label: "Goose", authStatus: "authorized" },
+				{ id: "devin", label: "Devin", authStatus: "authorized" },
+			]),
+		).toBe("devin");
 	});
 
 	it("uses the compact trigger size for agent fields", () => {

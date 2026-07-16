@@ -297,6 +297,65 @@ describe("Sidebar", () => {
 		);
 	});
 
+	it("prioritizes authorized project agents by preferred agent order", async () => {
+		const user = userEvent.setup();
+		const onCreateProject = vi.fn().mockResolvedValue(undefined) as CreateProjectHandler;
+		window.ao!.app.chooseDirectory = vi.fn().mockResolvedValue("/repo/new-project");
+		getMock.mockResolvedValueOnce({
+			data: {
+				supported: [
+					{ id: "goose", label: "Goose" },
+					{ id: "devin", label: "Devin" },
+					{ id: "aider", label: "Aider" },
+					{ id: "opencode", label: "OpenCode" },
+					{ id: "cursor", label: "Cursor" },
+				],
+				installed: [
+					{ id: "goose", label: "Goose", authStatus: "authorized" },
+					{ id: "devin", label: "Devin", authStatus: "authorized" },
+					{ id: "aider", label: "Aider", authStatus: "authorized" },
+					{ id: "opencode", label: "OpenCode", authStatus: "authorized" },
+					{ id: "cursor", label: "Cursor", authStatus: "authorized" },
+				],
+				authorized: [
+					{ id: "goose", label: "Goose", authStatus: "authorized" },
+					{ id: "devin", label: "Devin", authStatus: "authorized" },
+					{ id: "aider", label: "Aider", authStatus: "authorized" },
+					{ id: "opencode", label: "OpenCode", authStatus: "authorized" },
+					{ id: "cursor", label: "Cursor", authStatus: "authorized" },
+				],
+			},
+			error: undefined,
+		});
+		renderSidebar({ onCreateProject, seedAgents: false });
+
+		await user.click(screen.getByLabelText("New project"));
+		await user.click(screen.getByRole("button", { name: /^Project/i }));
+		expect(await screen.findByText("/repo/new-project")).toBeInTheDocument();
+		expect(screen.getByRole("combobox", { name: "Worker agent" })).toHaveTextContent(/cursor/i);
+		expect(screen.getByRole("combobox", { name: "Orchestrator agent" })).toHaveTextContent(/cursor/i);
+
+		await user.click(screen.getByRole("combobox", { name: "Worker agent" }));
+		expect((await screen.findAllByRole("option")).map((option) => option.textContent)).toEqual([
+			"Cursor",
+			"OpenCode",
+			"Aider",
+			"Devin",
+			"Goose",
+		]);
+		await user.keyboard("{Escape}");
+
+		await user.click(screen.getByRole("button", { name: "Create and start" }));
+		await waitFor(() =>
+			expect(onCreateProject).toHaveBeenCalledWith(
+				expect.objectContaining({
+					workerAgent: "cursor",
+					orchestratorAgent: "cursor",
+				}),
+			),
+		);
+	});
+
 	it("explains Git setup before creating a non-git project", async () => {
 		const onCreateProject = vi.fn().mockResolvedValue(undefined) as CreateProjectHandler;
 		const onInitializeProject = vi.fn().mockResolvedValue(undefined) as InitializeProjectHandler;

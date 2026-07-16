@@ -37,6 +37,20 @@ function errorMessage(error: unknown) {
 	return error instanceof Error ? error.message : "Could not load projects";
 }
 
+type CreateProjectConfigInput = {
+	workerAgent: string;
+	orchestratorAgent: string;
+	trackerIntake?: components["schemas"]["TrackerIntakeConfig"];
+};
+
+export function createProjectConfig(input: CreateProjectConfigInput): components["schemas"]["ProjectConfig"] {
+	return {
+		worker: { agent: input.workerAgent as components["schemas"]["RoleOverride"]["agent"] },
+		orchestrator: { agent: input.orchestratorAgent as components["schemas"]["RoleOverride"]["agent"] },
+		...(input.trackerIntake ? { trackerIntake: input.trackerIntake } : {}),
+	};
+}
+
 const isLinux =
 	typeof navigator !== "undefined" &&
 	((navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? navigator.platform)
@@ -94,7 +108,7 @@ function ShellLayout() {
 				body: {
 					path: input.path,
 					asWorkspace: input.asWorkspace || undefined,
-					config: input.trackerIntake ? { trackerIntake: input.trackerIntake } : undefined,
+					config: createProjectConfig(input),
 				},
 			});
 			if (error) {

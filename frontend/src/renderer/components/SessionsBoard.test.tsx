@@ -91,6 +91,12 @@ describe("SessionsBoard", () => {
 
 		await userEvent.click(screen.getByRole("button", { name: /done \/ terminated/i }));
 
+		expect(screen.getByText("dead worker")).toBeInTheDocument();
+		expect(screen.getByText("Terminated")).toBeInTheDocument();
+		expect(screen.getByText("Claude")).toBeInTheDocument();
+		expect(screen.getByText("ao/dead-worker")).toBeInTheDocument();
+		expect(screen.getByText("github:INT-17")).toBeInTheDocument();
+		expect(screen.getByLabelText("#42 merged")).toHaveTextContent("PR#42merged");
 		expect(screen.getByRole("button", { name: "Restore dead worker" })).toBeInTheDocument();
 	});
 
@@ -134,7 +140,7 @@ describe("SessionsBoard", () => {
 		expect(await screen.findByText("Session can no longer be restored")).toBeInTheDocument();
 	});
 
-	it("shows a compact row error when restore fails", async () => {
+	it("shows a card error when restore fails", async () => {
 		postMock.mockResolvedValueOnce({ error: { code: "RESTORE_FAILED", message: "boom" } });
 		workspaceQueryMock.mockReturnValue({
 			data: [workspaceWithSessions([terminatedSession()])],
@@ -183,11 +189,23 @@ function terminatedSession(): WorkspaceSession {
 		workspaceId: "p1",
 		workspaceName: "radic",
 		title: "dead worker",
+		issueId: "github:INT-17",
 		provider: "claude-code",
 		kind: "worker",
 		branch: "ao/dead-worker",
 		status: "terminated",
 		updatedAt: "2026-01-01T00:00:00Z",
-		prs: [],
+		prs: [
+			{
+				url: "https://github.com/example/radic/pull/42",
+				number: 42,
+				state: "merged",
+				ci: "passing",
+				review: "approved",
+				mergeability: "mergeable",
+				reviewComments: false,
+				updatedAt: "2026-01-01T00:00:00Z",
+			},
+		],
 	};
 }

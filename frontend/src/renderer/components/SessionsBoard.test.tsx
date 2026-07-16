@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkspaceSession, WorkspaceSummary } from "../types/workspace";
@@ -91,9 +91,7 @@ describe("SessionsBoard", () => {
 
 		await userEvent.click(screen.getByRole("button", { name: /done \/ terminated/i }));
 
-		const row = screen.getByText("dead worker").closest("div");
-		expect(row).not.toBeNull();
-		expect(within(row!).getByRole("button", { name: "Restore dead worker" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Restore dead worker" })).toBeInTheDocument();
 	});
 
 	it("restores a terminated session, refreshes workspace data, and opens the restored terminal", async () => {
@@ -153,7 +151,7 @@ describe("SessionsBoard", () => {
 		expect(navigateMock).not.toHaveBeenCalled();
 	});
 
-	it("opens terminated session details from the title without restoring", async () => {
+	it("does not open or restore a terminated session from the card body", async () => {
 		workspaceQueryMock.mockReturnValue({
 			data: [workspaceWithSessions([terminatedSession()])],
 			isError: false,
@@ -163,13 +161,10 @@ describe("SessionsBoard", () => {
 		renderBoard("p1");
 
 		await userEvent.click(screen.getByRole("button", { name: /done \/ terminated/i }));
-		await userEvent.click(screen.getByRole("button", { name: "dead worker" }));
+		await userEvent.click(screen.getByText("dead worker"));
 
 		expect(postMock).not.toHaveBeenCalled();
-		expect(navigateMock).toHaveBeenCalledWith({
-			to: "/projects/$projectId/sessions/$sessionId",
-			params: { projectId: "p1", sessionId: "s-dead" },
-		});
+		expect(navigateMock).not.toHaveBeenCalled();
 	});
 });
 

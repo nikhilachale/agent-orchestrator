@@ -353,13 +353,14 @@ export function SessionsBoard({ projectId }: SessionsBoardProps) {
 											restoringSessionId === s.id && "opacity-100",
 										)}
 									/>
-									<button
-										className="relative z-10 min-w-0 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
-										onClick={() => openSession(s)}
-										type="button"
+									<div
+										className={cn(
+											"relative z-10 min-w-0 text-left text-xs text-muted-foreground",
+											s.status === "terminated" && "pr-6",
+										)}
 									>
 										<span className="line-clamp-1">{s.title}</span>
-									</button>
+									</div>
 									{s.status === "terminated" && (
 										<button
 											aria-label={`Restore ${s.title}`}

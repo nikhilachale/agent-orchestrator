@@ -87,6 +87,7 @@ type Service struct {
 	store               Store
 	prClaimer           ports.PRClaimer
 	scm                 scmProvider
+	tracker             ports.Tracker
 	clock               func() time.Time
 	dataDir             string
 	telemetry           ports.EventSink
@@ -112,6 +113,7 @@ type Deps struct {
 	Store     Store
 	PRClaimer ports.PRClaimer
 	SCM       scmProvider
+	Tracker   ports.Tracker
 	Clock     func() time.Time
 	DataDir   string
 	Telemetry ports.EventSink
@@ -123,7 +125,7 @@ type Deps struct {
 
 // NewWithDeps wires a session service with optional PR-claim dependencies.
 func NewWithDeps(d Deps) *Service {
-	s := &Service{manager: d.Manager, store: d.Store, prClaimer: d.PRClaimer, scm: d.SCM, clock: d.Clock, dataDir: d.DataDir, signalCapable: d.SignalCapable, telemetry: d.Telemetry}
+	s := &Service{manager: d.Manager, store: d.Store, prClaimer: d.PRClaimer, scm: d.SCM, tracker: d.Tracker, clock: d.Clock, dataDir: d.DataDir, signalCapable: d.SignalCapable, telemetry: d.Telemetry}
 	if s.prClaimer == nil {
 		if w, ok := d.Store.(ports.PRClaimer); ok {
 			s.prClaimer = w
@@ -146,6 +148,7 @@ func (s *Service) Spawn(ctx context.Context, cfg ports.SpawnConfig) (domain.Sess
 	if err != nil {
 		return domain.Session{}, fmt.Errorf("count sessions: %w", err)
 	}
+	cfg = s.withIssueContext(ctx, cfg, project)
 	rec, err := s.manager.Spawn(ctx, cfg)
 	if err != nil {
 		s.emitSpawnFailed(cfg, err, s.now().Sub(start).Milliseconds())
@@ -556,6 +559,9 @@ func toAPIError(err error) error {
 		return apierr.Conflict("SESSION_NOT_RESTORABLE", "Session is not restorable", nil)
 	case errors.Is(err, sessionmanager.ErrTerminated):
 		return apierr.Conflict("SESSION_TERMINATED", "Session is terminated", nil)
+	case errors.Is(err, sessionmanager.ErrAwaitingDecision):
+		return apierr.Conflict("SESSION_AWAITING_DECISION",
+			"Session is paused on a permission decision; answer it in the session terminal first", nil)
 	case errors.Is(err, sessionmanager.ErrIncompleteHandle):
 		return apierr.Conflict("SESSION_INCOMPLETE_HANDLE", "Session is missing runtime or workspace handles", nil)
 	case errors.Is(err, sessionmanager.ErrNotResumable):

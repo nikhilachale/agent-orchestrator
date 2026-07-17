@@ -7,6 +7,7 @@ import { OrchestratorReplacementDialog } from "../components/OrchestratorReplace
 import { Sidebar } from "../components/Sidebar";
 import { SidebarProvider } from "../components/ui/sidebar";
 import { TitlebarNav } from "../components/TitlebarNav";
+import { WindowTitlebar } from "../components/WindowTitlebar";
 import { agentsQueryKey, agentsQueryOptions, refreshAgents } from "../hooks/useAgentsQuery";
 import { useDaemonStatus } from "../hooks/useDaemonStatus";
 import { useWorkspaceQuery, workspaceQueryKey, workspaceQueryOptions } from "../hooks/useWorkspaceQuery";
@@ -17,7 +18,8 @@ import { ShellProvider } from "../lib/shell-context";
 import { spawnOrchestrator } from "../lib/spawn-orchestrator";
 import { restartProjectOrchestrator } from "../lib/restart-orchestrator";
 import { captureOrchestratorReplacementFailure } from "../lib/orchestrator-replacement-telemetry";
-import { readStoredTheme, type Theme, useUiStore } from "../stores/ui-store";
+import { applyDocumentTheme, readStoredTheme, systemTheme } from "../lib/theme";
+import { useUiStore } from "../stores/ui-store";
 import type { WorkspaceSummary } from "../types/workspace";
 import type { components } from "../../api/schema";
 
@@ -31,10 +33,6 @@ export const Route = createFileRoute("/_shell")({
 	},
 	component: ShellLayout,
 });
-
-function systemTheme(): Theme {
-	return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-}
 
 function errorMessage(error: unknown) {
 	return error instanceof Error ? error.message : "Could not load projects";
@@ -202,8 +200,7 @@ function ShellLayout() {
 	);
 
 	useEffect(() => {
-		document.documentElement.dataset.theme = theme;
-		document.documentElement.style.colorScheme = theme;
+		applyDocumentTheme(theme);
 	}, [theme]);
 
 	useEffect(() => {
@@ -252,6 +249,9 @@ function ShellLayout() {
           in the layout, not the screens, so the crumb and actions never shift
           when the outlet content swaps. */}
 			<div className="flex h-screen min-h-0 flex-col bg-background text-foreground">
+				{/* Windows-only custom title bar (logo + File/Edit/View/… menu); paints
+            the chrome the frameless window drops. Renders null on macOS/Linux. */}
+				<WindowTitlebar />
 				<ShellTopbar />
 				{/* Controlled by the ui-store so TitlebarNav / Topbar toggles (which
             call the store directly) stay in sync. --sidebar-width chains to
@@ -260,7 +260,12 @@ function ShellLayout() {
 					className="min-h-0 flex-1 overflow-x-hidden"
 					onOpenChange={(open) => open !== isSidebarOpen && toggleSidebar()}
 					open={isSidebarOpen}
-					style={{ "--sidebar-width": "var(--ao-sidebar-w, 240px)", "--sidebar-width-icon": "48px" } as CSSProperties}
+					style={
+						{
+							"--sidebar-width": "var(--ao-sidebar-w, var(--size-sidebar-default))",
+							"--sidebar-width-icon": "var(--size-sidebar-icon)",
+						} as CSSProperties
+					}
 				>
 					<Sidebar
 						daemonStatus={daemonStatus}

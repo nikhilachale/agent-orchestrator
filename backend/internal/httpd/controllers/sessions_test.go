@@ -20,6 +20,7 @@ import (
 	"github.com/aoagents/agent-orchestrator/backend/internal/httpd/apierr"
 	"github.com/aoagents/agent-orchestrator/backend/internal/ports"
 	sessionsvc "github.com/aoagents/agent-orchestrator/backend/internal/service/session"
+	sessionmanager "github.com/aoagents/agent-orchestrator/backend/internal/session_manager"
 )
 
 type fakeSessionService struct {
@@ -109,6 +110,11 @@ func (f *fakeSessionService) Restore(_ context.Context, id domain.SessionID) (do
 	s.Status = domain.StatusIdle
 	f.sessions[id] = s
 	return s, nil
+}
+
+func (f *fakeSessionService) RestoreWithMode(ctx context.Context, id domain.SessionID) (sessionsvc.RestoreResult, error) {
+	s, err := f.Restore(ctx, id)
+	return sessionsvc.RestoreResult{Session: s, Mode: sessionmanager.RestoreModeNativeResume}, err
 }
 
 func (f *fakeSessionService) Kill(_ context.Context, id domain.SessionID) (bool, error) {

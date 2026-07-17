@@ -2421,8 +2421,10 @@ func TestRestore_CodexWithoutAgentSessionIDFallsBackToSavedPrompt(t *testing.T) 
 		LookPath:  func(string) (string, error) { return "/bin/true", nil },
 	})
 
-	if _, err := m.Restore(ctx, "mer-1"); err != nil {
+	if _, mode, err := m.RestoreWithMode(ctx, "mer-1"); err != nil {
 		t.Fatalf("Restore err = %v, want fallback launch", err)
+	} else if mode != RestoreModePromptReplay {
+		t.Fatalf("restore mode = %q, want %q", mode, RestoreModePromptReplay)
 	}
 	if agent.restoreCalls != 1 {
 		t.Fatalf("GetRestoreCommand calls = %d, want 1", agent.restoreCalls)
@@ -2459,8 +2461,10 @@ func TestRestore_OpenCodeWithoutAgentSessionIDFallsBackToSavedPrompt(t *testing.
 		LookPath:  func(string) (string, error) { return "/bin/true", nil },
 	})
 
-	if _, err := m.Restore(ctx, "mer-1"); err != nil {
+	if _, mode, err := m.RestoreWithMode(ctx, "mer-1"); err != nil {
 		t.Fatalf("Restore err = %v, want fallback launch", err)
+	} else if mode != RestoreModePromptReplay {
+		t.Fatalf("restore mode = %q, want %q", mode, RestoreModePromptReplay)
 	}
 	if agent.restoreCalls != 1 {
 		t.Fatalf("GetRestoreCommand calls = %d, want 1", agent.restoreCalls)
@@ -2497,8 +2501,10 @@ func TestRestore_CursorWithoutAgentSessionIDFallsBackToSavedPrompt(t *testing.T)
 		LookPath:  func(string) (string, error) { return "/bin/true", nil },
 	})
 
-	if _, err := m.Restore(ctx, "mer-1"); err != nil {
+	if _, mode, err := m.RestoreWithMode(ctx, "mer-1"); err != nil {
 		t.Fatalf("Restore err = %v, want fallback launch", err)
+	} else if mode != RestoreModePromptReplay {
+		t.Fatalf("restore mode = %q, want %q", mode, RestoreModePromptReplay)
 	}
 	if agent.restoreCalls != 1 {
 		t.Fatalf("GetRestoreCommand calls = %d, want 1", agent.restoreCalls)
@@ -2535,8 +2541,10 @@ func TestRestore_CursorWithAgentSessionIDUsesNativeResume(t *testing.T) {
 		LookPath:  func(string) (string, error) { return "/bin/true", nil },
 	})
 
-	if _, err := m.Restore(ctx, "mer-1"); err != nil {
+	if _, mode, err := m.RestoreWithMode(ctx, "mer-1"); err != nil {
 		t.Fatalf("Restore err = %v, want native resume", err)
+	} else if mode != RestoreModeNativeResume {
+		t.Fatalf("restore mode = %q, want %q", mode, RestoreModeNativeResume)
 	}
 	if agent.restoreCalls != 1 {
 		t.Fatalf("GetRestoreCommand calls = %d, want 1", agent.restoreCalls)

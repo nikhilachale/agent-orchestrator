@@ -191,9 +191,10 @@ type RenameSessionResponse struct {
 
 // RestoreSessionResponse is the body of POST /api/v1/sessions/{sessionId}/restore.
 type RestoreSessionResponse struct {
-	OK        bool             `json:"ok"`
-	SessionID domain.SessionID `json:"sessionId"`
-	Session   SessionView      `json:"session"`
+	OK          bool                   `json:"ok"`
+	SessionID   domain.SessionID       `json:"sessionId"`
+	Session     SessionView            `json:"session"`
+	RestoreMode sessionsvc.RestoreMode `json:"restoreMode" enum:"native_resume,prompt_replay,fresh_launch" description:"How the session was restored."`
 }
 
 // KillSessionResponse is the body of POST /api/v1/sessions/{sessionId}/kill.

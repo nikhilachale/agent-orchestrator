@@ -47,7 +47,8 @@ func newDevImportProjectsCommand(ctx *commandContext) *cobra.Command {
 		Long: "Copy active project registry rows from the normal AO data dir into " +
 			"the current AO_DATA_DIR. This copies only project metadata, project config, " +
 			"and workspace child repo registry; sessions and runtime state are never copied.\n\n" +
-			"The target daemon must be stopped because the daemon is the sole live writer.",
+			"The target daemon must be running because the import is executed through " +
+			"the daemon HTTP API. Use --dry-run to report planned changes without writing.",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return ctx.runDevImportProjects(cmd, opts)

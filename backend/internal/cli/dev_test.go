@@ -69,6 +69,19 @@ func TestDevImportProjectsDryRunCallsLiveDaemon(t *testing.T) {
 	}
 }
 
+func TestDevImportProjectsHelpDescribesDaemonBackedImport(t *testing.T) {
+	out, _, err := executeCLI(t, Deps{}, "dev", "import-projects", "--help")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "target daemon must be running") || !strings.Contains(out, "--dry-run") {
+		t.Fatalf("help missing daemon-backed import guidance:\n%s", out)
+	}
+	if strings.Contains(out, "must be stopped") {
+		t.Fatalf("help still says daemon must be stopped:\n%s", out)
+	}
+}
+
 func TestDevImportProjectsJSON(t *testing.T) {
 	cfg := setConfigEnv(t)
 	sourceDir := filepath.Join(t.TempDir(), "source")

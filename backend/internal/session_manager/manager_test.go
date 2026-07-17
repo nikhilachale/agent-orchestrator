@@ -2441,6 +2441,42 @@ func TestRestore_CodexWithoutAgentSessionIDFallsBackToSavedPrompt(t *testing.T) 
 	}
 }
 
+func TestRestore_OpenCodeWithoutAgentSessionIDDoesNotReplaySavedPrompt(t *testing.T) {
+	st := newFakeStore()
+	st.sessions["mer-1"] = domain.SessionRecord{
+		ID: "mer-1", ProjectID: "mer", Kind: domain.KindWorker, Harness: domain.HarnessOpenCode, IsTerminated: true,
+		Metadata: domain.SessionMetadata{WorkspacePath: "/ws/mer-1", Branch: "b", Prompt: "continue the task"},
+	}
+	rt := &fakeRuntime{}
+	agent := &recordingAgent{}
+	m := New(Deps{
+		Runtime:   rt,
+		Agents:    singleAgent{agent: agent},
+		Workspace: &fakeWorkspace{},
+		Store:     st,
+		Messenger: &fakeMessenger{},
+		Lifecycle: &fakeLCM{store: st},
+		LookPath:  func(string) (string, error) { return "/bin/true", nil },
+	})
+
+	_, err := m.Restore(ctx, "mer-1")
+	if !errors.Is(err, ErrNotResumable) {
+		t.Fatalf("Restore err = %v, want ErrNotResumable", err)
+	}
+	if agent.restoreCalls != 1 {
+		t.Fatalf("GetRestoreCommand calls = %d, want 1", agent.restoreCalls)
+	}
+	if agent.launchCalls != 0 {
+		t.Fatalf("GetLaunchCommand calls = %d, want 0", agent.launchCalls)
+	}
+	if rt.created != 0 {
+		t.Fatalf("runtime.Create = %d, want 0", rt.created)
+	}
+	if !st.sessions["mer-1"].IsTerminated {
+		t.Fatal("session must remain terminated after missing opencode resume handle")
+	}
+}
+
 func TestRestore_ClaudeCodeWithoutRestoreCommandFallsBackToSavedPrompt(t *testing.T) {
 	st := newFakeStore()
 	st.sessions["mer-1"] = domain.SessionRecord{

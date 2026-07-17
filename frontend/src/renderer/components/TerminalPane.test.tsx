@@ -5,8 +5,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkspaceSession } from "../types/workspace";
 import { TerminalPane, providerScrollsByKeyboard } from "./TerminalPane";
 
-const { postMock, terminalState } = vi.hoisted(() => ({
+const { postMock, terminalError, terminalState } = vi.hoisted(() => ({
 	postMock: vi.fn(),
+	terminalError: { value: undefined as string | undefined },
 	terminalState: { value: "idle" },
 }));
 let terminalLinkHandler: ((uri: string) => void) | undefined;
@@ -27,7 +28,7 @@ vi.mock("../hooks/useTerminalSession", () => ({
 	useTerminalSession: () => ({
 		attach: vi.fn(),
 		state: terminalState.value,
-		error: undefined,
+		error: terminalError.value,
 	}),
 }));
 
@@ -54,6 +55,7 @@ const orchestrator = {
 beforeEach(() => {
 	postMock.mockReset();
 	postMock.mockResolvedValue({ data: {} });
+	terminalError.value = undefined;
 	terminalState.value = "idle";
 	terminalLinkHandler = undefined;
 });
@@ -119,8 +121,13 @@ describe("TerminalPane empty states", () => {
 });
 
 describe("terminal restore", () => {
-	it("posts restore from the terminal-ended strip", async () => {
-		terminalState.value = "exited";
+	it.each([
+		["exited", undefined],
+		["error", "terminal handle missing"],
+		["idle", undefined],
+	])("posts restore from the terminal-ended strip when mux state is %s", async (state, error) => {
+		terminalState.value = state;
+		terminalError.value = error;
 		const view = renderPane({ ...worker, status: "terminated", terminalHandleId: "term-1" });
 		const invalidate = vi.spyOn(view.queryClient, "invalidateQueries").mockResolvedValue(undefined);
 		try {

@@ -241,7 +241,7 @@ function AttachedTerminal({ session, theme, daemonReady, terminalTarget, fontSiz
 
 	const banner = bannerText(state, error);
 	const showEmptyState = !handleId;
-	const showExitedState = state === "exited";
+	const showEndedState = state === "exited" || canRestoreSession;
 	const emptyStateTitle = session ? "Starting session" : "Agent Orchestrator";
 	const emptyStateMessage = session
 		? session.kind === "orchestrator"
@@ -251,7 +251,7 @@ function AttachedTerminal({ session, theme, daemonReady, terminalTarget, fontSiz
 
 	return (
 		<div className="flex h-full min-h-0 flex-col bg-terminal">
-			{showExitedState && (
+			{showEndedState && (
 				<TerminalEndedStrip
 					canRestore={canRestoreSession}
 					error={restoreError}

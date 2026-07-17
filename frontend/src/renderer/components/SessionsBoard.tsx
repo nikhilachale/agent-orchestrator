@@ -142,6 +142,13 @@ export function SessionsBoard({ projectId }: SessionsBoardProps) {
 	const [restoringSessionId, setRestoringSessionId] = useState<string | undefined>();
 	const [restoreErrors, setRestoreErrors] = useState<Record<string, string>>({});
 	const [restoreUnavailableSession, setRestoreUnavailableSession] = useState<WorkspaceSession | undefined>();
+	const activeProjectIdRef = useRef(projectId);
+	activeProjectIdRef.current = projectId;
+	useEffect(() => {
+		setRestoringSessionId(undefined);
+		setRestoreErrors({});
+		setRestoreUnavailableSession(undefined);
+	}, [projectId]);
 
 	const openSession = (session: WorkspaceSession) =>
 		void navigate({
@@ -152,6 +159,8 @@ export function SessionsBoard({ projectId }: SessionsBoardProps) {
 	const restoreDoneSession = async (event: MouseEvent<HTMLButtonElement>, session: WorkspaceSession) => {
 		event.stopPropagation();
 		if (restoringSessionId) return;
+		const restoreProjectId = projectId;
+		const isStillActiveProject = () => !restoreProjectId || activeProjectIdRef.current === restoreProjectId;
 		setRestoringSessionId(session.id);
 		setRestoreErrors((current) => {
 			const next = { ...current };
@@ -160,6 +169,7 @@ export function SessionsBoard({ projectId }: SessionsBoardProps) {
 		});
 		try {
 			const result = await restoreSessionById(session.id);
+			if (!isStillActiveProject()) return;
 			if (result.status === "success") {
 				void navigate({
 					to: "/projects/$projectId/sessions/$sessionId",
@@ -173,7 +183,9 @@ export function SessionsBoard({ projectId }: SessionsBoardProps) {
 			}
 			setRestoreErrors((current) => ({ ...current, [session.id]: result.message }));
 		} finally {
-			setRestoringSessionId(undefined);
+			if (isStillActiveProject()) {
+				setRestoringSessionId(undefined);
+			}
 		}
 	};
 
@@ -346,8 +358,7 @@ export function SessionsBoard({ projectId }: SessionsBoardProps) {
 								<SessionCard
 									key={s.id}
 									session={s}
-									onOpen={s.status === "terminated" ? undefined : () => openSession(s)}
-									interactive={s.status !== "terminated"}
+									onOpen={() => openSession(s)}
 									restoreAction={s.status === "terminated" ? (event) => void restoreDoneSession(event, s) : undefined}
 									restoreError={restoreErrors[s.id]}
 									isRestoring={restoringSessionId === s.id}
@@ -513,7 +524,9 @@ function SessionCard({
 					aria-label={`Restore ${session.title}`}
 					title={`Restore ${session.title}`}
 					className={cn(
-						"absolute bottom-1.5 right-2 z-10 inline-flex h-control-xs items-center justify-center rounded-sm border border-accent bg-accent px-2.5 text-2xs font-semibold text-accent-foreground opacity-0 shadow-sm transition-opacity duration-normal ease-out hover:opacity-90 focus:opacity-100 disabled:cursor-not-allowed group-hover:opacity-100 group-focus-within:opacity-100",
+						"absolute bottom-1.5 right-2 z-10 inline-flex h-control-xs items-center justify-center rounded-sm border border-accent bg-accent px-2.5 text-2xs font-semibold text-accent-foreground opacity-0 shadow-sm transition-opacity duration-normal ease-out disabled:cursor-not-allowed",
+						!isRestoreDisabled &&
+							"hover:opacity-90 focus:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100",
 						isRestoring && "opacity-100",
 					)}
 					disabled={isRestoreDisabled}

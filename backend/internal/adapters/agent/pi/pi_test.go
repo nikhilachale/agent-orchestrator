@@ -267,12 +267,12 @@ func TestGetAgentHooksInstallsActivityExtension(t *testing.T) {
 		t.Fatalf("extension must not report session-end for non-terminal shutdown reasons:\n%s", body)
 	}
 
-	gitignore, err := os.ReadFile(filepath.Join(workspace, ".pi", ".gitignore"))
+	gitignore, err := os.ReadFile(filepath.Join(workspace, ".pi", "extensions", ".gitignore"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(gitignore), "/extensions/ao-activity.ts") {
-		t.Fatalf(".pi/.gitignore missing managed extension:\n%s", gitignore)
+	if !strings.Contains(string(gitignore), "/ao-activity.ts") {
+		t.Fatalf(".pi/extensions/.gitignore missing managed extension:\n%s", gitignore)
 	}
 }
 

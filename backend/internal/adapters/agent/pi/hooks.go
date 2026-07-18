@@ -58,7 +58,7 @@ func (p *Plugin) GetAgentHooks(ctx context.Context, cfg ports.WorkspaceHookConfi
 	if err := hookutil.AtomicWriteFile(extensionPath, []byte(piExtensionSource), 0o600); err != nil {
 		return fmt.Errorf("pi.GetAgentHooks: write extension: %w", err)
 	}
-	if err := hookutil.EnsureWorkspaceGitignore(filepath.Join(cfg.WorkspacePath, piConfigDirName), filepath.Join(piExtensionSubDir, piExtensionFileName)); err != nil {
+	if err := hookutil.EnsureWorkspaceGitignore(filepath.Dir(extensionPath), piExtensionFileName); err != nil {
 		return fmt.Errorf("pi.GetAgentHooks: gitignore: %w", err)
 	}
 	return nil

@@ -86,14 +86,6 @@ type AgentSessionPreallocator interface {
 	PreallocateAgentSession(ctx context.Context, cfg LaunchConfig) (agentSessionID string, err error)
 }
 
-// AgentNativeRestorePolicy is an optional capability for adapters where a
-// fresh launch from AO's saved prompt is not an acceptable restore fallback.
-// When NativeRestoreRequired returns true and GetRestoreCommand cannot build a
-// native resume command, the session manager returns ErrNotResumable.
-type AgentNativeRestorePolicy interface {
-	NativeRestoreRequired(ctx context.Context, cfg RestoreConfig) (bool, error)
-}
-
 // PromptReadinessHints describes when an after-start prompt should be sent.
 // Empty hints mean "send immediately" to preserve existing adapter behavior.
 type PromptReadinessHints struct {

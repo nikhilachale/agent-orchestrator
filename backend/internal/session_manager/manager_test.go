@@ -383,14 +383,6 @@ func (a preallocatingEnvAgent) SessionInfo(ctx context.Context, ref ports.Sessio
 	return a.preallocatingAgent.SessionInfo(ctx, ref)
 }
 
-type nativeRestoreOnlyAgent struct {
-	*recordingAgent
-}
-
-func (a nativeRestoreOnlyAgent) NativeRestoreRequired(context.Context, ports.RestoreConfig) (bool, error) {
-	return true, nil
-}
-
 func blockedDataDir(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "data")
@@ -2691,7 +2683,7 @@ func TestRestore_AgyAndCopilotWithAgentSessionIDUseNativeResume(t *testing.T) {
 	}
 }
 
-func TestRestore_NativeRestorePolicyWithAgentSessionIDUsesNativeResume(t *testing.T) {
+func TestRestore_CursorWithAgentSessionIDUsesNativeResume(t *testing.T) {
 	st := newFakeStore()
 	st.sessions["mer-1"] = domain.SessionRecord{
 		ID: "mer-1", ProjectID: "mer", Kind: domain.KindWorker, Harness: domain.HarnessCursor, IsTerminated: true,
@@ -2701,7 +2693,7 @@ func TestRestore_NativeRestorePolicyWithAgentSessionIDUsesNativeResume(t *testin
 	agent := &recordingAgent{}
 	m := New(Deps{
 		Runtime:   rt,
-		Agents:    singleAgent{agent: nativeRestoreOnlyAgent{recordingAgent: agent}},
+		Agents:    singleAgent{agent: agent},
 		Workspace: &fakeWorkspace{},
 		Store:     st,
 		Messenger: &fakeMessenger{},
@@ -2723,7 +2715,7 @@ func TestRestore_NativeRestorePolicyWithAgentSessionIDUsesNativeResume(t *testin
 	}
 }
 
-func TestRestore_NativeRestorePolicyWithoutAgentSessionIDNotResumable(t *testing.T) {
+func TestRestore_CursorWithoutAgentSessionIDFallsBackToSavedPrompt(t *testing.T) {
 	st := newFakeStore()
 	st.sessions["mer-1"] = domain.SessionRecord{
 		ID: "mer-1", ProjectID: "mer", Kind: domain.KindWorker, Harness: domain.HarnessCursor, IsTerminated: true,
@@ -2733,7 +2725,7 @@ func TestRestore_NativeRestorePolicyWithoutAgentSessionIDNotResumable(t *testing
 	agent := &recordingAgent{}
 	m := New(Deps{
 		Runtime:   rt,
-		Agents:    singleAgent{agent: nativeRestoreOnlyAgent{recordingAgent: agent}},
+		Agents:    singleAgent{agent: agent},
 		Workspace: &fakeWorkspace{},
 		Store:     st,
 		Messenger: &fakeMessenger{},
@@ -2741,21 +2733,23 @@ func TestRestore_NativeRestorePolicyWithoutAgentSessionIDNotResumable(t *testing
 		LookPath:  func(string) (string, error) { return "/bin/true", nil },
 	})
 
-	_, err := m.Restore(ctx, "mer-1")
-	if !errors.Is(err, ErrNotResumable) {
-		t.Fatalf("Restore err = %v, want ErrNotResumable", err)
+	if _, err := m.Restore(ctx, "mer-1"); err != nil {
+		t.Fatalf("Restore err = %v, want fallback launch", err)
 	}
 	if agent.restoreCalls != 1 {
 		t.Fatalf("GetRestoreCommand calls = %d, want 1", agent.restoreCalls)
 	}
-	if agent.launchCalls != 0 {
-		t.Fatalf("GetLaunchCommand calls = %d, want 0", agent.launchCalls)
+	if agent.launchCalls != 1 {
+		t.Fatalf("GetLaunchCommand calls = %d, want 1", agent.launchCalls)
 	}
-	if rt.created != 0 {
-		t.Fatalf("runtime.Create = %d, want 0", rt.created)
+	if agent.lastLaunch.Prompt != "continue the task" {
+		t.Fatalf("fallback launch prompt = %q, want saved prompt", agent.lastLaunch.Prompt)
 	}
-	if !st.sessions["mer-1"].IsTerminated {
-		t.Fatal("session must remain terminated")
+	if rt.created != 1 {
+		t.Fatalf("runtime.Create = %d, want 1", rt.created)
+	}
+	if st.sessions["mer-1"].IsTerminated {
+		t.Fatal("session must be live after fallback launch")
 	}
 }
 

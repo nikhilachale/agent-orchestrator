@@ -40,7 +40,6 @@ func New() *Plugin {
 var _ adapters.Adapter = (*Plugin)(nil)
 var _ ports.Agent = (*Plugin)(nil)
 var _ ports.AgentSessionPreallocator = (*Plugin)(nil)
-var _ ports.AgentNativeRestorePolicy = (*Plugin)(nil)
 
 // cursorDataDir returns the isolated Cursor profile AO uses for managed Cursor
 // sessions. This keeps Cursor's trust/cache state under AO_DATA_DIR instead of
@@ -134,16 +133,6 @@ func (p *Plugin) PreallocateAgentSession(ctx context.Context, cfg ports.LaunchCo
 		return "", err
 	}
 	return id, nil
-}
-
-// NativeRestoreRequired prevents Cursor restores from falling back to a fresh
-// prompt replay when AO has no persisted chat id. Replaying the prompt would
-// create the wrong transcript and can attach future sends to no prior context.
-func (p *Plugin) NativeRestoreRequired(ctx context.Context, _ ports.RestoreConfig) (bool, error) {
-	if err := ctx.Err(); err != nil {
-		return false, err
-	}
-	return true, nil
 }
 
 // GetRestoreCommand rebuilds the argv that continues an existing Cursor CLI

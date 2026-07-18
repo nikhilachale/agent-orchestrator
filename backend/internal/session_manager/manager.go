@@ -2433,15 +2433,6 @@ func restoreArgv(ctx context.Context, agent ports.Agent, id domain.SessionID, wo
 	if ok {
 		return cmd, ports.PromptDeliveryInCommand, nil
 	}
-	if policy, ok := agent.(ports.AgentNativeRestorePolicy); ok {
-		required, err := policy.NativeRestoreRequired(ctx, restoreCfg)
-		if err != nil {
-			return nil, "", fmt.Errorf("native restore policy: %w", err)
-		}
-		if required {
-			return nil, "", ErrNotResumable
-		}
-	}
 	// A saved prompt is replayed fresh. An orchestrator is promptless by design
 	// and relaunches with the system prompt only. A promptless WORKER has no task
 	// and no session id to restore from: do not blank-relaunch it.

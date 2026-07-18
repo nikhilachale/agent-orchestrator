@@ -42,7 +42,7 @@ No plugin-level config.
 
 - **Launch:** AO creates a Cursor chat with `cursor-agent create-chat`, stores the returned chat id, then runs `cursor-agent --resume <chatId> -- <prompt>` inside the worktree.
 - **Activity tracking:** AO installs workspace-local Cursor hooks that report activity and can confirm the native chat id when Cursor emits it.
-- **Session resume:** AO restores with `cursor-agent --resume <chatId>`. Deterministic restore is available for Cursor sessions created after AO stored a chat id; older Cursor sessions without `agentSessionId` cannot be restored safely and remain terminated.
+- **Session resume:** AO restores with `cursor-agent --resume <chatId>` when a captured chat id exists. Sessions without `agentSessionId` use AO's shared restore fallback: a fresh Cursor conversation with the recomputed system prompt and saved task prompt when available.
 
 ## Detection
 
@@ -63,8 +63,8 @@ The plugin resolves `cursor-agent` from PATH or common install locations.
 	<Accordion title="AO says Cursor Agent isn't detected">
 		Run `cursor-agent --help`. If it is missing, reinstall Cursor Agent or add the install directory to PATH.
 	</Accordion>
-	<Accordion title="An older Cursor session does not restore">
-		Only Cursor sessions created after AO stored a native chat id have deterministic restore. Sessions without
-		`agentSessionId` are left terminated instead of attaching AO to the wrong Cursor transcript.
+	<Accordion title="An older Cursor session starts a fresh conversation on restore">
+		Only Cursor sessions created after AO stored a native chat id have deterministic transcript resume. Older sessions
+		without `agentSessionId` fall back to a fresh Cursor conversation using AO's saved task prompt when one exists.
 	</Accordion>
 </Accordions>

@@ -2421,8 +2421,12 @@ func TestRestore_CodexWithoutAgentSessionIDFallsBackToSavedPrompt(t *testing.T) 
 		LookPath:  func(string) (string, error) { return "/bin/true", nil },
 	})
 
-	if _, err := m.Restore(ctx, "mer-1"); err != nil {
+	res, err := m.RestoreWithMode(ctx, "mer-1")
+	if err != nil {
 		t.Fatalf("Restore err = %v, want fallback launch", err)
+	}
+	if res.Mode != RestoreModeSavedPrompt {
+		t.Fatalf("restore mode = %q, want %q", res.Mode, RestoreModeSavedPrompt)
 	}
 	if agent.restoreCalls != 1 {
 		t.Fatalf("GetRestoreCommand calls = %d, want 1", agent.restoreCalls)
@@ -2553,8 +2557,12 @@ func TestRestore_AgyAndCopilotWithAgentSessionIDUseNativeResume(t *testing.T) {
 				LookPath:  func(string) (string, error) { return "/bin/true", nil },
 			})
 
-			if _, err := m.Restore(ctx, "mer-1"); err != nil {
+			res, err := m.RestoreWithMode(ctx, "mer-1")
+			if err != nil {
 				t.Fatalf("Restore err = %v, want native resume", err)
+			}
+			if res.Mode != RestoreModeNative {
+				t.Fatalf("restore mode = %q, want %q", res.Mode, RestoreModeNative)
 			}
 			if agent.restoreCalls != 1 {
 				t.Fatalf("GetRestoreCommand calls = %d, want 1", agent.restoreCalls)

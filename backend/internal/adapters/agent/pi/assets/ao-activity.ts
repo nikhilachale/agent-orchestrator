@@ -8,12 +8,20 @@ import { spawnSync } from "node:child_process";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const HOOK_TIMEOUT_MS = 30_000;
-const HOOK_COMMANDS: Record<string, string> = {
-  "session-start": "ao hooks pi session-start",
-  "user-prompt-submit": "ao hooks pi user-prompt-submit",
-  stop: "ao hooks pi stop",
-  "session-end": "ao hooks pi session-end",
-};
+const HOOK_COMMANDS = new Map([
+  ["session-start", "ao hooks pi session-start"],
+  ["user-prompt-submit", "ao hooks pi user-prompt-submit"],
+  ["stop", "ao hooks pi stop"],
+  ["session-end", "ao hooks pi session-end"],
+]);
+
+function hookCommand(command: string): [string, string[]] {
+  if (process.platform === "win32") {
+    const shell = process.env.ComSpec || process.env.COMSPEC || "cmd.exe";
+    return [shell, ["/d", "/s", "/c", `where ao >nul 2>nul || exit /b 0\r\n${command}`]];
+  }
+  return ["sh", ["-c", `if ! command -v ao >/dev/null 2>&1; then exit 0; fi; exec ${command}`]];
+}
 
 export default function aoActivity(pi: ExtensionAPI) {
   function sessionId(ctx: any): string {
@@ -29,15 +37,17 @@ export default function aoActivity(pi: ExtensionAPI) {
     if (!id) return;
 
     const body = JSON.stringify({ session_id: id, ...payload }) + "\n";
-    const command = HOOK_COMMANDS[hookName];
-    if (!command) return;
+    const hook = HOOK_COMMANDS.get(hookName);
+    if (!hook) return;
+    const command = hookCommand(hook);
     try {
-      spawnSync("sh", ["-c", `if ! command -v ao >/dev/null 2>&1; then exit 0; fi; exec ${command}`], {
+      const result = spawnSync(command[0], command[1], {
         cwd: ctx?.cwd,
         input: body,
         stdio: ["pipe", "ignore", "ignore"],
         timeout: HOOK_TIMEOUT_MS,
       });
+      if (result.error || result.status !== 0) return;
     } catch {
       // Activity reporting is best-effort and must never affect the Pi session.
     }

@@ -2,10 +2,13 @@ package pi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -273,6 +276,86 @@ func TestGetAgentHooksInstallsActivityExtension(t *testing.T) {
 	}
 	if !strings.Contains(string(gitignore), "/ao-activity.ts") {
 		t.Fatalf(".pi/extensions/.gitignore missing managed extension:\n%s", gitignore)
+	}
+}
+
+func TestPiActivityExtensionExecutesWindowsHook(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("requires native cmd.exe execution")
+	}
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node is required to execute the Pi extension")
+	}
+
+	dir := t.TempDir()
+	extension := strings.ReplaceAll(piExtensionSource, `import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";`, "")
+	extension = strings.ReplaceAll(extension, "export default function aoActivity(pi: ExtensionAPI)", "export default function aoActivity(pi)")
+	extension = strings.ReplaceAll(extension, "function sessionId(ctx: any): string", "function sessionId(ctx)")
+	extension = strings.ReplaceAll(extension, "function callHookSync(ctx: any, hookName: string, payload: Record<string, unknown>)", "function callHookSync(ctx, hookName, payload)")
+	extension = strings.ReplaceAll(extension, "function hookCommand(command: string): [string, string[]]", "function hookCommand(command)")
+	extensionPath := filepath.Join(dir, "ao-activity.mjs")
+	if err := os.WriteFile(extensionPath, []byte(extension), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	receiverPath := filepath.Join(dir, "receiver.mjs")
+	receiver := `import { appendFileSync } from "node:fs";
+let body = "";
+process.stdin.setEncoding("utf8");
+process.stdin.on("data", chunk => body += chunk);
+process.stdin.on("end", () => appendFileSync(process.env.AO_HOOK_OUTPUT, JSON.stringify({ args: process.argv.slice(2), body }) + "\n"));
+`
+	if err := os.WriteFile(receiverPath, []byte(receiver), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stubDir := filepath.Join(dir, "bin")
+	if err := os.Mkdir(stubDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	stub := "@echo off\r\nnode \"%AO_RECEIVER%\" %*\r\n"
+	if err := os.WriteFile(filepath.Join(stubDir, "ao.cmd"), []byte(stub), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	runnerPath := filepath.Join(dir, "runner.mjs")
+	runner := `import aoActivity from "./ao-activity.mjs";
+const handlers = new Map();
+aoActivity({ on: (name, handler) => handlers.set(name, handler) });
+handlers.get("session_start")({}, { cwd: process.cwd(), sessionManager: { getSessionId: () => "pi-native-session" } });
+`
+	if err := os.WriteFile(runnerPath, []byte(runner), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	outputPath := filepath.Join(dir, "hook-output.jsonl")
+	cmd := exec.Command(node, runnerPath)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(),
+		"PATH="+stubDir+string(os.PathListSeparator)+os.Getenv("PATH"),
+		"AO_RECEIVER="+receiverPath,
+		"AO_HOOK_OUTPUT="+outputPath,
+	)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("execute extension: %v\n%s", err, output)
+	}
+
+	data, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("stub ao was not executed: %v", err)
+	}
+	var got struct {
+		Args []string `json:"args"`
+		Body string   `json:"body"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(data))), &got); err != nil {
+		t.Fatalf("decode stub output: %v\n%s", err, data)
+	}
+	if want := []string{"hooks", "pi", "session-start"}; !reflect.DeepEqual(got.Args, want) {
+		t.Fatalf("hook args = %#v, want %#v", got.Args, want)
+	}
+	if got.Body != "{\"session_id\":\"pi-native-session\"}\n" {
+		t.Fatalf("hook stdin = %q", got.Body)
 	}
 }
 

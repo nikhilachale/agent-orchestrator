@@ -18,7 +18,7 @@ func TestDeriverTokensAreKnownHarnesses(t *testing.T) {
 }
 
 func TestSupportsHarness(t *testing.T) {
-	for _, h := range []domain.AgentHarness{domain.HarnessCodex, domain.HarnessClaudeCode, domain.HarnessOpenCode, domain.HarnessKimi, domain.HarnessPi} {
+	for _, h := range []domain.AgentHarness{domain.HarnessCodex, domain.HarnessClaudeCode, domain.HarnessGrok, domain.HarnessOpenCode, domain.HarnessKimi, domain.HarnessPi} {
 		if !SupportsHarness(h) {
 			t.Errorf("SupportsHarness(%q) = false, want true", h)
 		}
@@ -48,5 +48,29 @@ func TestDerivePi(t *testing.T) {
 		if got != tt.want || ok != tt.wantOK {
 			t.Fatalf("Derive(pi, %q) = (%q, %v), want (%q, %v)", tt.event, got, ok, tt.want, tt.wantOK)
 		}
+	}
+}
+
+func TestGrokDerivesClaudeCompatibleActivity(t *testing.T) {
+	tests := []struct {
+		name    string
+		event   string
+		payload string
+		want    domain.ActivityState
+	}{
+		{"permission request", "permission-request", `{}`, domain.ActivityBlocked},
+		{"idle notification", "notification", `{"notification_type":"idle_prompt"}`, domain.ActivityIdle},
+		{"session end", "session-end", `{}`, domain.ActivityExited},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := Derive("grok", tt.event, []byte(tt.payload))
+			if !ok {
+				t.Fatalf("Derive(grok, %q) ok=false, want true", tt.event)
+			}
+			if got != tt.want {
+				t.Fatalf("Derive(grok, %q) = %q, want %q", tt.event, got, tt.want)
+			}
+		})
 	}
 }

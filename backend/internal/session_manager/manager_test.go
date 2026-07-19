@@ -3137,6 +3137,35 @@ func TestSpawn_ProjectPATHIsPinBase(t *testing.T) {
 	}
 }
 
+func TestSpawn_PrependsResolvedBinaryDirToRuntimePATH(t *testing.T) {
+	daemonExe := filepath.Join(t.TempDir(), "ao")
+	binDir := filepath.Join(t.TempDir(), ".nvm", "versions", "node", "v22.23.1", "bin")
+	agentBin := filepath.Join(binDir, "kimi")
+	st := newFakeStore()
+	st.projects["mer"] = domain.ProjectRecord{ID: "mer", Config: testRoleAgents()}
+	rt := &fakeRuntime{}
+	agent := launchArgvAgent{argv: []string{agentBin}}
+	m := New(Deps{
+		Runtime:    rt,
+		Agents:     singleAgent{agent: agent},
+		Workspace:  &fakeWorkspace{path: "/ws/mer-1"},
+		Store:      st,
+		Messenger:  &fakeMessenger{},
+		Lifecycle:  &fakeLCM{store: st},
+		LookPath:   func(string) (string, error) { return agentBin, nil },
+		Executable: func() (string, error) { return daemonExe, nil },
+	})
+	t.Setenv("PATH", "/usr/bin")
+
+	if _, err := m.Spawn(ctx, ports.SpawnConfig{ProjectID: "mer", Kind: domain.KindWorker}); err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+	want := binDir + string(os.PathListSeparator) + filepath.Dir(daemonExe) + string(os.PathListSeparator) + "/usr/bin"
+	if got := rt.lastCfg.Env["PATH"]; got != want {
+		t.Fatalf("runtime env PATH = %q, want %q", got, want)
+	}
+}
+
 func TestSpawn_KeepsExplicitBranch(t *testing.T) {
 	m, st, _, _ := newManager()
 	s, err := m.Spawn(ctx, ports.SpawnConfig{ProjectID: "mer", Kind: domain.KindWorker, Branch: "feature/x"})

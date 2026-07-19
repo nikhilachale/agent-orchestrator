@@ -353,6 +353,7 @@ func (m *Manager) Spawn(ctx context.Context, cfg ports.SpawnConfig) (domain.Sess
 		m.rollbackSpawnSeedRow(ctx, id)
 		return domain.SessionRecord{}, fmt.Errorf("spawn %s: %w", id, err)
 	}
+	augmentRuntimePATHForLaunchBinary(env, argv)
 	handle, err := m.runtime.Create(ctx, ports.RuntimeConfig{
 		SessionID:     id,
 		WorkspacePath: ws.Path,
@@ -853,6 +854,7 @@ func (m *Manager) relaunchRestoredSession(ctx context.Context, rec domain.Sessio
 		m.cleanupSystemPromptDir(rec.ID)
 		return domain.SessionRecord{}, fmt.Errorf("restore %s: %w", rec.ID, err)
 	}
+	augmentRuntimePATHForLaunchBinary(env, argv)
 	handle, err := m.runtime.Create(ctx, ports.RuntimeConfig{
 		SessionID:     rec.ID,
 		WorkspacePath: ws.Path,
@@ -2495,6 +2497,27 @@ func launchBinary(argv []string) (string, bool) {
 		return arg, true
 	}
 	return "", false
+}
+
+func augmentRuntimePATHForLaunchBinary(env map[string]string, argv []string) {
+	bin, ok := launchBinary(argv)
+	if !ok || !filepath.IsAbs(bin) {
+		return
+	}
+	dir := filepath.Dir(bin)
+	if dir == "." || dir == string(filepath.Separator) {
+		return
+	}
+	path := env["PATH"]
+	if path == "" {
+		env["PATH"] = dir
+		return
+	}
+	parts := strings.Split(path, string(os.PathListSeparator))
+	if len(parts) > 0 && parts[0] == dir {
+		return
+	}
+	env["PATH"] = dir + string(os.PathListSeparator) + path
 }
 
 func (m *Manager) validateRuntimePrerequisites() error {

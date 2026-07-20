@@ -347,17 +347,17 @@ func TestGetAgentHooksInstallsQwenHooks(t *testing.T) {
 	if countQwenHookCommand(config.Hooks["Stop"], "custom stop hook") != 1 {
 		t.Fatalf("existing Stop hook was not preserved: %#v", config.Hooks["Stop"])
 	}
-	// SessionStart lands under the "startup" matcher.
-	assertStartupMatcher(t, config.Hooks["SessionStart"])
+	// SessionStart lands under the startup/resume matcher.
+	assertSessionStartMatcher(t, config.Hooks["SessionStart"])
 }
 
-func assertStartupMatcher(t *testing.T, groups []hooksjson.MatcherGroup) {
+func assertSessionStartMatcher(t *testing.T, groups []hooksjson.MatcherGroup) {
 	t.Helper()
 	for _, group := range groups {
 		for _, hook := range group.Hooks {
 			if hook.Command == qwenHookCommandPrefix+"session-start" {
-				if group.Matcher == nil || *group.Matcher != "startup" {
-					t.Fatalf("session-start hook not under 'startup' matcher: %#v", group)
+				if group.Matcher == nil || *group.Matcher != "startup|resume" {
+					t.Fatalf("session-start hook not under startup/resume matcher: %#v", group)
 				}
 				return
 			}
@@ -435,7 +435,7 @@ func TestGetRestoreCommandReadsAgentSessionID(t *testing.T) {
 		"qwen",
 		"--approval-mode", "auto",
 		"--append-system-prompt", "restore instructions",
-		"-r", "sess-123",
+		"--resume", "sess-123",
 	}
 	if !reflect.DeepEqual(cmd, want) {
 		t.Fatalf("restore cmd\nwant: %#v\n got: %#v", want, cmd)
@@ -465,7 +465,7 @@ func TestGetRestoreCommandReadsSystemPromptFile(t *testing.T) {
 	want := []string{
 		"qwen",
 		"--append-system-prompt", "restore file instructions",
-		"-r", "sess-123",
+		"--resume", "sess-123",
 	}
 	if !reflect.DeepEqual(cmd, want) {
 		t.Fatalf("restore cmd\nwant: %#v\n got: %#v", want, cmd)
@@ -489,7 +489,7 @@ func TestGetRestoreCommandDefaultModeOmitsApprovalFlags(t *testing.T) {
 	}
 	want := []string{
 		"qwen",
-		"-r", "sess-123",
+		"--resume", "sess-123",
 	}
 	if !reflect.DeepEqual(cmd, want) {
 		t.Fatalf("restore cmd\nwant: %#v\n got: %#v", want, cmd)

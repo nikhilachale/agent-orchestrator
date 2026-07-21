@@ -348,7 +348,7 @@ func TestGetRestoreCommandNoID(t *testing.T) {
 	}
 }
 
-func TestGetAgentHooksInstallsManagedHooksAndLogging(t *testing.T) {
+func TestGetAgentHooksInstallsManagedHooksWithoutChangingConfig(t *testing.T) {
 	workspace := t.TempDir()
 	dir := filepath.Join(workspace, ".vibe")
 	if err := os.MkdirAll(dir, 0o750); err != nil {
@@ -375,7 +375,20 @@ func TestGetAgentHooksInstallsManagedHooksAndLogging(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := string(hooks)
-	for _, want := range []string{"user-command", "ao hooks vibe post-agent", "ao hooks vibe pre-tool", "ao hooks vibe post-tool"} {
+	for _, want := range []string{
+		"user-command",
+		`name = "ao-session-metadata"`,
+		`type = "post_agent"`,
+		`name = "ao-pre-tool"`,
+		`type = "pre_tool"`,
+		`name = "ao-post-tool"`,
+		`type = "post_tool"`,
+		`match = "*"`,
+		`command = "ao hooks vibe post-agent"`,
+		`command = "ao hooks vibe pre-tool"`,
+		`command = "ao hooks vibe post-tool"`,
+		"timeout = 30.0",
+	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("hooks.toml missing %q:\n%s", want, body)
 		}
@@ -383,22 +396,28 @@ func TestGetAgentHooksInstallsManagedHooksAndLogging(t *testing.T) {
 	if strings.Count(body, vibeHooksSentinelStart) != 1 || strings.Count(body, "ao hooks vibe post-agent") != 1 {
 		t.Fatalf("managed hooks duplicated:\n%s", body)
 	}
+	if strings.Count(body, "timeout = 30.0") != 3 || strings.Count(body, `match = "*"`) != 2 {
+		t.Fatalf("unexpected Vibe hook schema:\n%s", body)
+	}
 
 	config, err := os.ReadFile(filepath.Join(dir, "config.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := string(config); !strings.Contains(got, "log_interactions = true") || !strings.Contains(got, `active_model = "custom-model"`) {
-		t.Fatalf("config.toml = %q", got)
+	if got := string(config); got != userConfig {
+		t.Fatalf("config.toml changed\nwant: %q\n got: %q", userConfig, got)
 	}
 	ignore, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"/hooks.toml\n", "/config.toml\n"} {
+	for _, want := range []string{"/hooks.toml\n"} {
 		if !strings.Contains(string(ignore), want) {
 			t.Fatalf(".gitignore missing %q:\n%s", want, ignore)
 		}
+	}
+	if strings.Contains(string(ignore), "/config.toml\n") {
+		t.Fatalf(".gitignore unexpectedly claims user config:\n%s", ignore)
 	}
 }
 
@@ -441,14 +460,6 @@ func TestUninstallHooksPreservesUserHooks(t *testing.T) {
 	}
 	if !strings.Contains(string(got), "user-command") || strings.Contains(string(got), "ao hooks vibe") {
 		t.Fatalf("hooks after uninstall:\n%s", got)
-	}
-}
-
-func TestSetVibeTopLevelLoggingLeavesNestedKeyAlone(t *testing.T) {
-	existing := "[provider]\nlog_interactions = false\n"
-	got := setVibeTopLevelLogging(existing)
-	if !strings.HasPrefix(got, "log_interactions = true\n\n") || !strings.Contains(got, "[provider]\nlog_interactions = false") {
-		t.Fatalf("setVibeTopLevelLogging() = %q", got)
 	}
 }
 

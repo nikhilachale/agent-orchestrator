@@ -15,14 +15,15 @@ import (
 const (
 	vibeDirName       = ".vibe"
 	vibeHooksFileName = "hooks.toml"
-	vibeConfigName    = "config.toml"
 
 	vibeHooksSentinelStart = "# managed by agent-orchestrator: vibe hooks"
 	vibeHooksSentinelEnd   = "# /managed by agent-orchestrator: vibe hooks"
 )
 
-// GetAgentHooks installs Vibe callbacks that capture the native session id and
-// enables the interaction log that Vibe requires for --resume.
+// GetAgentHooks installs Vibe callbacks that capture the native session id.
+// Vibe enables interaction logging by default, which is required for
+// --resume. AO deliberately leaves the user-owned .vibe/config.toml untouched;
+// users who disable log_interactions also disable native session restore.
 func (p *Plugin) GetAgentHooks(ctx context.Context, cfg ports.WorkspaceHookConfig) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -38,17 +39,13 @@ func (p *Plugin) GetAgentHooks(ctx context.Context, cfg ports.WorkspaceHookConfi
 	if err := mergeVibeHooksFile(filepath.Join(dir, vibeHooksFileName)); err != nil {
 		return fmt.Errorf("vibe.GetAgentHooks: %w", err)
 	}
-	if err := enableVibeInteractionLogging(filepath.Join(dir, vibeConfigName)); err != nil {
-		return fmt.Errorf("vibe.GetAgentHooks: %w", err)
-	}
-	if err := hookutil.EnsureWorkspaceGitignore(dir, vibeHooksFileName, vibeConfigName); err != nil {
+	if err := hookutil.EnsureWorkspaceGitignore(dir, vibeHooksFileName); err != nil {
 		return fmt.Errorf("vibe.GetAgentHooks: gitignore: %w", err)
 	}
 	return nil
 }
 
-// UninstallHooks removes only AO's managed Vibe hook block. Interaction
-// logging remains enabled because the prior user value is not recoverable.
+// UninstallHooks removes only AO's managed Vibe hook block.
 func (p *Plugin) UninstallHooks(ctx context.Context, workspacePath string) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -103,6 +100,9 @@ func mergeVibeHooksFile(path string) error {
 }
 
 func vibeHooksBlock() string {
+	// Vibe's hooks.toml contract uses [[hooks]] entries with name, type,
+	// optional match, command, and a floating-point timeout measured in seconds.
+	// Native event names use underscores; AO's hook CLI uses hyphenated tokens.
 	return vibeHooksSentinelStart + "\n\n" +
 		vibeHookEntry("ao-session-metadata", "post_agent", "", "ao hooks vibe post-agent") +
 		vibeHookEntry("ao-pre-tool", "pre_tool", "*", "ao hooks vibe pre-tool") +
@@ -151,35 +151,4 @@ func joinVibeTOML(prefix, block, suffix string) string {
 		b.WriteString(suffix)
 	}
 	return b.String()
-}
-
-func enableVibeInteractionLogging(path string) error {
-	data, err := os.ReadFile(path) //nolint:gosec // workspace-local adapter config
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("read %s: %w", path, err)
-	}
-	body := setVibeTopLevelLogging(string(data))
-	if err := hookutil.AtomicWriteFile(path, []byte(body), 0o600); err != nil {
-		return fmt.Errorf("write %s: %w", path, err)
-	}
-	return nil
-}
-
-func setVibeTopLevelLogging(existing string) string {
-	lines := strings.Split(existing, "\n")
-	for i, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "[") {
-			break
-		}
-		if key, _, found := strings.Cut(trimmed, "="); found && strings.TrimSpace(key) == "log_interactions" {
-			lines[i] = "log_interactions = true"
-			return strings.TrimRight(strings.Join(lines, "\n"), "\n") + "\n"
-		}
-	}
-	base := strings.TrimRight(existing, "\n")
-	if base == "" {
-		return "log_interactions = true\n"
-	}
-	return "log_interactions = true\n\n" + base + "\n"
 }

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -504,8 +506,17 @@ func TestHooks_DevinSessionStartReportsSessionIDAndInjectsSystemPromptContext(t 
 	writeRunFileFor(t, cfg, srv)
 
 	out, _, err := executeCLI(t, Deps{
-		In:           strings.NewReader(`{"source":"startup","session_id":"devin-native-1"}`),
+		In:           strings.NewReader(`{"hook_event_name":"SessionStart","source":"startup"}`),
 		ProcessAlive: func(int) bool { return true },
+		CommandOutput: func(_ context.Context, name string, args ...string) ([]byte, error) {
+			if name != "devin" || !reflect.DeepEqual(args, []string{"list", "--format", "json"}) {
+				t.Fatalf("command = %q %q", name, args)
+			}
+			return []byte(`[
+				{"id":"older-session","last_activity_at":100},
+				{"id":"devin-native-1","last_activity_at":200}
+			]`), nil
+		},
 	}, "hooks", "devin", "session-start")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

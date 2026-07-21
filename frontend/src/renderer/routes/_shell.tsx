@@ -1,7 +1,9 @@
-import { createFileRoute, Outlet, useMatchRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useMatchRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { type CSSProperties, useCallback, useEffect, useRef } from "react";
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { NotificationRuntime } from "../components/NotificationCenter";
+import { GlobalNewTaskDialog } from "../components/GlobalNewTaskDialog";
+import { KeyboardShortcutsDialog } from "../components/KeyboardShortcutsDialog";
 import { ShellTopbar } from "../components/ShellTopbar";
 import { OrchestratorReplacementDialog } from "../components/OrchestratorReplacementDialog";
 import { Sidebar } from "../components/Sidebar";
@@ -15,10 +17,10 @@ import { apiClient, apiErrorCode, apiErrorMessage } from "../lib/api-client";
 import { refreshDaemonStatus } from "../lib/daemon-status";
 import { addRendererExceptionStep, captureRendererEvent, captureRendererException } from "../lib/telemetry";
 import { ShellProvider } from "../lib/shell-context";
-import { spawnOrchestrator } from "../lib/spawn-orchestrator";
 import { restartProjectOrchestrator } from "../lib/restart-orchestrator";
 import { captureOrchestratorReplacementFailure } from "../lib/orchestrator-replacement-telemetry";
-import { applyDocumentTheme, readStoredTheme, systemTheme } from "../lib/theme";
+import { applyDocumentTheme } from "../lib/theme";
+import { aoBridge } from "../lib/bridge";
 import { useUiStore } from "../stores/ui-store";
 import type { WorkspaceSummary } from "../types/workspace";
 import type { components } from "../../api/schema";
@@ -38,6 +40,28 @@ function errorMessage(error: unknown) {
 	return error instanceof Error ? error.message : "Could not load projects";
 }
 
+type CreateProjectConfigInput = {
+	workerAgent: string;
+	orchestratorAgent: string;
+	trackerIntake?: components["schemas"]["TrackerIntakeConfig"];
+};
+
+export function createProjectConfig(input: CreateProjectConfigInput): components["schemas"]["ProjectConfig"] {
+	return {
+		worker: { agent: input.workerAgent as components["schemas"]["RoleOverride"]["agent"] },
+		orchestrator: { agent: input.orchestratorAgent as components["schemas"]["RoleOverride"]["agent"] },
+		...(input.trackerIntake ? { trackerIntake: input.trackerIntake } : {}),
+	};
+}
+
+const isMac = typeof navigator !== "undefined" && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
+const isWindows =
+	typeof navigator !== "undefined" &&
+	/win/i.test(
+		(navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ??
+			navigator.platform ??
+			"",
+	);
 const isLinux =
 	typeof navigator !== "undefined" &&
 	((navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? navigator.platform)
@@ -56,10 +80,29 @@ function ShellLayout() {
 	const workspaces = workspaceQuery.data ?? [];
 	const daemonStatus = useDaemonStatus(queryClient);
 	const agentCatalogPortRef = useRef<number | undefined>(undefined);
-	const { theme, setTheme, isSidebarOpen, toggleSidebar } = useUiStore();
+	const { themePreference, resolvedTheme, isSidebarOpen, toggleSidebar } = useUiStore();
+	const syncSystemTheme = useUiStore((state) => state.syncSystemTheme);
+	const requestNewTask = useUiStore((state) => state.requestNewTask);
+	const requestCreateProject = useUiStore((state) => state.requestCreateProject);
+	const [isKeyboardShortcutsOpen, setIsKeyboardShortcutsOpen] = useState(false);
+	const routeParams = useParams({ strict: false }) as { projectId?: string; sessionId?: string };
+	// Project in scope for a new-session shortcut: the route's project, or the
+	// workspace owning the open session (so the shortcut works from a worker's
+	// detail view, where the URL carries only a sessionId).
+	const scopedProjectId = routeParams.projectId
+		? routeParams.projectId
+		: routeParams.sessionId
+			? workspaces.find((workspace) => workspace.sessions.some((session) => session.id === routeParams.sessionId))?.id
+			: undefined;
 	const isSessionRoute =
 		Boolean(matchRoute({ to: "/projects/$projectId/sessions/$sessionId", fuzzy: true })) ||
 		Boolean(matchRoute({ to: "/sessions/$sessionId", fuzzy: true }));
+	// First-launch root board only — not /prs or other shell routes with zero projects.
+	const isWelcomeBoard = Boolean(matchRoute({ to: "/" })) && workspaces.length === 0;
+	const isSettingsRoute =
+		Boolean(matchRoute({ to: "/settings", fuzzy: true })) ||
+		Boolean(matchRoute({ to: "/projects/$projectId/settings", fuzzy: true }));
+	const hideShellTopbar = isWelcomeBoard || isSettingsRoute;
 	const setProjectRestarting = useUiStore((state) => state.setProjectRestarting);
 	const orchestratorReplacementErrors = useUiStore((state) => state.orchestratorReplacementErrors);
 	const setOrchestratorReplacementError = useUiStore((state) => state.setOrchestratorReplacementError);
@@ -95,11 +138,7 @@ function ShellLayout() {
 				body: {
 					path: input.path,
 					asWorkspace: input.asWorkspace || undefined,
-					config: {
-						worker: { agent: input.workerAgent },
-						orchestrator: { agent: input.orchestratorAgent },
-						trackerIntake: input.trackerIntake,
-					},
+					config: createProjectConfig(input),
 				},
 			});
 			if (error) {
@@ -128,13 +167,42 @@ function ShellLayout() {
 			updateWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)]);
 			setOrchestratorStartupError(workspace.id, null);
 			try {
-				const sessionId = await spawnOrchestrator(workspace.id, "project_add");
+				void captureRendererEvent("ao.renderer.orchestrator_spawn_requested", {
+					project_id: workspace.id,
+					source: "project_add",
+				});
+				const {
+					data: spawnData,
+					error: spawnError,
+					response: spawnResponse,
+				} = await apiClient.POST("/api/v1/sessions", {
+					body: {
+						projectId: workspace.id,
+						kind: "orchestrator",
+						harness: input.orchestratorAgent as components["schemas"]["SpawnSessionRequest"]["harness"],
+					},
+				});
+				if (spawnError || !spawnData?.session?.id) {
+					const message = spawnError
+						? apiErrorMessage(spawnError, `Failed to spawn orchestrator (${spawnResponse.status})`)
+						: `Failed to spawn orchestrator (${spawnResponse.status})`;
+					throw new Error(message);
+				}
+				void captureRendererEvent("ao.renderer.orchestrator_spawn_succeeded", {
+					project_id: workspace.id,
+					source: "project_add",
+				});
+				const sessionId = spawnData.session.id;
 				await queryClient.invalidateQueries({ queryKey: workspaceQueryKey });
 				void navigate({
 					to: "/projects/$projectId/sessions/$sessionId",
 					params: { projectId: workspace.id, sessionId },
 				});
 			} catch (spawnError) {
+				void captureRendererEvent("ao.renderer.orchestrator_spawn_failed", {
+					project_id: workspace.id,
+					source: "project_add",
+				});
 				void navigate({ to: "/projects/$projectId", params: { projectId: workspace.id } });
 				const message = spawnError instanceof Error ? spawnError.message : "Could not start orchestrator";
 				const startupMessage = `Project added, but orchestrator did not start: ${message}`;
@@ -200,8 +268,8 @@ function ShellLayout() {
 	);
 
 	useEffect(() => {
-		applyDocumentTheme(theme);
-	}, [theme]);
+		applyDocumentTheme(resolvedTheme);
+	}, [resolvedTheme]);
 
 	useEffect(() => {
 		if (daemonStatus.state !== "ready" || !daemonStatus.port) return;
@@ -213,15 +281,16 @@ function ShellLayout() {
 		void queryClient.invalidateQueries({ queryKey: workspaceQueryKey });
 	}, [daemonStatus.port, daemonStatus.state, queryClient]);
 
-	// Follow OS appearance only until the user picks a theme explicitly.
+	// Follow OS appearance while the user keeps Theme on System — updates
+	// resolvedTheme (and thus React consumers) without writing light/dark to storage.
 	useEffect(() => {
-		if (readStoredTheme()) return;
+		if (themePreference !== "system") return;
 
 		const mediaQuery = window.matchMedia("(prefers-color-scheme: light)");
-		const handleChange = () => setTheme(systemTheme());
+		const handleChange = () => syncSystemTheme();
 		mediaQuery.addEventListener("change", handleChange);
 		return () => mediaQuery.removeEventListener("change", handleChange);
-	}, [setTheme]);
+	}, [themePreference, syncSystemTheme]);
 
 	// ⌘B lives in SidebarProvider (shadcn's built-in shortcut), which routes
 	// through onOpenChange back into the ui-store.
@@ -239,20 +308,40 @@ function ShellLayout() {
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, [navigate, workspaces]);
 
+	// New session (⌘N / Ctrl+Shift+N) is detected in the main process and
+	// delivered here, so it fires even when focus is inside xterm or a native
+	// Browser-preview view. The shell owns the routing: open the New Task flow
+	// for the in-scope project, else fall back to create-project.
+	useEffect(
+		() =>
+			aoBridge.app.onNewSessionShortcut(() => {
+				if (scopedProjectId) {
+					requestNewTask(scopedProjectId);
+				} else {
+					requestCreateProject();
+				}
+			}),
+		[scopedProjectId, requestNewTask, requestCreateProject],
+	);
+
+	useEffect(() => aoBridge.app.onKeyboardShortcutsHelp(() => setIsKeyboardShortcutsOpen(true)), []);
+
 	return (
 		<ShellProvider value={{ daemonStatus, createProject, initializeProjectRepository }}>
 			<NotificationRuntime />
+			<GlobalNewTaskDialog />
+			<KeyboardShortcutsDialog open={isKeyboardShortcutsOpen} onOpenChange={setIsKeyboardShortcutsOpen} />
 			{/* The topbar spans the full window width above the sidebar row (the
           macOS traffic lights + TitlebarNav cluster sit in its left inset),
           and the sidebar hangs below it — so the sidebar border stops at the
           header instead of cutting through the titlebar strip. The bar lives
           in the layout, not the screens, so the crumb and actions never shift
           when the outlet content swaps. */}
-			<div className="flex h-screen min-h-0 flex-col bg-background text-foreground">
+			<div className="flex h-screen min-h-0 flex-col bg-sidebar text-foreground">
 				{/* Windows-only custom title bar (logo + File/Edit/View/… menu); paints
             the chrome the frameless window drops. Renders null on macOS/Linux. */}
 				<WindowTitlebar />
-				<ShellTopbar />
+				{!hideShellTopbar ? <ShellTopbar /> : null}
 				{/* Controlled by the ui-store so TitlebarNav / Topbar toggles (which
             call the store directly) stay in sync. --sidebar-width chains to
             the drag-resizable --ao-sidebar-w set on :root by useResizable. */}
@@ -267,9 +356,15 @@ function ShellLayout() {
 						} as CSSProperties
 					}
 				>
+					{/* Hang the fixed sidebar below shell chrome: macOS TitlebarNav and the
+            Windows WindowTitlebar stay in the top band on every route; when the
+            shell topbar is hidden (welcome board or settings), Windows clears
+            only the 36px titlebar. Linux offsets under the topbar on session
+            routes when the shell topbar is visible. */}
 					<Sidebar
-						daemonStatus={daemonStatus}
-						underTopbar={isLinux ? isSessionRoute : true}
+						hideEdgeBorder={isWelcomeBoard}
+						underTopbar={isMac || isWindows || (!hideShellTopbar && (isLinux ? isSessionRoute : true))}
+						topbarOffset={isWindows && hideShellTopbar ? "titlebar" : "toolbar"}
 						onCreateProject={createProject}
 						onInitializeProject={initializeProjectRepository}
 						onRemoveProject={removeProject}
@@ -281,15 +376,29 @@ function ShellLayout() {
 							<Outlet />
 						</div>
 					</main>
+					{/* When ShellTopbar is hidden on the welcome board, keep a macOS
+              window-drag strip in the same 56px band — otherwise only
+              TitlebarNav's no-drag buttons remain and the top chrome can't
+              move the window. Invisible/fixed so the start-page layout is
+              unchanged. */}
+					{isWelcomeBoard && isMac ? (
+						<div
+							aria-hidden="true"
+							className="fixed inset-x-0 top-0 z-chrome h-toolbar"
+							style={{ WebkitAppRegion: "drag" } as CSSProperties}
+						/>
+					) : null}
 					{/* Fixed macOS titlebar cluster beside the traffic lights — rendered
               once here so the toggle/history buttons never move when the
-              sidebar collapses or expands. MUST come after the topbar in the
-              DOM: Electron builds the window-drag region in document order
-              (drag rects add, no-drag rects subtract), so the cluster's
-              no-drag holes only survive if they're processed after the drag
-              strips they overlap. Rendered first, real clicks get swallowed
-              by window-drag even though DOM hit-testing looks correct. */}
-					<TitlebarNav />
+              sidebar collapses or expands. History arrows stay visible but
+              locked on the empty start page. MUST come after the drag strip
+              (ShellTopbar or the welcome substitute) in the DOM: Electron
+              builds the window-drag region in document order (drag rects add,
+              no-drag rects subtract), so the cluster's no-drag holes only
+              survive if they're processed after the drag strips they overlap.
+              Rendered first, real clicks get swallowed by window-drag even
+              though DOM hit-testing looks correct. */}
+					<TitlebarNav historyLocked={isWelcomeBoard} />
 				</SidebarProvider>
 				<OrchestratorReplacementDialog
 					error={replacementErrorProjectId ? orchestratorReplacementErrors[replacementErrorProjectId] : undefined}

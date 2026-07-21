@@ -1,15 +1,15 @@
 // Package aider implements the Aider agent adapter: launching interactive Aider
 // worker sessions.
 //
-// Aider is a Tier C adapter: it has no lifecycle hook surface, no native
-// session id, and no resume-by-id mechanism, so hook installation, restore, and
-// SessionInfo are intentionally no-ops. The permission mapping is lossy because
-// Aider lacks a graduated approval ladder or sandbox (see the comments on
-// appendApprovalFlags).
+// Aider has no lifecycle hook surface or native session id. AO restores its
+// conversation through Aider's session-scoped chat history file instead.
+// SessionInfo remains a no-op. The permission mapping is lossy because Aider
+// lacks a graduated approval ladder or sandbox (see appendApprovalFlags).
 package aider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -76,12 +76,67 @@ func (p *Plugin) GetLaunchCommand(ctx context.Context, cfg ports.LaunchConfig) (
 	cmd = []string{binary}
 	appendApprovalFlags(&cmd, cfg.Permissions)
 	cmd = append(cmd, "--no-check-update", "--no-stream", "--no-pretty")
+	if historyFile, err := prepareChatHistoryFile(cfg.DataDir, cfg.SessionID); err != nil {
+		return nil, err
+	} else if historyFile != "" {
+		cmd = append(cmd, "--chat-history-file", historyFile)
+	}
 	if cfg.SystemPromptFile != "" {
 		cmd = append(cmd, "--read", cfg.SystemPromptFile)
 	}
 	// aider has no inline system-prompt mechanism. A cfg.SystemPrompt with no
 	// file is intentionally dropped here rather than written to disk.
 	return cmd, nil
+}
+
+// GetRestoreCommand continues an Aider conversation from the transcript AO
+// assigned on first launch. Aider has no resume id; --restore-chat-history
+// reconstructs its message history from this file. A missing transcript is not
+// an error and lets the session manager fall back to replaying the saved task.
+func (p *Plugin) GetRestoreCommand(ctx context.Context, cfg ports.RestoreConfig) ([]string, bool, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, false, err
+	}
+	historyFile := chatHistoryFile(cfg.DataDir, cfg.Session.ID)
+	if historyFile == "" {
+		return nil, false, nil
+	}
+	if _, err := os.Stat(historyFile); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, false, nil
+		}
+		return nil, false, fmt.Errorf("aider: stat chat history: %w", err)
+	}
+
+	binary, err := p.aiderBinary(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	cmd := []string{binary}
+	appendApprovalFlags(&cmd, cfg.Permissions)
+	cmd = append(cmd, "--no-check-update", "--no-stream", "--no-pretty", "--chat-history-file", historyFile, "--restore-chat-history")
+	if cfg.SystemPromptFile != "" {
+		cmd = append(cmd, "--read", cfg.SystemPromptFile)
+	}
+	return cmd, true, nil
+}
+
+func chatHistoryFile(dataDir, sessionID string) string {
+	if dataDir == "" || sessionID == "" {
+		return ""
+	}
+	return filepath.Join(dataDir, "sessions", sessionID, "aider.chat.history.md")
+}
+
+func prepareChatHistoryFile(dataDir, sessionID string) (string, error) {
+	path := chatHistoryFile(dataDir, sessionID)
+	if path == "" {
+		return "", nil
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return "", fmt.Errorf("aider: prepare chat history directory: %w", err)
+	}
+	return path, nil
 }
 
 // GetPromptDeliveryStrategy reports that AO should inject prompted Aider tasks

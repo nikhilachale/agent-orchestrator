@@ -3,6 +3,8 @@ package aider
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -105,6 +107,23 @@ func TestGetLaunchCommandAlwaysAppendsStableOutputFlags(t *testing.T) {
 		if !found {
 			t.Fatalf("cmd = %#v missing stable output flag %q", cmd, want)
 		}
+	}
+}
+
+func TestGetLaunchCommandAssignsSessionChatHistory(t *testing.T) {
+	dataDir := t.TempDir()
+	p := &Plugin{resolvedBinary: "aider"}
+	cmd, err := p.GetLaunchCommand(context.Background(), ports.LaunchConfig{DataDir: dataDir, SessionID: "session-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	historyFile := filepath.Join(dataDir, "sessions", "session-1", "aider.chat.history.md")
+	want := []string{"aider", "--no-check-update", "--no-stream", "--no-pretty", "--chat-history-file", historyFile}
+	if !reflect.DeepEqual(cmd, want) {
+		t.Fatalf("cmd = %#v, want %#v", cmd, want)
+	}
+	if info, err := os.Stat(filepath.Dir(historyFile)); err != nil || !info.IsDir() {
+		t.Fatalf("history directory was not prepared: info=%v err=%v", info, err)
 	}
 }
 
@@ -221,22 +240,41 @@ func TestGetLaunchCommandInlineSystemPromptIsDropped(t *testing.T) {
 	}
 }
 
-func TestGetRestoreCommandAlwaysFalse(t *testing.T) {
-	p := &Plugin{}
+func TestGetRestoreCommandRestoresSessionChatHistory(t *testing.T) {
+	dataDir := t.TempDir()
+	historyFile, err := prepareChatHistoryFile(dataDir, "session-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(historyFile, []byte("# aider chat history\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	p := &Plugin{resolvedBinary: "aider"}
 	cmd, ok, err := p.GetRestoreCommand(context.Background(), ports.RestoreConfig{
-		Session: ports.SessionRef{
-			Metadata: map[string]string{ports.MetadataKeyAgentSessionID: "abc123"},
-		},
+		DataDir:     dataDir,
+		Session:     ports.SessionRef{ID: "session-1"},
 		Permissions: ports.PermissionModeBypassPermissions,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ok {
-		t.Fatalf("ok=true, want false (aider has no resume-by-id)")
+	if !ok {
+		t.Fatal("ok=false, want true")
 	}
-	if cmd != nil {
-		t.Fatalf("cmd = %#v, want nil", cmd)
+	want := []string{"aider", "--yes-always", "--no-check-update", "--no-stream", "--no-pretty", "--chat-history-file", historyFile, "--restore-chat-history"}
+	if !reflect.DeepEqual(cmd, want) {
+		t.Fatalf("cmd = %#v, want %#v", cmd, want)
+	}
+}
+
+func TestGetRestoreCommandFallsBackWhenHistoryIsMissing(t *testing.T) {
+	p := &Plugin{resolvedBinary: "aider"}
+	cmd, ok, err := p.GetRestoreCommand(context.Background(), ports.RestoreConfig{DataDir: t.TempDir(), Session: ports.SessionRef{ID: "session-1"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok || cmd != nil {
+		t.Fatalf("cmd=%#v ok=%v, want nil false", cmd, ok)
 	}
 }
 

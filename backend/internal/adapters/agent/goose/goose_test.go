@@ -366,8 +366,8 @@ func TestGetRestoreCommandReadsAgentSessionID(t *testing.T) {
 
 	cmd, ok, err := plugin.GetRestoreCommand(context.Background(), ports.RestoreConfig{
 		Permissions:      ports.PermissionModeAuto,
-		SystemPrompt:     "must not be replayed",
-		SystemPromptFile: filepath.Join(t.TempDir(), "must-not-be-read.md"),
+		SystemPrompt:     "restore inline wins",
+		SystemPromptFile: filepath.Join(t.TempDir(), "missing.md"),
 		Session: ports.SessionRef{
 			Metadata: map[string]string{ports.MetadataKeyAgentSessionID: "20260720_1"},
 		},
@@ -380,15 +380,13 @@ func TestGetRestoreCommandReadsAgentSessionID(t *testing.T) {
 	}
 	want := []string{
 		"env", "GOOSE_MODE=auto",
-		"goose", "session", "--resume", "--session-id", "20260720_1",
+		"goose", "run", "--system", "restore inline wins", "--resume", "--session-id", "20260720_1",
 	}
 	if !reflect.DeepEqual(cmd, want) {
 		t.Fatalf("restore cmd\nwant: %#v\n got: %#v", want, cmd)
 	}
-	for _, forbidden := range []string{"run", "--system", "must not be replayed"} {
-		if contains(cmd, forbidden) {
-			t.Fatalf("restore command %#v unexpectedly contains %q", cmd, forbidden)
-		}
+	if contains(cmd, "-t") || contains(cmd, "restore original task") {
+		t.Fatalf("restore command %#v unexpectedly replays the original task", cmd)
 	}
 }
 

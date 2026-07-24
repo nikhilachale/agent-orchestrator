@@ -189,6 +189,7 @@ func (m *Manager) ApplyActivitySignal(ctx context.Context, id domain.SessionID, 
 	// (old CLIs, adapters without tool identity) pass through untouched —
 	// last-writer-wins, exactly as before.
 	metadataChanged := s.AgentSessionID != "" && rec.Metadata.AgentSessionID != s.AgentSessionID
+	resumeReadyChanged := s.Event == "stop" && !rec.Metadata.NativeResumeReady
 	if s.Valid {
 		s = m.applyToolPrecedenceLocked(id, rec.Activity.State, s)
 	}
@@ -218,7 +219,10 @@ func (m *Manager) ApplyActivitySignal(ctx context.Context, id domain.SessionID, 
 	// first to ARRIVE may match the seeded state — e.g. a turn's "active"
 	// POST is lost and its Stop hook lands idle on the idle-seeded row.
 	if sameState && !rec.FirstSignalAt.IsZero() {
-		if metadataChanged {
+		if metadataChanged || resumeReadyChanged {
+			if resumeReadyChanged {
+				rec.Metadata.NativeResumeReady = true
+			}
 			rec.UpdatedAt = now
 			err := m.store.UpdateSession(ctx, rec)
 			m.mu.Unlock()
@@ -229,6 +233,9 @@ func (m *Manager) ApplyActivitySignal(ctx context.Context, id domain.SessionID, 
 	}
 	next := rec
 	next.Activity = act
+	if s.Event == "stop" {
+		next.Metadata.NativeResumeReady = true
+	}
 	if next.FirstSignalAt.IsZero() {
 		next.FirstSignalAt = timeOr(s.Timestamp, now)
 	}

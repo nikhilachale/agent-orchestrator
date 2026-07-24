@@ -225,6 +225,47 @@ func TestActivity_MetadataOnlyStoresAgentSessionIDWithoutChangingActivity(t *tes
 	}
 }
 
+func TestActivity_StopMarksNativeResumeReady(t *testing.T) {
+	m, st, _ := newManager()
+	rec := working("mer-1")
+	rec.Metadata.AgentSessionID = "native-session-1"
+	st.sessions["mer-1"] = rec
+
+	if err := m.ApplyActivitySignal(ctx, "mer-1", ports.ActivitySignal{
+		Valid: true,
+		State: domain.ActivityIdle,
+		Event: "stop",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got := st.sessions["mer-1"]
+	if !got.Metadata.NativeResumeReady {
+		t.Fatal("Stop hook must mark native resume ready")
+	}
+	if got.Metadata.AgentSessionID != "native-session-1" {
+		t.Fatalf("AgentSessionID = %q, want native-session-1", got.Metadata.AgentSessionID)
+	}
+}
+
+func TestActivity_SameStateStopMarksNativeResumeReady(t *testing.T) {
+	m, st, _ := newManager()
+	rec := working("mer-1")
+	rec.Activity.State = domain.ActivityIdle
+	rec.FirstSignalAt = time.Now().Add(-time.Minute)
+	st.sessions["mer-1"] = rec
+
+	if err := m.ApplyActivitySignal(ctx, "mer-1", ports.ActivitySignal{
+		Valid: true,
+		State: domain.ActivityIdle,
+		Event: "stop",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !st.sessions["mer-1"].Metadata.NativeResumeReady {
+		t.Fatal("same-state Stop hook must mark native resume ready")
+	}
+}
+
 func TestActivity_SameStateSignalStillStoresAgentSessionID(t *testing.T) {
 	m, st, _ := newManager()
 	rec := working("mer-1")

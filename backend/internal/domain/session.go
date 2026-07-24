@@ -30,6 +30,7 @@ type SessionMetadata struct {
 	WorkspaceRepoPath string `json:"workspaceRepoPath,omitempty"`
 	RuntimeHandleID   string `json:"runtimeHandleId,omitempty"`
 	AgentSessionID    string `json:"agentSessionId,omitempty"`
+	NativeResumeReady bool   `json:"nativeResumeReady,omitempty"`
 	Prompt            string `json:"prompt,omitempty"`
 	// PreviewURL is the browser preview target the desktop app opens for this
 	// session. Set via `ao preview` (POST /sessions/{id}/preview); persisted so

@@ -89,6 +89,9 @@ function createFakeMux(): FakeMux {
 type FakeTerminal = AttachableTerminal & {
 	lines: string[];
 	clears: number;
+	scrollsToBottom: number;
+	autoCompleteWrites: boolean;
+	completeWrites(): void;
 	typeKeys(data: string): void;
 	paste(data: string): void;
 	compose(data: string): void;
@@ -100,15 +103,36 @@ type FakeTerminal = AttachableTerminal & {
 function createFakeTerminal(): FakeTerminal {
 	const inputListeners = new Set<Parameters<AttachableTerminal["onUserInput"]>[0]>();
 	const resizeListeners = new Set<(size: { cols: number; rows: number }) => void>();
+	const writeCallbacks: Array<() => void> = [];
 	const terminal: FakeTerminal = {
 		cols: 80,
 		rows: 24,
 		lines: [],
 		clears: 0,
-		write: (bytes) => terminal.lines.push(new TextDecoder().decode(bytes)),
-		writeln: (line) => terminal.lines.push(line),
+		scrollsToBottom: 0,
+		autoCompleteWrites: true,
+		write: (bytes, callback) => {
+			terminal.lines.push(new TextDecoder().decode(bytes));
+			if (callback) {
+				if (terminal.autoCompleteWrites) callback();
+				else writeCallbacks.push(callback);
+			}
+		},
+		writeln: (line, callback) => {
+			terminal.lines.push(line);
+			if (callback) {
+				if (terminal.autoCompleteWrites) callback();
+				else writeCallbacks.push(callback);
+			}
+		},
+		scrollToBottom: () => {
+			terminal.scrollsToBottom += 1;
+		},
 		clear: () => {
 			terminal.clears += 1;
+		},
+		completeWrites: () => {
+			writeCallbacks.splice(0).forEach((callback) => callback());
 		},
 		onUserInput: (listener) => {
 			inputListeners.add(listener);
@@ -165,10 +189,72 @@ describe("useTerminalSession", () => {
 	it("opens the pane at the terminal's size and reaches attached on the server ack", () => {
 		const { view, muxes } = setup();
 		expect(view.result.current.state).toBe("connecting");
+		expect(view.result.current.replayCovered).toBe(true);
 		expect(muxes).toHaveLength(1);
 		expect(muxes[0].opens).toEqual([["handle-1", 80, 24]]);
 		act(() => muxes[0].emitOpened("handle-1"));
 		expect(view.result.current.state).toBe("attached");
+	});
+
+	it("keeps replay covered until the quiet window and latest xterm write completion, then reveals at the bottom", () => {
+		const { view, terminal, muxes } = setup();
+		terminal.autoCompleteWrites = false;
+		act(() => muxes[0].emitOpened("handle-1"));
+		act(() => muxes[0].emitData("handle-1", "old output"));
+
+		act(() => void vi.advanceTimersByTime(32));
+		expect(view.result.current.replayCovered).toBe(true);
+		expect(terminal.scrollsToBottom).toBe(0);
+
+		act(() => terminal.completeWrites());
+		expect(view.result.current.replayCovered).toBe(true);
+		act(() => void vi.advanceTimersByTime(20));
+		expect(view.result.current.replayCovered).toBe(false);
+		expect(terminal.scrollsToBottom).toBe(1);
+	});
+
+	it("reveals no-data attachments without flashing delayed loading text", () => {
+		const { view, muxes } = setup();
+		act(() => muxes[0].emitOpened("handle-1"));
+		act(() => void vi.advanceTimersByTime(80));
+		act(() => void vi.advanceTimersByTime(20));
+
+		expect(view.result.current.replayCovered).toBe(false);
+		expect(view.result.current.showReplayMessage).toBe(false);
+	});
+
+	it("does not scroll again for normal live output after the one-time reveal", () => {
+		const { view, terminal, muxes } = setup();
+		act(() => muxes[0].emitOpened("handle-1"));
+		act(() => muxes[0].emitData("handle-1", "replay"));
+		act(() => void vi.advanceTimersByTime(52));
+		expect(view.result.current.replayCovered).toBe(false);
+		expect(terminal.scrollsToBottom).toBe(1);
+
+		act(() => muxes[0].emitData("handle-1", "live output"));
+		act(() => void vi.advanceTimersByTime(100));
+		expect(terminal.scrollsToBottom).toBe(1);
+	});
+
+	it("shows delayed replay text but never leaves the cover past the hard ceiling", () => {
+		const { view } = setup();
+		act(() => void vi.advanceTimersByTime(120));
+		expect(view.result.current.replayCovered).toBe(true);
+		expect(view.result.current.showReplayMessage).toBe(true);
+
+		act(() => void vi.advanceTimersByTime(380));
+		expect(view.result.current.replayCovered).toBe(false);
+		expect(view.result.current.showReplayMessage).toBe(false);
+	});
+
+	it.each(["exit", "error"] as const)("does not leave the replay cover stuck on terminal %s", (event) => {
+		const { view, muxes } = setup();
+		act(() => {
+			if (event === "exit") muxes[0].emitExit("handle-1");
+			else muxes[0].emitError("handle-1", "gone");
+		});
+		act(() => void vi.advanceTimersByTime(20));
+		expect(view.result.current.replayCovered).toBe(false);
 	});
 
 	it("stays idle when the session has no terminal handle", () => {
@@ -365,6 +451,26 @@ describe("useTerminalSession", () => {
 		expect(terminal.lines).not.toContain("stale");
 		act(() => muxes[1].emitOpened("handle-1"));
 		expect(view.result.current.state).toBe("attached");
+	});
+
+	it("ignores an old connection's delayed write completion when a reconnect is preparing", () => {
+		const { view, terminal, muxes } = setup();
+		terminal.autoCompleteWrites = false;
+		act(() => muxes[0].emitOpened("handle-1"));
+		act(() => muxes[0].emitData("handle-1", "old replay"));
+		act(() => muxes[0].emitConnection("closed"));
+		act(() => void vi.advanceTimersByTime(500));
+		expect(muxes).toHaveLength(2);
+		expect(view.result.current.replayCovered).toBe(true);
+
+		act(() => terminal.completeWrites());
+		act(() => void vi.advanceTimersByTime(20));
+		expect(view.result.current.replayCovered).toBe(true);
+
+		terminal.autoCompleteWrites = true;
+		act(() => muxes[1].emitOpened("handle-1"));
+		act(() => void vi.advanceTimersByTime(100));
+		expect(view.result.current.replayCovered).toBe(false);
 	});
 
 	it("hard-reconnects when the server never acknowledges open", () => {

@@ -693,8 +693,9 @@ export function XtermTerminal(props: XtermTerminalProps) {
 			get rows() {
 				return term.rows;
 			},
-			write: (data) => term.write(data),
-			writeln: (line) => term.writeln(line),
+			write: (data, callback) => term.write(data, callback),
+			writeln: (line, callback) => term.writeln(line, callback),
+			scrollToBottom: () => term.scrollToBottom(),
 			clear: () => term.write(CLEAR_SEQUENCE),
 			onUserInput: (listener) => {
 				userInputListeners.add(listener);

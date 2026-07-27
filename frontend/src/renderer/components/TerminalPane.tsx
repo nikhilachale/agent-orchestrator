@@ -238,7 +238,10 @@ function AttachedTerminal({ session, theme, daemonReady, terminalTarget, fontSiz
 	// A shell pane has no session, so it hands the hook its handle directly
 	// instead of reading one off `attachSession`.
 	const shellTerminalHandleId = terminalTarget?.kind === "shell" ? terminalTarget.handleId : undefined;
-	const { attach, state, error } = useTerminalSession(attachSession, { daemonReady, shellTerminalHandleId });
+	const { attach, state, error, replayCovered, showReplayMessage } = useTerminalSession(attachSession, {
+		daemonReady,
+		shellTerminalHandleId,
+	});
 	const handleId = shellTerminalHandleId ?? attachSession?.terminalHandleId;
 	const provider = terminalTarget?.kind === "reviewer" ? terminalTarget.harness : session?.provider;
 	const hadAttachmentRef = useRef(false);
@@ -362,6 +365,14 @@ function AttachedTerminal({ session, theme, daemonReady, terminalTarget, fontSiz
 					paneScrollsByKeyboard={providerScrollsByKeyboard(provider)}
 					theme={theme}
 				/>
+				{replayCovered && !showEmptyState && (
+					<div
+						className="absolute inset-0 grid place-items-center bg-terminal font-mono text-control text-terminal-dim"
+						data-testid="terminal-replay-cover"
+					>
+						{showReplayMessage ? "Loading latest output…" : null}
+					</div>
+				)}
 				{showEmptyState && (
 					<div className="absolute inset-0 grid place-items-center bg-terminal font-mono text-control">
 						<div className="text-center">

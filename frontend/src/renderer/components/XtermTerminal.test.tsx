@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AttachableTerminal } from "../hooks/useTerminalSession";
 import { XtermTerminal } from "./XtermTerminal";
 
 const state = vi.hoisted(() => ({
@@ -12,6 +13,7 @@ const state = vi.hoisted(() => ({
 		modes: { bracketedPasteMode: boolean; mouseTrackingMode: string };
 		buffer: { active: { type: string } };
 		scrollLines: ReturnType<typeof vi.fn>;
+		scrollToBottom: ReturnType<typeof vi.fn>;
 		clear: ReturnType<typeof vi.fn>;
 		focus: ReturnType<typeof vi.fn>;
 		selectAll: ReturnType<typeof vi.fn>;
@@ -39,6 +41,7 @@ vi.mock("@xterm/xterm", () => ({
 		modes = { bracketedPasteMode: false, mouseTrackingMode: "vt200" };
 		buffer = { active: { type: "normal" } };
 		scrollLines = vi.fn();
+		scrollToBottom = vi.fn();
 		clear = vi.fn();
 		focus = vi.fn();
 		selectAll = vi.fn();
@@ -62,8 +65,12 @@ vi.mock("@xterm/xterm", () => ({
 		open(host: HTMLElement) {
 			host.appendChild(document.createElement("textarea"));
 		}
-		write() {}
-		writeln() {}
+		write(_data: Uint8Array, callback?: () => void) {
+			callback?.();
+		}
+		writeln(_line: string, callback?: () => void) {
+			callback?.();
+		}
 		dispose() {}
 		onData(listener: (data: string) => void) {
 			this.dataListeners.add(listener);
@@ -629,6 +636,25 @@ describe("XtermTerminal", () => {
 		state.lastTerminal!.keyListeners.forEach((listener) => listener({ key: "a" }));
 
 		expect(onInput).toHaveBeenCalledWith("a", "keyboard");
+	});
+
+	it("exposes xterm write completion and one-time scroll-to-bottom controls", () => {
+		let terminalHandle: AttachableTerminal | undefined;
+		render(
+			<XtermTerminal
+				theme="dark"
+				onReady={(terminal) => {
+					terminalHandle = terminal;
+				}}
+			/>,
+		);
+		const completed = vi.fn();
+
+		terminalHandle!.write(new Uint8Array([65]), completed);
+		terminalHandle!.scrollToBottom();
+
+		expect(completed).toHaveBeenCalledTimes(1);
+		expect(state.lastTerminal!.scrollToBottom).toHaveBeenCalledTimes(1);
 	});
 
 	it("does not forward raw xterm data/control bytes as user input", () => {

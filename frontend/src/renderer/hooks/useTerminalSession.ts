@@ -29,8 +29,10 @@ export type TerminalUserInputSource = "keyboard" | "paste" | "composition" | "sh
 export type AttachableTerminal = {
 	cols: number;
 	rows: number;
-	write: (data: Uint8Array) => void;
-	writeln: (line: string) => void;
+	write: (data: Uint8Array, callback?: () => void) => void;
+	writeln: (line: string, callback?: () => void) => void;
+	/** Move to the live bottom once, immediately before the replay cover lifts. */
+	scrollToBottom: () => void;
 	/**
 	 * Erase screen + scrollback and home the cursor, preserving terminal modes.
 	 * Never a full reset (RIS): that would drop zellij's mouse-tracking mode
@@ -84,6 +86,10 @@ const RESIZE_DEBOUNCE_MS = 100;
 // explicit SIGWINCH (pty_unix.go), so this re-assert makes the client re-read
 // and re-report its grid; when everything is already in sync it's a no-op.
 const RESIZE_REASSERT_MS = 250;
+const REPLAY_QUIET_MS = 32;
+const REPLAY_NO_DATA_MS = 80;
+const REPLAY_MESSAGE_MS = 120;
+const REPLAY_MAX_COVER_MS = 500;
 
 function defaultCreateMux(): TerminalMux {
 	// Resolved per connect, not per hook: a daemon restart can change the port.
@@ -94,6 +100,9 @@ export function useTerminalSession(session: WorkspaceSession | undefined, option
 	const queryClient = useQueryClient();
 	const [state, setState] = useState<TerminalSessionState>("idle");
 	const [error, setError] = useState<string | undefined>(undefined);
+	const initialHandle = options.shellTerminalHandleId ?? session?.terminalHandleId;
+	const [replayCovered, setReplayCovered] = useState(Boolean(initialHandle));
+	const [showReplayMessage, setShowReplayMessage] = useState(false);
 
 	const sessionRef = useRef(session);
 	sessionRef.current = session;
@@ -111,9 +120,20 @@ export function useTerminalSession(session: WorkspaceSession | undefined, option
 		retryTimer: null as ReturnType<typeof setTimeout> | null,
 		openTimer: null as ReturnType<typeof setTimeout> | null,
 		resizeTimer: null as ReturnType<typeof setTimeout> | null,
+		replayQuietTimer: null as ReturnType<typeof setTimeout> | null,
+		replayFallbackTimer: null as ReturnType<typeof setTimeout> | null,
+		replayMessageTimer: null as ReturnType<typeof setTimeout> | null,
+		replayMaxTimer: null as ReturnType<typeof setTimeout> | null,
+		replayFrame: null as number | null,
 		attempts: 0,
 		firstAttach: true,
 		generation: 0,
+		replayGateId: 0,
+		replayActive: false,
+		replayOpened: false,
+		replayQuiet: false,
+		replayWriteId: 0,
+		replayCompletedWriteId: 0,
 		inputReady: false,
 		detached: true,
 	});
@@ -131,6 +151,74 @@ export function useTerminalSession(session: WorkspaceSession | undefined, option
 		void queryClient.invalidateQueries({ queryKey: workspaceQueryKey });
 	}, [queryClient]);
 
+	const clearReplayTimers = useCallback(() => {
+		const r = runtime.current;
+		if (r.replayQuietTimer) clearTimeout(r.replayQuietTimer);
+		if (r.replayFallbackTimer) clearTimeout(r.replayFallbackTimer);
+		if (r.replayMessageTimer) clearTimeout(r.replayMessageTimer);
+		if (r.replayMaxTimer) clearTimeout(r.replayMaxTimer);
+		if (r.replayFrame !== null) cancelAnimationFrame(r.replayFrame);
+		r.replayQuietTimer = null;
+		r.replayFallbackTimer = null;
+		r.replayMessageTimer = null;
+		r.replayMaxTimer = null;
+		r.replayFrame = null;
+	}, []);
+
+	const finishReplay = useCallback(
+		(gateId: number, nextFrame: boolean) => {
+			const r = runtime.current;
+			if (r.detached || !r.replayActive || r.replayGateId !== gateId) return;
+			if (r.replayCompletedWriteId < r.replayWriteId) return;
+			if (nextFrame && r.replayFrame !== null) return;
+			r.terminal?.scrollToBottom();
+			if (nextFrame) {
+				r.replayFrame = requestAnimationFrame(() => {
+					r.replayFrame = null;
+					if (r.detached || !r.replayActive || r.replayGateId !== gateId) return;
+					r.replayActive = false;
+					clearReplayTimers();
+					setShowReplayMessage(false);
+					setReplayCovered(false);
+				});
+				return;
+			}
+			r.replayActive = false;
+			clearReplayTimers();
+			setShowReplayMessage(false);
+			setReplayCovered(false);
+		},
+		[clearReplayTimers],
+	);
+
+	const beginReplay = useCallback(() => {
+		const r = runtime.current;
+		clearReplayTimers();
+		const gateId = r.replayGateId + 1;
+		r.replayGateId = gateId;
+		r.replayActive = true;
+		r.replayOpened = false;
+		r.replayQuiet = false;
+		r.replayWriteId = 0;
+		r.replayCompletedWriteId = 0;
+		setReplayCovered(true);
+		setShowReplayMessage(false);
+		r.replayMessageTimer = setTimeout(() => {
+			if (r.detached || !r.replayActive || r.replayGateId !== gateId) return;
+			r.replayMessageTimer = null;
+			setShowReplayMessage(true);
+		}, REPLAY_MESSAGE_MS);
+		r.replayMaxTimer = setTimeout(() => {
+			if (r.detached || !r.replayActive || r.replayGateId !== gateId) return;
+			// The hard ceiling wins even if a renderer callback was lost. Unlike the
+			// normal ready path this reveals immediately so the cover cannot exceed
+			// its promised maximum by another animation frame.
+			r.replayCompletedWriteId = r.replayWriteId;
+			finishReplay(gateId, false);
+		}, REPLAY_MAX_COVER_MS);
+		return gateId;
+	}, [clearReplayTimers, finishReplay]);
+
 	const teardownMux = useCallback(() => {
 		const r = runtime.current;
 		if (r.retryTimer) {
@@ -145,6 +233,7 @@ export function useTerminalSession(session: WorkspaceSession | undefined, option
 			clearTimeout(r.resizeTimer);
 			r.resizeTimer = null;
 		}
+		clearReplayTimers();
 		r.inputReady = false;
 		if (r.mux && r.handle) {
 			r.mux.close(r.handle);
@@ -153,7 +242,7 @@ export function useTerminalSession(session: WorkspaceSession | undefined, option
 		r.disposers = [];
 		r.mux?.dispose();
 		r.mux = null;
-	}, []);
+	}, [clearReplayTimers]);
 
 	const isCurrentAttachment = useCallback((generation: number, handle: string, mux: TerminalMux) => {
 		const r = runtime.current;
@@ -205,11 +294,40 @@ export function useTerminalSession(session: WorkspaceSession | undefined, option
 
 		const mux = (optionsRef.current.createMux ?? defaultCreateMux)();
 		r.mux = mux;
+		const replayGateId = beginReplay();
 
 		r.disposers.push(
 			mux.onData(handle, (bytes) => {
 				if (!isCurrentAttachment(generation, handle, mux)) return;
-				terminal.write(bytes);
+				if (!r.replayActive || r.replayGateId !== replayGateId) {
+					terminal.write(bytes);
+					return;
+				}
+				if (r.replayFallbackTimer) {
+					clearTimeout(r.replayFallbackTimer);
+					r.replayFallbackTimer = null;
+				}
+				if (r.replayQuietTimer) clearTimeout(r.replayQuietTimer);
+				if (r.replayFrame !== null) {
+					cancelAnimationFrame(r.replayFrame);
+					r.replayFrame = null;
+				}
+				r.replayQuiet = false;
+				const writeId = r.replayWriteId + 1;
+				r.replayWriteId = writeId;
+				terminal.write(bytes, () => {
+					if (!isCurrentAttachment(generation, handle, mux)) return;
+					if (!r.replayActive || r.replayGateId !== replayGateId) return;
+					r.replayCompletedWriteId = Math.max(r.replayCompletedWriteId, writeId);
+					if (r.replayOpened && r.replayQuiet) finishReplay(replayGateId, true);
+				});
+				r.replayQuietTimer = setTimeout(() => {
+					r.replayQuietTimer = null;
+					if (!isCurrentAttachment(generation, handle, mux)) return;
+					if (!r.replayActive || r.replayGateId !== replayGateId) return;
+					r.replayQuiet = true;
+					if (r.replayOpened) finishReplay(replayGateId, true);
+				}, REPLAY_QUIET_MS);
 			}),
 			mux.onOpened(handle, () => {
 				if (!isCurrentAttachment(generation, handle, mux)) return;
@@ -218,12 +336,34 @@ export function useTerminalSession(session: WorkspaceSession | undefined, option
 				r.attempts = 0;
 				setError(undefined);
 				transition("attached");
+				if (r.replayActive && r.replayGateId === replayGateId) {
+					r.replayOpened = true;
+					if (r.replayQuiet) {
+						finishReplay(replayGateId, true);
+					} else if (r.replayWriteId === 0) {
+						r.replayFallbackTimer = setTimeout(() => {
+							r.replayFallbackTimer = null;
+							if (!isCurrentAttachment(generation, handle, mux)) return;
+							if (!r.replayActive || r.replayGateId !== replayGateId || r.replayWriteId !== 0) return;
+							r.replayQuiet = true;
+							finishReplay(replayGateId, true);
+						}, REPLAY_NO_DATA_MS);
+					}
+				}
 			}),
 			mux.onExit(handle, () => {
 				if (!isCurrentAttachment(generation, handle, mux)) return;
 				clearOpenTimer(generation);
 				r.inputReady = false;
-				terminal.writeln("\r\n\x1b[2m[process exited]\x1b[0m");
+				const writeId = r.replayWriteId + 1;
+				r.replayWriteId = writeId;
+				terminal.writeln("\r\n\x1b[2m[process exited]\x1b[0m", () => {
+					if (!isCurrentAttachment(generation, handle, mux)) return;
+					r.replayCompletedWriteId = Math.max(r.replayCompletedWriteId, writeId);
+					finishReplay(replayGateId, true);
+				});
+				r.replayOpened = true;
+				r.replayQuiet = true;
 				transition("exited");
 				invalidateWorkspaces();
 			}),
@@ -231,7 +371,15 @@ export function useTerminalSession(session: WorkspaceSession | undefined, option
 				if (!isCurrentAttachment(generation, handle, mux)) return;
 				clearOpenTimer(generation);
 				r.inputReady = false;
-				terminal.writeln(`\r\n\x1b[2m[terminal error] ${message}\x1b[0m`);
+				const writeId = r.replayWriteId + 1;
+				r.replayWriteId = writeId;
+				terminal.writeln(`\r\n\x1b[2m[terminal error] ${message}\x1b[0m`, () => {
+					if (!isCurrentAttachment(generation, handle, mux)) return;
+					r.replayCompletedWriteId = Math.max(r.replayCompletedWriteId, writeId);
+					finishReplay(replayGateId, true);
+				});
+				r.replayOpened = true;
+				r.replayQuiet = true;
 				setError(message);
 				transition("error");
 				void captureRendererEvent("ao.renderer.terminal_attach_failed", { reason: "pane_error" });
@@ -299,7 +447,16 @@ export function useTerminalSession(session: WorkspaceSession | undefined, option
 			teardownMux();
 			scheduleReattach();
 		}, OPEN_TIMEOUT_MS);
-	}, [clearOpenTimer, invalidateWorkspaces, isCurrentAttachment, scheduleReattach, teardownMux, transition]);
+	}, [
+		beginReplay,
+		clearOpenTimer,
+		finishReplay,
+		invalidateWorkspaces,
+		isCurrentAttachment,
+		scheduleReattach,
+		teardownMux,
+		transition,
+	]);
 	connectRef.current = connect;
 
 	/**
@@ -321,9 +478,12 @@ export function useTerminalSession(session: WorkspaceSession | undefined, option
 					transition("connecting");
 					connect();
 				} else {
+					beginReplay();
 					transition("reattaching");
 				}
 			} else {
+				setReplayCovered(false);
+				setShowReplayMessage(false);
 				transition("idle");
 			}
 			return () => {
@@ -333,11 +493,14 @@ export function useTerminalSession(session: WorkspaceSession | undefined, option
 				r.terminal = null;
 				r.handle = null;
 				r.inputReady = false;
+				r.replayActive = false;
+				setReplayCovered(false);
+				setShowReplayMessage(false);
 				setError(undefined);
 				transition("idle");
 			};
 		},
-		[connect, teardownMux, transition],
+		[beginReplay, connect, teardownMux, transition],
 	);
 
 	// Daemon came back while we were waiting: reconnect immediately, without
@@ -382,5 +545,5 @@ export function useTerminalSession(session: WorkspaceSession | undefined, option
 		[teardownMux],
 	);
 
-	return { attach, state, error };
+	return { attach, state, error, replayCovered, showReplayMessage };
 }

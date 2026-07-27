@@ -5,10 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkspaceSession } from "../types/workspace";
 import { TerminalPane, providerScrollsByKeyboard } from "./TerminalPane";
 
-const { postMock, terminalError, terminalState } = vi.hoisted(() => ({
+const { postMock, terminalError, terminalState, replayState } = vi.hoisted(() => ({
 	postMock: vi.fn(),
 	terminalError: { value: undefined as string | undefined },
 	terminalState: { value: "idle" },
+	replayState: { covered: false, showMessage: false },
 }));
 let terminalLinkHandler: ((uri: string) => void) | undefined;
 
@@ -29,6 +30,8 @@ vi.mock("../hooks/useTerminalSession", () => ({
 		attach: vi.fn(),
 		state: terminalState.value,
 		error: terminalError.value,
+		replayCovered: replayState.covered,
+		showReplayMessage: replayState.showMessage,
 	}),
 }));
 
@@ -57,6 +60,8 @@ beforeEach(() => {
 	postMock.mockResolvedValue({ data: {} });
 	terminalError.value = undefined;
 	terminalState.value = "idle";
+	replayState.covered = false;
+	replayState.showMessage = false;
 	terminalLinkHandler = undefined;
 });
 
@@ -114,6 +119,31 @@ describe("TerminalPane empty states", () => {
 				),
 			).toBeInTheDocument();
 			expect(screen.queryByText(/worker terminal/i)).not.toBeInTheDocument();
+		} finally {
+			view.restore();
+		}
+	});
+});
+
+describe("terminal replay cover", () => {
+	it("uses a plain terminal-colored cover before the delayed message", () => {
+		replayState.covered = true;
+		const view = renderPane({ ...worker, terminalHandleId: "term-1" });
+		try {
+			const cover = screen.getByTestId("terminal-replay-cover");
+			expect(cover).toBeEmptyDOMElement();
+			expect(screen.queryByText("Loading latest output…")).not.toBeInTheDocument();
+		} finally {
+			view.restore();
+		}
+	});
+
+	it("shows loading text only after the hook enables it", () => {
+		replayState.covered = true;
+		replayState.showMessage = true;
+		const view = renderPane({ ...worker, terminalHandleId: "term-1" });
+		try {
+			expect(screen.getByText("Loading latest output…")).toBeInTheDocument();
 		} finally {
 			view.restore();
 		}

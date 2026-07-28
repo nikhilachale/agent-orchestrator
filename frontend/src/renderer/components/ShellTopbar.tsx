@@ -175,7 +175,7 @@ export function ShellTopbar() {
 							disabled={isProjectRestarting}
 							onClick={openNewTask}
 							style={noDragStyle}
-							variant="accent"
+							variant="newTask"
 						>
 							<Plus className="size-icon-md" aria-hidden="true" />
 							New task
@@ -207,7 +207,7 @@ export function ShellTopbar() {
 									disabled={isProjectRestarting}
 									onClick={openNewTask}
 									style={noDragStyle}
-									variant="accent"
+									variant="newTask"
 								>
 									<Plus className="size-icon-md" aria-hidden="true" />
 									New task

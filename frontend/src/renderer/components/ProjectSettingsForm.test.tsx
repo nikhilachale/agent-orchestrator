@@ -420,7 +420,7 @@ describe("ProjectSettingsForm", () => {
 		expect(labels).toContain("Pi");
 	});
 
-	it("offers experimental Qwen while keeping fail-closed reviewers out", async () => {
+	it("offers experimental host-trusted reviewers while keeping fail-closed reviewers out", async () => {
 		const project = {
 			id: "proj-1",
 			name: "Project One",
@@ -431,6 +431,8 @@ describe("ProjectSettingsForm", () => {
 			config: { worker: { agent: "qwen" }, orchestrator: { agent: "claude-code" } },
 		};
 		const qwen = { id: "qwen", label: "Qwen Code", authStatus: "authorized" };
+		const devin = { id: "devin", label: "Devin", authStatus: "authorized" };
+		const droid = { id: "droid", label: "Droid", authStatus: "authorized" };
 		const staged = [
 			{ id: "continue", label: "Continue", authStatus: "authorized" },
 			{ id: "vibe", label: "Vibe", authStatus: "authorized" },
@@ -439,9 +441,9 @@ describe("ProjectSettingsForm", () => {
 			if (path === "/api/v1/agents") {
 				return {
 					data: {
-						supported: [...agentCatalogResponse.data.supported, qwen, ...staged],
-						installed: [...agentCatalogResponse.data.installed, qwen, ...staged],
-						authorized: [...agentCatalogResponse.data.authorized, qwen, ...staged],
+						supported: [...agentCatalogResponse.data.supported, qwen, devin, droid, ...staged],
+						installed: [...agentCatalogResponse.data.installed, qwen, devin, droid, ...staged],
+						authorized: [...agentCatalogResponse.data.authorized, qwen, devin, droid, ...staged],
 					},
 					error: undefined,
 				};
@@ -457,6 +459,8 @@ describe("ProjectSettingsForm", () => {
 		const options = await screen.findAllByRole("menuitem");
 		const labels = options.map((option) => option.textContent);
 		expect(labels).toContain("Qwen Code");
+		expect(labels).toContain("Devin");
+		expect(labels).toContain("Droid");
 		expect(labels).not.toContain("Continue");
 		expect(labels).not.toContain("Goose");
 		expect(labels).not.toContain("Vibe");

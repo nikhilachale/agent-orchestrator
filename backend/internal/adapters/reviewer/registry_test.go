@@ -30,6 +30,10 @@ func TestRegistryMatchesDomainVocabulary(t *testing.T) {
 			if spec.Mode != ports.ReviewCancelEscape || spec.Interrupts > 1 {
 				t.Errorf("TUI reviewer %q cancel spec = %+v, want one Escape", h, spec)
 			}
+		} else if h == domain.ReviewerDevin || h == domain.ReviewerDroid {
+			if spec.Mode != ports.ReviewCancelInterrupt || spec.Interrupts != 1 {
+				t.Errorf("TUI reviewer %q cancel spec = %+v, want one interrupt", h, spec)
+			}
 		} else if spec.Mode != ports.ReviewCancelInterrupt || spec.Interrupts != 2 {
 			t.Errorf("reviewer harness %q cancel spec = %+v, want two interrupts", h, spec)
 		}

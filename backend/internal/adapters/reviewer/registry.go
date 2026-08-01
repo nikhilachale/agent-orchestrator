@@ -10,6 +10,8 @@ import (
 	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/reviewer/codex"
 	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/reviewer/copilot"
 	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/reviewer/cursor"
+	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/reviewer/devin"
+	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/reviewer/droid"
 	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/reviewer/kilocode"
 	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/reviewer/kiro"
 	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/reviewer/opencode"
@@ -33,6 +35,8 @@ func Constructors() []Adapter {
 		codex.New(),
 		copilot.New(),
 		cursor.New(),
+		devin.New(),
+		droid.New(),
 		kilocode.New(),
 		kiro.New(),
 		opencode.New(),

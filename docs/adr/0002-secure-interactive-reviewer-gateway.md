@@ -1,15 +1,16 @@
 # 2. Capability gateway foundation for interactive TUI reviewers
 
 Date: 2026-08-01
-Status: Accepted (gateway); platform isolation required before adapter rollout
+Status: Accepted (gateway); platform isolation required for contained rollout
 
 ## Context
 
 Some reviewer CLIs are useful only as visible, long-lived interactive TUIs. Qwen
-Code and Agy also expose shell escapes or other general-purpose tools which cannot
-be made genuinely read-only by prompt text or launch flags. Running either TUI in
-a worker checkout would let it execute project startup resources, edit files, use
-Git hooks and filters, commit, push, or read unrelated host state.
+Code, Devin, Droid, and Agy also expose shell escapes or other general-purpose
+tools which cannot be made genuinely read-only by prompt text or launch flags.
+Running any of these TUIs in a worker checkout lets it execute project startup
+resources, edit files, use Git hooks and filters, commit, push, or read unrelated
+host state.
 
 Headless, JSON, RPC, print, and one-shot modes are not acceptable substitutes for
 AO's reviewer terminal. A reusable boundary must preserve the real TUI while
@@ -41,15 +42,17 @@ future interactive reviewer adapters.
   listener behavior, database schema, or HTTP APIs.
 
 This is an enforceable capability API when invoked, but it is not by itself a
-process sandbox. Agy therefore remains unregistered. Qwen is available only as
-an explicitly selected, experimental host-trusted reviewer; its plan mode and
-neutral directory reduce accidental authority but do not contain terminal-user
-shell escapes or approval-mode changes.
+process sandbox. Agy therefore remains unregistered. Qwen, Devin, and Droid are
+available only as explicitly selected, experimental host-trusted reviewers;
+their planning and permission defaults reduce accidental authority but do not
+contain terminal-user shell/editor features or approval-mode changes. AO always
+uses their persistent interactive TUIs and never substitutes print, exec,
+headless, or sandbox modes.
 
 ## Required isolation provider
 
-Before either adapter is enabled, the runtime must consume a fail-closed reviewer
-isolation profile while preserving the visible TUI:
+Before an adapter is described as contained, the runtime must consume a
+fail-closed reviewer isolation profile while preserving the visible TUI:
 
 - macOS/Linux tmux: launch the TUI through an AO-owned sandbox process, mount the
   neutral root read/write and required executable/runtime files read-only, and do
@@ -70,7 +73,7 @@ command filtering is insufficient.
 
 ## Acceptance tests for adapter rollout
 
-1. The actual Qwen/Agy interactive TUI renders and accepts subsequent pane-injected
+1. The actual provider interactive TUI renders and accepts subsequent pane-injected
    review messages in tmux and ConPTY; cancellation uses the real TUI key.
 2. TUI shell escapes and arbitrary commands cannot read the checkout or home, write
    outside the neutral root, start project commands, commit, push, or connect to an
@@ -89,6 +92,6 @@ command filtering is insufficient.
 Future reviewer adapters share one capability surface instead of embedding
 provider-specific command allowlists. Unit tests cover host-side authorization and
 command construction. Platform sandbox implementations and escape/network tests
-remain a prerequisite for describing Agy or Qwen as contained/read-only. Until
-then, Qwen must retain its experimental host-trust warning and Agy must remain
-disabled.
+remain a prerequisite for describing Agy, Qwen, Devin, or Droid as
+contained/read-only. Until then, Qwen, Devin, and Droid must retain their
+experimental host-trust warnings and Agy must remain disabled.

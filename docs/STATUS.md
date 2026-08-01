@@ -41,12 +41,15 @@ surface (`npm run sqlc`, `npm run api`).
 - Review routes registered: `GET /reviews`, `POST /reviews/execute`,
   `POST /reviews/{id}/send`.
 - Interactive, long-lived reviewer panes for Claude Code, Codex, GitHub
-  Copilot, Cursor, Kilo Code, Kiro, OpenCode, Pi, and experimental Qwen. Pi uses an AO-data-owned extension with built-in/project
+  Copilot, Cursor, Kilo Code, Kiro, OpenCode, Pi, and experimental Qwen, Devin,
+  and Droid. Pi uses an AO-data-owned extension with built-in/project
   resources disabled, structured read-only inspection/reporting tools, and
   Escape-based turn cancellation. Kiro also uses its native Escape
-  cancellation. Qwen also uses Escape cancellation and runs from an AO-owned
-  neutral directory in plan mode, but remains explicitly host-trusted because
-  a terminal user can invoke its shell or change approval mode. The other
+  cancellation. Qwen uses Escape cancellation and runs from an AO-owned
+  neutral directory in plan mode. Devin and Droid use a single active-operation
+  interrupt and run their normal persistent TUIs without sandbox/headless modes.
+  All three remain explicitly host-trusted because terminal users can invoke
+  shell/editor features or change approval modes. The other
   reviewers retain their Ctrl-C contract.
 - The provider-neutral interactive-reviewer capability gateway and neutral
   AO-owned working-directory contract are available. Agy, Continue, Goose, and

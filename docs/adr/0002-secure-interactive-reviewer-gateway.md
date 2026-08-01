@@ -6,7 +6,7 @@ Status: Accepted (gateway); platform isolation required for contained rollout
 ## Context
 
 Some reviewer CLIs are useful only as visible, long-lived interactive TUIs. Qwen
-Code, Devin, Droid, and Agy also expose shell escapes or other general-purpose
+Code, Devin, Droid, Kimi, and Agy also expose shell escapes or other general-purpose
 tools which cannot be made genuinely read-only by prompt text or launch flags.
 Running any of these TUIs in a worker checkout lets it execute project startup
 resources, edit files, use Git hooks and filters, commit, push, or read unrelated
@@ -42,7 +42,7 @@ future interactive reviewer adapters.
   listener behavior, database schema, or HTTP APIs.
 
 This is an enforceable capability API when invoked, but it is not by itself a
-process sandbox. Agy therefore remains unregistered. Qwen, Devin, and Droid are
+process sandbox. Agy therefore remains unregistered. Qwen, Devin, Droid, and Kimi are
 available only as explicitly selected, experimental host-trusted reviewers;
 their planning and permission defaults reduce accidental authority but do not
 contain terminal-user shell/editor features or approval-mode changes. AO always
@@ -92,6 +92,6 @@ command filtering is insufficient.
 Future reviewer adapters share one capability surface instead of embedding
 provider-specific command allowlists. Unit tests cover host-side authorization and
 command construction. Platform sandbox implementations and escape/network tests
-remain a prerequisite for describing Agy, Qwen, Devin, or Droid as
-contained/read-only. Until then, Qwen, Devin, and Droid must retain their
+remain a prerequisite for describing Agy, Qwen, Devin, Droid, or Kimi as
+contained/read-only. Until then, Qwen, Devin, Droid, and Kimi must retain their
 experimental host-trust warnings and Agy must remain disabled.

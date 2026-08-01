@@ -39,6 +39,7 @@ func TestProjectConfigValidate(t *testing.T) {
 		{"good experimental qwen reviewer", ProjectConfig{Reviewers: []ReviewerConfig{{Harness: ReviewerQwen}}}, false},
 		{"good experimental Devin reviewer", ProjectConfig{Reviewers: []ReviewerConfig{{Harness: ReviewerDevin}}}, false},
 		{"good experimental Droid reviewer", ProjectConfig{Reviewers: []ReviewerConfig{{Harness: ReviewerDroid}}}, false},
+		{"good experimental Kimi reviewer", ProjectConfig{Reviewers: []ReviewerConfig{{Harness: ReviewerKimi}}}, false},
 		{"unknown reviewer harness", ProjectConfig{Reviewers: []ReviewerConfig{{Harness: "nope"}}}, true},
 		{"agy reviewer remains disabled", ProjectConfig{Reviewers: []ReviewerConfig{{Harness: "agy"}}}, true},
 		{"continue reviewer remains disabled", ProjectConfig{Reviewers: []ReviewerConfig{{Harness: "continue"}}}, true},
@@ -146,6 +147,9 @@ func TestResolveReviewerHarness(t *testing.T) {
 	}
 	if got := (ProjectConfig{}).ResolveReviewerHarness(HarnessDroid); got != ReviewerDroid {
 		t.Fatalf("droid worker = %q, want reviewer droid", got)
+	}
+	if got := (ProjectConfig{}).ResolveReviewerHarness(HarnessKimi); got != ReviewerKimi {
+		t.Fatalf("kimi worker = %q, want reviewer kimi", got)
 	}
 
 	// A worker harness that is not itself a reviewer (e.g. crush, aider) falls

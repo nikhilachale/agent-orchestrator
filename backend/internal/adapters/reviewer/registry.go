@@ -13,6 +13,7 @@ import (
 	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/reviewer/devin"
 	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/reviewer/droid"
 	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/reviewer/kilocode"
+	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/reviewer/kimi"
 	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/reviewer/kiro"
 	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/reviewer/opencode"
 	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/reviewer/pi"
@@ -39,6 +40,7 @@ func Constructors() []Adapter {
 		droid.New(),
 		kilocode.New(),
 		kiro.New(),
+		kimi.New(),
 		opencode.New(),
 		pi.New(),
 		qwen.New(),

@@ -135,10 +135,11 @@ Reviewer agents are configured separately. The current reviewer harnesses are:
   <a href="https://aoagents.dev/docs/plugins/agents"><img src="frontend/src/landing/public/docs/logos/pi.png" alt="" width="16" height="16" valign="middle" /> <code>pi</code></a> ·
   <a href="https://aoagents.dev/docs/plugins/agents"><img src="frontend/src/renderer/assets/agents/qwen.svg" alt="" width="16" height="16" valign="middle" /> <code>qwen</code></a> ·
   <a href="https://aoagents.dev/docs/plugins/agents"><img src="frontend/src/renderer/assets/agents/devin.png" alt="" width="16" height="16" valign="middle" /> <code>devin</code></a> ·
-  <a href="https://aoagents.dev/docs/plugins/agents"><img src="frontend/src/renderer/assets/agents/droid.png" alt="" width="16" height="16" valign="middle" /> <code>droid</code></a>
+  <a href="https://aoagents.dev/docs/plugins/agents"><img src="frontend/src/renderer/assets/agents/droid.png" alt="" width="16" height="16" valign="middle" /> <code>droid</code></a> ·
+  <a href="https://aoagents.dev/docs/plugins/agents"><img src="frontend/src/renderer/assets/agents/kimi.png" alt="" width="16" height="16" valign="middle" /> <code>kimi</code></a>
 </p>
 
-Reviewer panes stay interactive and are reused across review passes. Pi reviewers run with project/user resource discovery and built-in tools disabled; AO loads an extension from its own data directory that exposes only read-only checkout inspection plus structured GitHub review posting and `ao review submit`. Qwen, Devin, and Droid are experimental and host-trusted: their planning or permission modes reduce accidental model actions, but terminal users can still invoke shell/editor features or change modes.
+Reviewer panes stay interactive and are reused across review passes. Pi reviewers run with project/user resource discovery and built-in tools disabled; AO loads an extension from its own data directory that exposes only read-only checkout inspection plus structured GitHub review posting and `ao review submit`. Qwen, Devin, Droid, and Kimi are experimental and host-trusted: their planning or permission modes reduce accidental model actions, but terminal users can still invoke shell/editor features or change modes.
 
 **If it runs in a terminal, it runs on Agent Orchestrator.**
 

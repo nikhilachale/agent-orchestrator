@@ -167,14 +167,14 @@ reviewers:
   - harness: kilocode
 ```
 
-Built-in reviewer harnesses are `claude-code`, `codex`, `copilot`, `cursor`, `devin`, `droid`, `kilocode`, `kiro`, `opencode`, `pi`, and `qwen`. Kilo Code requires the
+Built-in reviewer harnesses are `claude-code`, `codex`, `copilot`, `cursor`, `devin`, `droid`, `kilocode`, `kiro`, `kimi`, `opencode`, `pi`, and `qwen`. Kilo Code requires the
 [`@kilocode/cli`](https://kilo.ai/docs/code-with-ai/platforms/cli) package and a configured model provider (`/connect`,
 `kilo auth login`, or a supported provider environment variable). AO launches Kilo Code in the worker checkout with a
 read-only review policy and its own GitHub/AO reporting instructions. It does not invoke Kilo's local `/review` command
 or parse `kilo run --format json`; the reviewer posts through `gh api` and records its verdict through
 `ao review submit`, like the other AO reviewer harnesses.
 
-Qwen, Devin, and Droid reviewer support is experimental and host-trusted. AO always launches their persistent interactive TUIs,
+Qwen, Devin, Droid, and Kimi reviewer support is experimental and host-trusted. AO always launches their persistent interactive TUIs,
 never their print, exec, headless, or sandbox modes. Their planning and permission defaults reduce accidental model actions, but
 terminal users can still invoke shell/editor features or change modes.
 Continue, Goose, and Vibe have staged adapters but are not selectable reviewers; they fail closed until their containment and

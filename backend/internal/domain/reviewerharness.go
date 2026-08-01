@@ -21,6 +21,7 @@ const (
 	ReviewerQwen       ReviewerHarness = "qwen"
 	ReviewerDevin      ReviewerHarness = "devin"
 	ReviewerDroid      ReviewerHarness = "droid"
+	ReviewerKimi       ReviewerHarness = "kimi"
 )
 
 // AllReviewerHarnesses is the canonical set used to validate a configured
@@ -37,6 +38,7 @@ var AllReviewerHarnesses = []ReviewerHarness{
 	ReviewerQwen,
 	ReviewerDevin,
 	ReviewerDroid,
+	ReviewerKimi,
 }
 
 // IsKnown reports whether h is one of the supported reviewer harnesses.

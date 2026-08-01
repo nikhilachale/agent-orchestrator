@@ -43,6 +43,13 @@ type ReviewerCanceller interface {
 	ReviewCancel(ctx context.Context) (ReviewCancelSpec, error)
 }
 
+// ReviewerReusePolicy is implemented by one-shot reviewer adapters whose
+// process exits after one review turn. AO normally reuses a live reviewer pane
+// for later commits; returning false forces a fresh launch for every pass.
+type ReviewerReusePolicy interface {
+	ReviewProcessReusable() bool
+}
+
 // ReviewInvocation describes one review pass for a reviewer to act on. All ids
 // the reviewer needs are passed explicitly here (and embedded in the prompt /
 // message), never through environment variables.

@@ -13,6 +13,8 @@ const (
 	ReviewerClaudeCode ReviewerHarness = "claude-code"
 	ReviewerCodex      ReviewerHarness = "codex"
 	ReviewerOpenCode   ReviewerHarness = "opencode"
+	ReviewerAmp        ReviewerHarness = "amp"
+	ReviewerAider      ReviewerHarness = "aider"
 )
 
 // AllReviewerHarnesses is the canonical set used to validate a configured
@@ -21,6 +23,8 @@ var AllReviewerHarnesses = []ReviewerHarness{
 	ReviewerClaudeCode,
 	ReviewerCodex,
 	ReviewerOpenCode,
+	ReviewerAmp,
+	ReviewerAider,
 }
 
 // IsKnown reports whether h is one of the supported reviewer harnesses.

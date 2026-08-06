@@ -199,7 +199,7 @@ describe("ShellTopbar orchestrator actions", () => {
 		renderTopbar(orchestrator);
 
 		expect(screen.getByRole("button", { name: "Open Kanban" })).toHaveClass("bg-primary");
-		expect(screen.getByRole("button", { name: "New task" })).toHaveClass("bg-raised");
+		expect(screen.getByRole("button", { name: "New task" })).toHaveClass("bg-error");
 		expect(screen.getByRole("button", { name: "New task" })).not.toHaveClass("bg-primary");
 	});
 });

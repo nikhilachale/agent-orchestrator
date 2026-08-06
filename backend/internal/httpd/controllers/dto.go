@@ -156,7 +156,7 @@ type SpawnSessionRequest struct {
 	ProjectID domain.ProjectID    `json:"projectId"`
 	IssueID   domain.IssueID      `json:"issueId,omitempty"`
 	Kind      domain.SessionKind  `json:"kind,omitempty" enum:"worker,orchestrator"`
-	Harness   domain.AgentHarness `json:"harness,omitempty" enum:"claude-code,codex,aider,opencode,grok,droid,amp,agy,crush,cursor,qwen,copilot,goose,auggie,continue,devin,cline,kimi,kiro,kilocode,vibe,pi,autohand"`
+	Harness   domain.AgentHarness `json:"harness,omitempty" enum:"claude-code,codex,aider,opencode,grok,droid,amp,agy,crush,cursor,qwen,copilot,goose,auggie,continue,devin,cline,kimi,muse,kiro,kilocode,vibe,pi,autohand"`
 	Branch    string              `json:"branch,omitempty"`
 	Prompt    string              `json:"prompt,omitempty" maxLength:"4096"`
 	// DisplayName is the sidebar label for the session, capped at 20 characters.
@@ -405,7 +405,7 @@ type SendSessionMessageResponse struct {
 type DelegateTaskRequest struct {
 	ProjectID domain.ProjectID    `json:"projectId"`
 	Brief     string              `json:"brief" maxLength:"4096"`
-	Agent     domain.AgentHarness `json:"agent,omitempty" enum:"claude-code,codex,aider,opencode,grok,droid,amp,agy,crush,cursor,qwen,copilot,goose,auggie,continue,devin,cline,kimi,kiro,kilocode,vibe,pi,autohand,fake"`
+	Agent     domain.AgentHarness `json:"agent,omitempty" enum:"claude-code,codex,aider,opencode,grok,droid,amp,agy,crush,cursor,qwen,copilot,goose,auggie,continue,devin,cline,kimi,muse,kiro,kilocode,vibe,pi,autohand,fake"`
 	Model     string              `json:"model,omitempty" maxLength:"256"`
 }
 

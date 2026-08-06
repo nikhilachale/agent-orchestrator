@@ -80,6 +80,7 @@ export type AgentProvider =
 	| "devin"
 	| "cline"
 	| "kimi"
+	| "muse"
 	| "kiro"
 	| "kilocode"
 	| "vibe"
@@ -360,6 +361,7 @@ export function toAgentProvider(provider?: string): AgentProvider {
 		case "devin":
 		case "cline":
 		case "kimi":
+		case "muse":
 		case "kiro":
 		case "kilocode":
 		case "vibe":

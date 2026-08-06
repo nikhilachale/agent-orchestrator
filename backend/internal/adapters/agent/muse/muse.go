@@ -5,7 +5,7 @@
 // it opens the interactive TUI, and an optional positional prompt starts the
 // first turn without leaving that TUI.
 //
-// AO's standing instructions are passed through Muse's process-local system
+// AO's standing instructions are passed through Muse's process-local developer
 // prompt environment, so launching a session never modifies project files.
 package muse
 
@@ -29,8 +29,9 @@ const adapterID = "muse"
 
 // Muse's own launcher forwards this process-local override to the runtime.
 // Unlike AGENTS.md, it applies only to this process and cannot dirty the
-// project. The installed Meta binary contract is covered by the launch tests.
-const museSystemPromptEnvVar = "TBH_EVAL_APPEND_SYSTEM_PROMPT"
+// project. Muse's base-instructions override is rejected by the Meta provider,
+// so AO's standing instructions must ride the developer-prompt channel.
+const museDeveloperPromptEnvVar = "TBH_EVAL_APPEND_DEVELOPER_PROMPT"
 
 // Plugin is the Muse Code CLI agent adapter. It is safe for concurrent use;
 // the binary path is resolved once and cached under binaryMu.
@@ -68,7 +69,7 @@ func (p *Plugin) GetConfigSpec(ctx context.Context) (ports.ConfigSpec, error) {
 
 // GetLaunchCommand builds the argv for a persistent interactive Muse session:
 //
-//	[env TBH_EVAL_APPEND_SYSTEM_PROMPT=<instructions>] muse --trust-workspace [--approval-mode never|--yolo] [--model <model>] [prompt]
+//	[env TBH_EVAL_APPEND_DEVELOPER_PROMPT=<instructions>] muse --trust-workspace [--approval-mode never|--yolo] [--model <model>] [prompt]
 //
 // The prompt is the CLI's documented optional positional argument. `muse exec`
 // is deliberately not used because it is headless and exits after one turn.
@@ -84,7 +85,7 @@ func (p *Plugin) GetLaunchCommand(ctx context.Context, cfg ports.LaunchConfig) (
 
 	cmd := make([]string, 0, 9)
 	if systemPrompt != "" {
-		cmd = append(cmd, "env", museSystemPromptEnvVar+"="+systemPrompt)
+		cmd = append(cmd, "env", museDeveloperPromptEnvVar+"="+systemPrompt)
 	}
 	cmd = append(cmd, binary, "--trust-workspace")
 	appendApprovalFlags(&cmd, cfg.Permissions)

@@ -2,6 +2,7 @@ package specgen_test
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/aoagents/agent-orchestrator/backend/internal/httpd/apispec"
@@ -20,6 +21,16 @@ func TestBuild_MatchesEmbedded(t *testing.T) {
 	if !bytes.Equal(got, embedded) {
 		t.Fatalf("embedded openapi.yaml is stale — run `go generate ./...` and commit.\n"+
 			"len(fresh)=%d len(embedded)=%d", len(got), len(embedded))
+	}
+}
+
+func TestBuild_SpawnHarnessEnumIncludesPrimeAgent(t *testing.T) {
+	got, err := specgen.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if !strings.Contains(string(got), "          - prime-agent\n") {
+		t.Fatal("SpawnSessionRequest harness enum does not contain prime-agent")
 	}
 }
 

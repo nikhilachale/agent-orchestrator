@@ -94,7 +94,7 @@ The desktop app is the main control surface: projects on the left, active sessio
 
 ## Supported Agents
 
-AO ships adapters for 23 worker agent harnesses:
+AO ships adapters for 24 worker agent harnesses:
 
 <p>
   <a href="https://ao-agents.com/docs/plugins/agents/claude-code"><img src="frontend/src/landing/public/docs/logos/claude-code.svg" alt="" width="16" height="16" valign="middle" /> <code>claude-code</code></a> ·
@@ -119,6 +119,7 @@ AO ships adapters for 23 worker agent harnesses:
   <a href="https://ao-agents.com/docs/plugins/agents"><img src="frontend/src/landing/public/docs/logos/kilocode.png" alt="" width="16" height="16" valign="middle" /> <code>kilocode</code></a> ·
   <a href="https://ao-agents.com/docs/plugins/agents"><img src="frontend/src/landing/public/docs/logos/vibe.png" alt="" width="16" height="16" valign="middle" /> <code>vibe</code></a> ·
   <a href="https://ao-agents.com/docs/plugins/agents"><img src="frontend/src/landing/public/docs/logos/pi.png" alt="" width="16" height="16" valign="middle" /> <code>pi</code></a> ·
+  <a href="https://ao-agents.com/docs/plugins/agents/prime-agent"><code>prime-agent</code></a> ·
   <a href="https://ao-agents.com/docs/plugins/agents"><code>autohand</code></a>
 </p>
 

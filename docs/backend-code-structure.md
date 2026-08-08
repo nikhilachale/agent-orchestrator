@@ -189,7 +189,7 @@ graph LR
 | ---------------- | ----------------------- | ----------------------- |
 | `Runtime`        | Process isolation       | `tmux`, `conpty`        |
 | `Workspace`      | Git worktree management | `gitworktree`           |
-| `Agent`          | Agent launching         | 23+ agent adapters      |
+| `Agent`          | Agent launching         | 24+ agent adapters      |
 | `SCM`            | PR/CI observation       | `github`                |
 | `Tracker`        | Issue tracking          | `github` (adapter only) |
 | `AgentMessenger` | Agent communication     | Agent hooks             |
@@ -600,7 +600,7 @@ graph LR
 graph TD
     Ports[Ports Interfaces] -->|implemented by| Adapters[Adapters]
 
-    Adapters --> Agent[agent/*<br/>23+ harnesses]
+    Adapters --> Agent[agent/*<br/>24+ harnesses]
     Adapters --> Runtime[runtime/*<br/>tmux, conpty]
     Adapters --> Workspace[workspace/*<br/>gitworktree]
     Adapters --> SCM[scm/*<br/>github]

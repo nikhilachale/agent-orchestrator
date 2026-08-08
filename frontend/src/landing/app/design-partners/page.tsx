@@ -169,7 +169,7 @@ const ROADMAP: RoadmapPhase[] = [
 		title: "A fleet on every desk",
 		theme: "The single-player engine. Free, open source, already on your machine.",
 		unlocks: [
-			"23 harnesses behind one board - Claude Code, Codex, Cursor, and whatever comes next",
+			"24 harnesses behind one board - Claude Code, Codex, Cursor, and whatever comes next",
 			"Every session in its own git worktree; branches never collide",
 			"CI failures and review comments route back to the agent that owns the branch",
 			"An orchestrator plans the work and spawns the workers",

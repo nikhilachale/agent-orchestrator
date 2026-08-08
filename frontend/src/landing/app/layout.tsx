@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 const description =
-	"Mission control for a fleet of coding agents. Run Claude Code, Codex, Cursor and 20 more harnesses in isolated git worktrees - AO watches every PR and routes CI and review feedback back to the agent that owns the branch.";
+	"Mission control for a fleet of coding agents. Run Claude Code, Codex, Cursor and 21 more harnesses in isolated git worktrees - AO watches every PR and routes CI and review feedback back to the agent that owns the branch.";
 
 export const metadata: Metadata = {
 	metadataBase: new URL("https://aoagents.dev"),

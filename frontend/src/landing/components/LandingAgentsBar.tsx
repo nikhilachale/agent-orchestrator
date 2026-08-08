@@ -23,6 +23,7 @@ const agents = [
 	{ name: "Kilo Code", id: "kilocode", src: "https://www.google.com/s2/favicons?domain=kilocode.ai&sz=64" },
 	{ name: "Vibe", id: "vibe", src: "https://www.google.com/s2/favicons?domain=mistral.ai&sz=64" },
 	{ name: "Pi", id: "pi", src: "https://www.google.com/s2/favicons?domain=github.com&sz=64" },
+	{ name: "Prime Agent", id: "prime-agent", src: "https://www.google.com/s2/favicons?domain=primeintellect.ai&sz=64" },
 	{ name: "Autohand", id: "autohand", src: "https://www.google.com/s2/favicons?domain=npmjs.com&sz=64" },
 ];
 
@@ -94,7 +95,7 @@ export function LandingAgentsBar() {
 					</div>
 
 					<div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3 font-mono text-[11px] uppercase text-[color:var(--fg-dim)]">
-						<span>23 harnesses</span>
+						<span>24 harnesses</span>
 						<span>per-project agent choice</span>
 					</div>
 				</div>

@@ -1,0 +1,66 @@
+---
+title: Prime Agent
+description: Prime Intellect's terminal coding agent, launched in client-owned ephemeral mode.
+---
+
+<div style={{ display: "flex", alignItems: "center", gap: "0.75rem", margin: "0.5rem 0 1.25rem" }}>
+	<Logo name="prime-agent" size={28} />
+	<span style={{ fontSize: "0.8125rem", color: "var(--color-fd-muted-foreground)" }}>
+		Slot: <code>agent</code> · Name: <code>prime-agent</code> · Binary: <code>prime-agent</code>
+	</span>
+</div>
+
+[Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent) is Prime Intellect's terminal coding agent. AO runs it
+through the existing terminal runtime and deliberately uses client-owned ephemeral mode so killing the AO session also
+terminates the Prime worker.
+
+## Install
+
+Follow the [official Prime Agent installation instructions](https://github.com/PrimeIntellect-ai/prime-agent) and make
+sure `prime-agent` is available on `PATH`.
+
+## Configure
+
+Choose Prime Agent per role and optionally pass a Prime model name:
+
+```yaml title="agent-orchestrator.yaml"
+projects:
+  myapp:
+    repo: org/myapp
+    worker:
+      agent: prime-agent
+      agentConfig:
+        model: your-prime-model
+```
+
+You can also select it for one session with `ao spawn --project myapp --agent prime-agent --name worker`.
+
+## How AO launches it
+
+AO builds this command, omitting the optional system-prompt and model flags when they are blank:
+
+```text
+prime-agent --no-session --extension <AO_DATA_DIR>/agent-runtime/prime-agent/ao-activity.ts [--append-system-prompt <instructions>] [--model <model>] -- <task>
+```
+
+- `--no-session` keeps Prime's worker owned by the terminal client instead of leaving a detached resident worker.
+- The `--` separator keeps a task beginning with `-` from being parsed as a Prime option.
+- The AO-managed extension maps Prime's `session_start`, `before_agent_start`, `agent_start`, `agent_end`, and
+  `session_shutdown` lifecycle events to AO activity hooks. Reporting failures are best effort and do not stop Prime.
+- Input sent during an active turn is supported: Prime queues it as steering for that turn.
+
+See Prime's official [usage reference](https://github.com/PrimeIntellect-ai/prime-agent/blob/main/packages/coding-agent/docs/usage.md)
+and [extension guide](https://github.com/PrimeIntellect-ai/prime-agent/blob/main/packages/coding-agent/docs/extensions.md) for
+the upstream CLI and event contracts.
+
+## V1 safety boundaries
+
+<Callout type="warning">
+	**AO permission modes do not sandbox Prime Agent.** Prime's IPython environment can execute arbitrary Python and host
+	commands, and Prime does not expose an equivalent safe CLI permission contract. Prime therefore runs with the host
+	permissions of the user who launched AO, regardless of the AO permission-mode setting.
+</Callout>
+
+Native Prime session restore is intentionally unavailable in V1. AO does not use persistent Prime sessions or
+`--continue`, because a detached resident worker could survive AO session termination. Restoring an AO session starts a
+fresh ephemeral Prime process and replays AO's stored task rather than continuing Prime's native conversation.

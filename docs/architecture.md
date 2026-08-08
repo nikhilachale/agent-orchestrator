@@ -199,7 +199,7 @@ backend/internal/
 ├── httpd/               # HTTP API, controllers, terminal mux
 ├── terminal/            # Terminal session protocol
 ├── adapters/            # Concrete adapter implementations
-│   ├── agent/           # 23+ agent harnesses
+│   ├── agent/           # 24+ agent harnesses
 │   ├── runtime/         # tmux/conpty runtimes
 │   ├── workspace/       # git worktree
 │   ├── scm/             # GitHub

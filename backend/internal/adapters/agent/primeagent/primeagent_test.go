@@ -219,3 +219,49 @@ func TestResolvePrimeAgentBinaryFromPath(t *testing.T) {
 		t.Fatalf("resolved path = %q, want %q", got, path)
 	}
 }
+
+func TestResolvePrimeAgentBinaryFromNPMGlobalHome(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix npm-global fallback")
+	}
+	home := t.TempDir()
+	path := filepath.Join(home, ".npm-global", "bin", "prime-agent")
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+	t.Setenv("PATH", t.TempDir())
+
+	original := primeAgentBinarySpec
+	primeAgentBinarySpec.UnixPaths = nil
+	primeAgentBinarySpec.NodeManaged = false
+	t.Cleanup(func() { primeAgentBinarySpec = original })
+
+	got, err := ResolvePrimeAgentBinary(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != path {
+		t.Fatalf("resolved path = %q, want npm-global fallback %q", got, path)
+	}
+}
+
+func TestResolvePrimeAgentBinaryNotFound(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	original := primeAgentBinarySpec
+	primeAgentBinarySpec.Names = []string{"definitely-missing-prime-agent"}
+	primeAgentBinarySpec.WinNames = []string{"definitely-missing-prime-agent"}
+	primeAgentBinarySpec.UnixPaths = nil
+	primeAgentBinarySpec.UnixHomePaths = nil
+	primeAgentBinarySpec.WinPaths = nil
+	primeAgentBinarySpec.NodeManaged = false
+	t.Cleanup(func() { primeAgentBinarySpec = original })
+
+	_, err := ResolvePrimeAgentBinary(context.Background())
+	if !errors.Is(err, ports.ErrAgentBinaryNotFound) {
+		t.Fatalf("ResolvePrimeAgentBinary error = %v, want ports.ErrAgentBinaryNotFound", err)
+	}
+}

@@ -39,12 +39,18 @@ func (p *Plugin) GetAgentHooks(ctx context.Context, cfg ports.WorkspaceHookConfi
 		return err
 	}
 	existing, err := os.ReadFile(path) //nolint:gosec // stable AO-owned path under DataDir
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
 	switch {
 	case err == nil && string(existing) == primeAgentExtensionSource:
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if err := os.Chmod(path, 0o600); err != nil {
 			return fmt.Errorf("prime-agent.GetAgentHooks: set extension mode: %w", err)
 		}
-		return nil
+		return ctx.Err()
 	case err != nil && !errors.Is(err, os.ErrNotExist):
 		return fmt.Errorf("prime-agent.GetAgentHooks: read extension: %w", err)
 	}
@@ -54,7 +60,7 @@ func (p *Plugin) GetAgentHooks(ctx context.Context, cfg ports.WorkspaceHookConfi
 	if err := hookutil.AtomicWriteFile(path, []byte(primeAgentExtensionSource), 0o600); err != nil {
 		return fmt.Errorf("prime-agent.GetAgentHooks: write extension: %w", err)
 	}
-	return nil
+	return ctx.Err()
 }
 
 func extensionPath(dataDir string) (string, error) {

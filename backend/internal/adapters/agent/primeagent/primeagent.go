@@ -83,7 +83,7 @@ func (p *Plugin) GetLaunchCommand(ctx context.Context, cfg ports.LaunchConfig) (
 	}
 
 	cmd := []string{binary, "--no-session", "--extension", extensionPath}
-	systemPrompt, err := resolveSystemPrompt(cfg.SystemPrompt, cfg.SystemPromptFile)
+	systemPrompt, err := resolveSystemPrompt(ctx, cfg.SystemPrompt, cfg.SystemPromptFile)
 	if err != nil {
 		return nil, err
 	}
@@ -99,14 +99,23 @@ func (p *Plugin) GetLaunchCommand(ctx context.Context, cfg ports.LaunchConfig) (
 	return cmd, nil
 }
 
-func resolveSystemPrompt(inline, file string) (string, error) {
+func resolveSystemPrompt(ctx context.Context, inline, file string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if strings.TrimSpace(inline) != "" {
 		return inline, nil
 	}
 	if strings.TrimSpace(file) == "" {
 		return "", nil
 	}
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	data, err := os.ReadFile(file) //nolint:gosec // path comes from AO-owned launch configuration
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return "", ctxErr
+	}
 	if err != nil {
 		return "", fmt.Errorf("prime-agent: read system prompt file: %w", err)
 	}

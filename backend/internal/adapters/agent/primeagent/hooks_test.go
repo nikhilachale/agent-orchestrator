@@ -140,6 +140,9 @@ for (const [name, event] of [
 ]) {
   await handlers.get(name)(event, { cwd });
 }
+for (const name of ["session_start", "before_agent_start", "agent_start", "agent_end", "session_shutdown"]) {
+  await handlers.get(name)(undefined, undefined);
+}
 `)
 
 	workspace := filepath.Join(fixtureDir, "workspace with spaces")

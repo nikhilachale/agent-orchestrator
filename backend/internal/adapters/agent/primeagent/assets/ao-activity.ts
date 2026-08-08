@@ -18,29 +18,39 @@ function report(event, payload, cwd) {
   }
 }
 
+function bestEffort(handler) {
+  return (...args) => {
+    try {
+      handler(...args);
+    } catch {
+      // Malformed lifecycle data must not escape into Prime Agent.
+    }
+  };
+}
+
 export default function aoActivityExtension(prime) {
   let pendingPrompt = "";
 
-  prime.on("session_start", (event, context) => {
+  prime.on("session_start", bestEffort((event, context) => {
     report("session-start", { reason: event.reason ?? "" }, context.cwd);
-  });
+  }));
 
-  prime.on("before_agent_start", (event) => {
+  prime.on("before_agent_start", bestEffort((event) => {
     pendingPrompt = typeof event.prompt === "string" ? event.prompt : "";
-  });
+  }));
 
-  prime.on("agent_start", (_event, context) => {
+  prime.on("agent_start", bestEffort((_event, context) => {
     const prompt = pendingPrompt;
     pendingPrompt = "";
     report("user-prompt-submit", { prompt }, context.cwd);
-  });
+  }));
 
-  prime.on("agent_end", (_event, context) => {
+  prime.on("agent_end", bestEffort((_event, context) => {
     report("stop", {}, context.cwd);
-  });
+  }));
 
-  prime.on("session_shutdown", (event, context) => {
+  prime.on("session_shutdown", bestEffort((event, context) => {
     pendingPrompt = "";
     report("session-end", { reason: event.reason ?? "" }, context.cwd);
-  });
+  }));
 }

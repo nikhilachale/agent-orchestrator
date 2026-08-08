@@ -186,13 +186,13 @@ Prime Agent sessions.
 The extension will export the documented Prime `ExtensionAPI` factory and map
 Prime lifecycle callbacks to AO's hidden hook CLI as follows:
 
-| Prime lifecycle event | Extension behavior | AO hook event | AO activity |
-| --- | --- | --- | --- |
-| `session_start` | report ephemeral client startup | `session-start` | active |
-| `before_agent_start` | capture the submitted prompt for the immediately following start | none directly | none |
-| `agent_start` | report one prompt submission using the captured prompt, or an empty prompt if unavailable | `user-prompt-submit` | active |
-| `agent_end` | report completion of that prompt's agent loop | `stop` | idle |
-| `session_shutdown` | report extension/session teardown | `session-end` | exited |
+| Prime lifecycle event | Extension behavior                                                                        | AO hook event        | AO activity |
+| --------------------- | ----------------------------------------------------------------------------------------- | -------------------- | ----------- |
+| `session_start`       | report ephemeral client startup                                                           | `session-start`      | active      |
+| `before_agent_start`  | capture the submitted prompt for the immediately following start                          | none directly        | none        |
+| `agent_start`         | report one prompt submission using the captured prompt, or an empty prompt if unavailable | `user-prompt-submit` | active      |
+| `agent_end`           | report completion of that prompt's agent loop                                             | `stop`               | idle        |
+| `session_shutdown`    | report extension/session teardown                                                         | `session-end`        | exited      |
 
 The adapter will register a Prime activity deriver under token `prime-agent`.
 It will map `session-start` and `user-prompt-submit` to active, `stop` to idle,

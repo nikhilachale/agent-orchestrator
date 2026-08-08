@@ -27,6 +27,7 @@
 ### Task 1: Prime Agent adapter, binary resolver, and lifecycle extension
 
 **Files:**
+
 - Create: `backend/internal/adapters/agent/primeagent/primeagent.go`
 - Create: `backend/internal/adapters/agent/primeagent/hooks.go`
 - Create: `backend/internal/adapters/agent/primeagent/activity.go`
@@ -36,6 +37,7 @@
 - Create: `backend/internal/adapters/agent/primeagent/activity_test.go`
 
 **Interfaces:**
+
 - Consumes: `ports.Agent`, `ports.AgentBinaryResolver`, `ports.ActiveTurnSteerer`, `ports.ActivitySignaler`, `agentbase.Base`, `binaryutil.ResolveBinary`, and `hookutil.AtomicWriteFile`.
 - Produces: `func New() *Plugin`, `func ResolvePrimeAgentBinary(context.Context) (string, error)`, `func (p *Plugin) SteersActiveTurn() bool`, `func DeriveActivityState(string, []byte) (domain.ActivityState, bool)`, and manifest ID `prime-agent`.
 
@@ -111,6 +113,7 @@ git commit -m "feat: add Prime Agent adapter"
 ### Task 2: Domain, registry, activity dispatch, daemon, and catalog wiring
 
 **Files:**
+
 - Modify: `backend/internal/domain/harness.go`
 - Modify: `backend/internal/domain/harness_test.go` if present; otherwise add coverage in the nearest domain harness validation test
 - Modify: `backend/internal/adapters/agent/registry/registry.go`
@@ -121,6 +124,7 @@ git commit -m "feat: add Prime Agent adapter"
 - Modify: `backend/internal/service/agent/catalog_test.go`
 
 **Interfaces:**
+
 - Consumes: `primeagent.New`, `primeagent.DeriveActivityState`, and adapter capability interfaces from Task 1.
 - Produces: `domain.HarnessPrimeAgent`, domain validation, registry resolution, activity support, daemon active steering, and catalog label `Prime Agent`.
 
@@ -174,10 +178,12 @@ git commit -m "feat: wire Prime Agent harness"
 ### Task 3: Append-only SQLite harness migration
 
 **Files:**
+
 - Create: `backend/internal/storage/sqlite/migrations/0032_allow_prime_agent_harness.sql`
 - Modify: `backend/internal/storage/sqlite/migrate_test.go`
 
 **Interfaces:**
+
 - Consumes: the exact current `sessions.harness` CHECK including `fake` from migration 0026.
 - Produces: a migrated schema accepting `prime-agent` and a down schema identical to the pre-0032 constraint.
 
@@ -211,6 +217,7 @@ git commit -m "feat: allow Prime Agent sessions in SQLite"
 ### Task 4: CLI and generated HTTP API contract
 
 **Files:**
+
 - Modify: `backend/internal/cli/spawn.go`
 - Modify: `backend/internal/cli/spawn_test.go`
 - Modify: `backend/internal/cli/agent_test.go`
@@ -221,6 +228,7 @@ git commit -m "feat: allow Prime Agent sessions in SQLite"
 - Modify: `frontend/src/api/schema.ts` (generated)
 
 **Interfaces:**
+
 - Consumes: `domain.HarnessPrimeAgent` and manifest catalog wiring from Task 2.
 - Produces: CLI-visible harness help and the `prime-agent` OpenAPI enum consumed by the frontend.
 
@@ -260,6 +268,7 @@ git commit -m "feat: expose Prime Agent in CLI and API"
 ### Task 5: Frontend fallback catalog, public branding, and user documentation
 
 **Files:**
+
 - Create: `frontend/src/renderer/lib/agent-options.test.ts`
 - Modify: `frontend/src/renderer/lib/agent-options.ts`
 - Modify: `frontend/src/landing/components/LandingAgentsBar.tsx`
@@ -273,6 +282,7 @@ git commit -m "feat: expose Prime Agent in CLI and API"
 - Modify: `README.md`
 
 **Interfaces:**
+
 - Consumes: generated frontend harness type and catalog identity `Prime Agent`.
 - Produces: renderer fallback option, public Prime Agent listing/favicon, count 24, and documentation of safe V1 omissions.
 
@@ -318,9 +328,11 @@ git commit -m "docs: document Prime Agent support"
 ### Task 6: Full verification, review, push, and PR
 
 **Files:**
+
 - Modify only files required to fix verified failures or review findings.
 
 **Interfaces:**
+
 - Consumes: all completed tasks.
 - Produces: verified branch and a PR against `main` that reports intentional V1 omissions.
 

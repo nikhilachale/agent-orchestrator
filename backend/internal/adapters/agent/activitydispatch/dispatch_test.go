@@ -18,7 +18,7 @@ func TestDeriverTokensAreKnownHarnesses(t *testing.T) {
 }
 
 func TestSupportsHarness(t *testing.T) {
-	for _, h := range []domain.AgentHarness{domain.HarnessCodex, domain.HarnessClaudeCode, domain.HarnessGrok, domain.HarnessOpenCode, domain.HarnessKimi, domain.HarnessVibe} {
+	for _, h := range []domain.AgentHarness{domain.HarnessCodex, domain.HarnessClaudeCode, domain.HarnessGrok, domain.HarnessOpenCode, domain.HarnessKimi, domain.HarnessVibe, domain.HarnessPrimeAgent} {
 		if !SupportsHarness(h) {
 			t.Errorf("SupportsHarness(%q) = false, want true", h)
 		}
@@ -29,6 +29,26 @@ func TestSupportsHarness(t *testing.T) {
 		if SupportsHarness(h) {
 			t.Errorf("SupportsHarness(%q) = true, want false", h)
 		}
+	}
+}
+
+func TestPrimeAgentDerivesManagedExtensionActivity(t *testing.T) {
+	tests := []struct {
+		event string
+		want  domain.ActivityState
+	}{
+		{"session-start", domain.ActivityActive},
+		{"user-prompt-submit", domain.ActivityActive},
+		{"stop", domain.ActivityIdle},
+		{"session-end", domain.ActivityExited},
+	}
+	for _, tt := range tests {
+		t.Run(tt.event, func(t *testing.T) {
+			got, ok := Derive("prime-agent", tt.event, nil)
+			if !ok || got != tt.want {
+				t.Fatalf("Derive(prime-agent, %q) = (%q, %v), want (%q, true)", tt.event, got, ok, tt.want)
+			}
+		})
 	}
 }
 

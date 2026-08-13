@@ -211,7 +211,7 @@ export function SessionsBoard({ projectId }: SessionsBoardProps) {
 				aria-label="New task"
 				disabled={isProjectRestarting}
 				onClick={() => projectId && requestNewTask(projectId)}
-				variant="accent"
+				variant="newTask"
 			>
 				<Plus className="size-icon-md" aria-hidden="true" />
 				New task

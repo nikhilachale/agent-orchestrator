@@ -10,6 +10,8 @@ const topbarButtonVariants = cva(
 					"h-control-lg gap-1.5 rounded-md px-4 text-control font-semibold leading-none bg-primary text-primary-foreground hover:brightness-110",
 				accent:
 					"h-control-lg gap-1.5 rounded-md border border-border px-4 text-control font-semibold leading-none bg-raised text-muted-foreground hover:bg-surface hover:text-foreground",
+				newTask:
+					"h-control-lg gap-1.5 rounded-md border border-new-task px-4 text-control font-semibold leading-none bg-new-task text-new-task-foreground hover:brightness-110",
 				icon: "grid size-control-lg place-items-center rounded-md text-muted-foreground hover:bg-interactive-hover hover:text-foreground",
 				kill: "h-control-board-sm gap-1 rounded-md border border-error/60 bg-error/5 px-2.5 text-xs font-semibold leading-none text-error hover:border-error/75 hover:bg-error/12",
 				killConfirm:

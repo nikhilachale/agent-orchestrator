@@ -225,6 +225,9 @@
 	--color-error: var(--bridge-danger);
 	--color-destructive: var(--bridge-danger);
 	--color-destructive-foreground: var(--color-accent-foreground);
+	/* Product CTA red for New Task; keep separate from destructive/error vocabulary. */
+	--color-new-task: var(--bridge-danger);
+	--color-new-task-foreground: var(--color-accent-foreground);
 
 	--color-interactive-hover: var(--bridge-interactive-hover);
 	--color-interactive-active: var(--bridge-interactive-active);

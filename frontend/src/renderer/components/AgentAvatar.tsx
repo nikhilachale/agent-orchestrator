@@ -5,7 +5,7 @@ import {
 } from "@aoagents/product-ui";
 import agyLogo from "../assets/agents/agy.png";
 import aiderLogo from "../assets/agents/aider.png";
-import ampLogo from "../assets/agents/amp.svg";
+import ampLogo from "../assets/agents/amp.png";
 import auggieLogo from "../assets/agents/auggie.svg";
 import autohandLogo from "../assets/agents/autohand.svg";
 import clineLogo from "../assets/agents/cline.svg";
@@ -26,6 +26,7 @@ import kimiLogo from "../assets/agents/kimi.png";
 import kimchiLogo from "../assets/agents/kimchi.svg";
 import kiroLogo from "../assets/agents/kiro.png";
 import museLogo from "../assets/agents/muse.png";
+import ompLogo from "../assets/agents/omp.png";
 import opencodeLogo from "../assets/agents/opencode.svg";
 import piLogo from "../assets/agents/pi.png";
 import primeAgentLogo from "../assets/agents/prime-agent.png";
@@ -52,6 +53,7 @@ const LOGOS: AgentLogoSources = {
 	devin: devinLogo,
 	kimi: kimiLogo,
 	muse: museLogo,
+	omp: ompLogo,
 	kiro: kiroLogo,
 	kilocode: kilocodeLogo,
 	vibe: vibeLogo,

@@ -6121,6 +6121,7 @@ components:
           - kimchi
           - prime-agent
           - autohand
+          - deepseek-harness
           - fake
           type: string
         attachments:
@@ -8005,6 +8006,7 @@ components:
           - kimchi
           - prime-agent
           - autohand
+          - deepseek-harness
           type: string
         issueId:
           type: string

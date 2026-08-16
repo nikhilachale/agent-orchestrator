@@ -108,8 +108,15 @@ func TestHarnessedExcludesFakeHarness(t *testing.T) {
 }
 
 func TestEveryProductionHarnessReportsModelOrModeConfig(t *testing.T) {
+	// DeepSeek Harness profiles configure models internally; there is no CLI
+	// model flag in the shipped headless profile, so AO exposes no config key.
+	exempt := map[domain.AgentHarness]bool{domain.HarnessDeepSeek: true}
+
 	for _, ha := range Harnessed() {
 		t.Run(string(ha.Harness), func(t *testing.T) {
+			if exempt[ha.Harness] {
+				return
+			}
 			spec, err := ha.Agent.GetConfigSpec(context.Background())
 			if err != nil {
 				t.Fatal(err)

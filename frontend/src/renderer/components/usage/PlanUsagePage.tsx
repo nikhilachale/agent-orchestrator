@@ -109,12 +109,37 @@ function ProviderQuotaCard({ quota }: { quota: ProviderQuota }) {
 				{refresh.isError ? <p className="text-xs text-status-exited" role="alert">{refresh.error instanceof Error ? refresh.error.message : t("planUsage.refreshError")}</p> : null}
 				{quota.limits.length === 0 ? <p className="text-sm text-muted-foreground">{t("planUsage.waiting")}</p> : (
 					<div className="grid gap-3 sm:grid-cols-2">
-						{quota.limits.map((limit) => <QuotaLimitBar key={`${limit.id}:${limit.windowType}:${limit.scope}:${limit.scopeId ?? ""}`} limit={limit} />)}
+						{quota.limits.map((limit) => limit.category === "spend_limit" || limit.state ? (
+							<QuotaValueCard key={`${limit.id}:${limit.windowType}:${limit.scope}:${limit.scopeId ?? ""}`} limit={limit} />
+						) : <QuotaLimitBar key={`${limit.id}:${limit.windowType}:${limit.scope}:${limit.scopeId ?? ""}`} limit={limit} />)}
 					</div>
 				)}
 				{quota.balances.length > 0 ? <QuotaBalances balances={quota.balances} /> : null}
 			</CardContent>
 		</Card>
+	);
+}
+
+function QuotaValueCard({ limit }: { limit: ProviderQuota["limits"][number] }) {
+	const { t } = useTranslation();
+	const label = limit.name || humanize(limit.id);
+	let value = t("planUsage.unavailable");
+	let detail: string | null = null;
+	if (limit.state === "unlimited") value = t("planUsage.unlimited");
+	else if (limit.state === "disabled") value = t("planUsage.disabled");
+	else if (limit.state === "active") {
+		const used = formatQuotaValue(limit.usedValue, limit.unit);
+		const total = formatQuotaValue(limit.totalValue, limit.unit);
+		value = used && total ? t("planUsage.valueOf", { used, total }) : used || total || t("planUsage.unavailable");
+		const remaining = formatQuotaValue(limit.remainingValue, limit.unit);
+		if (remaining) detail = t("planUsage.valueRemaining", { value: remaining });
+	}
+	return (
+		<div className="rounded-lg border border-border bg-background/45 p-3">
+			<p className="text-sm font-medium">{label}</p>
+			<p className={cn("mt-1 text-lg font-semibold tabular-nums", severityText[limit.severity])}>{value}</p>
+			{detail ? <p className="mt-0.5 text-xs text-passive">{detail}</p> : null}
+		</div>
 	);
 }
 
@@ -169,6 +194,11 @@ function PlanUsageSkeleton() { const { t } = useTranslation(); return <div class
 
 function providerName(provider: string) { return provider === "codex" ? "Codex" : provider === "claude" ? "Claude" : humanize(provider); }
 function humanize(value: string) { return value.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
+function formatQuotaValue(value: number | null | undefined, unit?: string) {
+	if (value == null) return null;
+	if (unit === "USD") return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+	return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value)}${unit ? ` ${unit}` : ""}`;
+}
 function windowLabel(seconds?: number, fallback?: string) { if (!seconds) return fallback ? humanize(fallback) : "Usage window"; const hours = seconds / 3600; return hours >= 24 ? `${Math.round(hours / 24)}-day window` : `${Math.round(hours)}-hour window`; }
 function formatReset(value: string) { const seconds = Math.max(0, (new Date(value).getTime() - Date.now()) / 1000); if (seconds < 60) return "now"; if (seconds < 3600) return `${Math.ceil(seconds / 60)}m`; if (seconds < 86400) return `${Math.ceil(seconds / 3600)}h`; return `${Math.ceil(seconds / 86400)}d`; }
 function freshnessLabel(freshness: string, observedAt: string, t: TFunction) { if (freshness === "stale") return t("planUsage.stale"); return t("planUsage.updated", { time: new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(Math.round((new Date(observedAt).getTime() - Date.now()) / 60000), "minute") }); }

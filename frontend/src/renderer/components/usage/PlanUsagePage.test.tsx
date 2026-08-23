@@ -161,4 +161,26 @@ describe("PlanUsagePage", () => {
 
 		expect(screen.getByText("Future Ai")).toBeInTheDocument();
 	});
+
+	it("renders absolute and non-numeric spend states without percentage bars", () => {
+		hookState.providers = [quota({
+			accountLabel: "Cursor",
+			limits: [
+				{ category: "spend_limit", id: "fixed", name: "On-Demand", scope: "account", severity: "exhausted", state: "active", usedValue: 333.68, totalValue: 1, remainingValue: 0, unit: "USD" },
+				{ category: "spend_limit", id: "unlimited", scope: "account", severity: "normal", state: "unlimited", unit: "USD" },
+				{ category: "spend_limit", id: "disabled", scope: "account", severity: "unknown", state: "disabled", unit: "USD" },
+				{ category: "spend_limit", id: "unavailable", scope: "account", severity: "unknown", state: "unavailable", unit: "USD" },
+			],
+			provider: "cursor",
+		})];
+
+		render(<PlanUsagePage />);
+
+		expect(screen.getByText("$333.68 / $1.00")).toBeInTheDocument();
+		expect(screen.getByText("$0.00 remaining")).toBeInTheDocument();
+		expect(screen.getAllByText("Unlimited")).toHaveLength(2);
+		expect(screen.getAllByText("Disabled")).toHaveLength(2);
+		expect(screen.getAllByText("Unavailable")).toHaveLength(2);
+		expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+	});
 });

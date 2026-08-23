@@ -26,3 +26,13 @@ func TestQuotaLimitStatesAreStableWireValues(t *testing.T) {
 		}
 	}
 }
+
+func TestNormalizeQuotaSnapshotDefaultsAbsoluteNumericLimitToActive(t *testing.T) {
+	used, total := 12.0, 20.0
+	snapshot := NormalizeQuotaSnapshot(QuotaSnapshot{Limits: []QuotaLimit{{
+		ID: "spend", UsedValue: &used, TotalValue: &total,
+	}}})
+	if snapshot.Limits[0].State != QuotaLimitActive {
+		t.Fatalf("state = %q, want active", snapshot.Limits[0].State)
+	}
+}

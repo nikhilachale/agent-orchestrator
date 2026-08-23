@@ -179,6 +179,9 @@ func NormalizeQuotaSnapshot(snapshot QuotaSnapshot) QuotaSnapshot {
 		if limit.Scope == "" {
 			limit.Scope = QuotaAccountScope
 		}
+		if limit.State == "" && limit.UsedPercent == nil && (limit.UsedValue != nil || limit.RemainingValue != nil || limit.TotalValue != nil) {
+			limit.State = QuotaLimitActive
+		}
 		if limit.ObservedAt.IsZero() {
 			limit.ObservedAt = snapshot.ObservedAt
 		}

@@ -34,6 +34,7 @@ const baseURL = `https://nodejs.org/dist/v${NODE_VERSION}`;
 const buildSignature = createHash("sha256")
 	.update(readFileSync(join(sourceDir, "package-lock.json")))
 	.update(readFileSync(join(sourceDir, "ao-claude-plan-usage.mjs")))
+	.update(readFileSync(join(sourceDir, "ao-cursor-plan-usage.cjs")))
 	.update(readFileSync(fileURLToPath(import.meta.url)))
 	.update(readFileSync(join(scriptsDir, "build-acp-runtime-helpers.mjs")))
 	.update(`node=${NODE_VERSION};platform=${platform};arch=${arch}`)
@@ -50,7 +51,8 @@ const expectedAdapter = join(
 	"dist",
 	"index.js",
 );
-if (existsSync(markerPath) && existsSync(expectedNode) && existsSync(expectedAdapter)) {
+const expectedCursorUsageHelper = join(outDir, "ao-cursor-plan-usage.cjs");
+if (existsSync(markerPath) && existsSync(expectedNode) && existsSync(expectedAdapter) && existsSync(expectedCursorUsageHelper)) {
 	const marker = JSON.parse(readFileSync(markerPath, "utf8"));
 	if (marker.signature === buildSignature) process.exit(0);
 }
@@ -60,6 +62,7 @@ mkdirSync(outDir, { recursive: true });
 cpSync(join(sourceDir, "package.json"), join(outDir, "package.json"));
 cpSync(join(sourceDir, "package-lock.json"), join(outDir, "package-lock.json"));
 cpSync(join(sourceDir, "ao-claude-plan-usage.mjs"), join(outDir, "ao-claude-plan-usage.mjs"));
+cpSync(join(sourceDir, "ao-cursor-plan-usage.cjs"), expectedCursorUsageHelper);
 
 const npm = npmInvocation(["ci", "--omit=dev", "--omit=optional", "--ignore-scripts"]);
 run(npm.command, npm.args, { cwd: outDir });

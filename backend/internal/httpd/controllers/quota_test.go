@@ -79,6 +79,22 @@ func TestQuotaAPIListsProviderNeutralSnapshots(t *testing.T) {
 	}
 }
 
+func TestQuotaAPIIncludesAbsoluteSpendAndProviderState(t *testing.T) {
+	used, total := 333.68, 1.0
+	svc := &fakeQuotaService{snapshot: domain.QuotaSnapshot{
+		Provider: "cursor", AccountID: "default", Completeness: domain.QuotaComplete, ObservedAt: time.Now().UTC(),
+		Limits: []domain.QuotaLimit{{
+			ID: "on_demand", Category: domain.QuotaSpendLimit, Scope: domain.QuotaAccountScope,
+			UsedValue: &used, TotalValue: &total, State: domain.QuotaLimitActive, Unit: "USD",
+		}},
+	}}
+	srv := newQuotaTestServer(t, svc)
+	body, status, _ := doRequest(t, srv, http.MethodGet, "/api/v1/usage/plans", "")
+	if status != http.StatusOK || !strings.Contains(string(body), `"usedValue":333.68`) || !strings.Contains(string(body), `"state":"active"`) {
+		t.Fatalf("status = %d; body=%s", status, body)
+	}
+}
+
 func TestQuotaAPIReportsUnsupportedRefresh(t *testing.T) {
 	srv := newQuotaTestServer(t, &fakeQuotaService{refreshErr: ports.ErrQuotaRefreshUnsupported})
 	body, status, _ := doRequest(t, srv, http.MethodPost, "/api/v1/usage/plans/claude/accounts/default/refresh", "")

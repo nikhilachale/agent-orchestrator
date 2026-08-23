@@ -55,6 +55,20 @@ const (
 	QuotaModelScope QuotaLimitScope = "model"
 )
 
+// QuotaLimitState describes non-numeric provider states for a quota bucket.
+type QuotaLimitState string
+
+const (
+	// QuotaLimitActive identifies an enforced numeric quota.
+	QuotaLimitActive QuotaLimitState = "active"
+	// QuotaLimitUnlimited identifies a provider-reported unlimited quota.
+	QuotaLimitUnlimited QuotaLimitState = "unlimited"
+	// QuotaLimitDisabled identifies provider usage that is turned off.
+	QuotaLimitDisabled QuotaLimitState = "disabled"
+	// QuotaLimitUnavailable identifies usage whose limit cannot be read.
+	QuotaLimitUnavailable QuotaLimitState = "unavailable"
+)
+
 // QuotaCapabilities describe what an adapter can truthfully provide. The UI
 // renders from these flags instead of branching on provider names.
 type QuotaCapabilities struct {
@@ -90,8 +104,10 @@ type QuotaLimit struct {
 	Scope          QuotaLimitScope
 	ScopeID        string
 	UsedPercent    *float64
+	UsedValue      *float64
 	RemainingValue *float64
 	TotalValue     *float64
+	State          QuotaLimitState
 	Unit           string
 	WindowType     string
 	WindowDuration *time.Duration

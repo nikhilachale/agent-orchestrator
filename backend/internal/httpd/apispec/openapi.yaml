@@ -8060,6 +8060,13 @@ components:
           - exhausted
           - unknown
           type: string
+        state:
+          enum:
+          - active
+          - unlimited
+          - disabled
+          - unavailable
+          type: string
         totalValue:
           type:
           - "null"
@@ -8067,6 +8074,10 @@ components:
         unit:
           type: string
         usedPercent:
+          type:
+          - "null"
+          - number
+        usedValue:
           type:
           - "null"
           - number

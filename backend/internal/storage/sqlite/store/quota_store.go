@@ -281,8 +281,9 @@ func quotaLimitParams(s domain.QuotaSnapshot, l domain.QuotaLimit) gen.UpsertQuo
 	return gen.UpsertQuotaLimitParams{
 		Provider: string(s.Provider), AccountID: string(s.AccountID), LimitID: string(l.ID), WindowType: l.WindowType,
 		Category: string(l.Category), Scope: string(l.Scope), ScopeID: l.ScopeID, LimitName: l.Name,
-		UsedPercent: floatPtrToNull(l.UsedPercent), RemainingValue: floatPtrToNull(l.RemainingValue),
-		TotalValue: floatPtrToNull(l.TotalValue), Unit: l.Unit, WindowDurationSeconds: durationPtrToNull(l.WindowDuration),
+		UsedPercent: floatPtrToNull(l.UsedPercent), UsedValue: floatPtrToNull(l.UsedValue),
+		RemainingValue: floatPtrToNull(l.RemainingValue), TotalValue: floatPtrToNull(l.TotalValue),
+		LimitState: string(l.State), Unit: l.Unit, WindowDurationSeconds: durationPtrToNull(l.WindowDuration),
 		ResetsAt: timePtrToNullTime(l.ResetsAt), Reached: boolPtrToNullInt(l.Reached), ReachedReason: l.ReachedReason,
 		ObservedAt: observedAt,
 	}
@@ -314,7 +315,8 @@ func quotaLimitFromGen(row gen.QuotaLimit) domain.QuotaLimit {
 	return domain.QuotaLimit{
 		ID: domain.QuotaLimitID(row.LimitID), Name: row.LimitName, Category: domain.QuotaLimitCategory(row.Category),
 		Scope: domain.QuotaLimitScope(row.Scope), ScopeID: row.ScopeID, UsedPercent: nullFloatPtr(row.UsedPercent),
-		RemainingValue: nullFloatPtr(row.RemainingValue), TotalValue: nullFloatPtr(row.TotalValue), Unit: row.Unit,
+		UsedValue: nullFloatPtr(row.UsedValue), RemainingValue: nullFloatPtr(row.RemainingValue),
+		TotalValue: nullFloatPtr(row.TotalValue), State: domain.QuotaLimitState(row.LimitState), Unit: row.Unit,
 		WindowType: row.WindowType, WindowDuration: nullIntDurationPtr(row.WindowDurationSeconds),
 		ResetsAt: nullTimeToTimePtr(row.ResetsAt), Reached: nullIntBoolPtr(row.Reached), ReachedReason: row.ReachedReason,
 		ObservedAt: row.ObservedAt,

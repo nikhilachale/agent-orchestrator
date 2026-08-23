@@ -427,6 +427,8 @@ type QuotaLimit struct {
 	Reached               sql.NullInt64
 	ReachedReason         string
 	ObservedAt            time.Time
+	UsedValue             sql.NullFloat64
+	LimitState            string
 }
 
 type Review struct {

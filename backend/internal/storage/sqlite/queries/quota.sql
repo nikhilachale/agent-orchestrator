@@ -40,15 +40,17 @@ DELETE FROM quota_limits WHERE provider = ? AND account_id = ?;
 -- name: UpsertQuotaLimit :exec
 INSERT INTO quota_limits (
     provider, account_id, limit_id, window_type, category, scope, scope_id,
-    limit_name, used_percent, remaining_value, total_value, unit,
+    limit_name, used_percent, used_value, remaining_value, total_value, limit_state, unit,
     window_duration_seconds, resets_at, reached, reached_reason, observed_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (provider, account_id, limit_id, window_type, scope, scope_id) DO UPDATE SET
     category = excluded.category,
     limit_name = CASE WHEN excluded.limit_name <> '' THEN excluded.limit_name ELSE quota_limits.limit_name END,
     used_percent = COALESCE(excluded.used_percent, quota_limits.used_percent),
+    used_value = COALESCE(excluded.used_value, quota_limits.used_value),
     remaining_value = COALESCE(excluded.remaining_value, quota_limits.remaining_value),
     total_value = COALESCE(excluded.total_value, quota_limits.total_value),
+    limit_state = CASE WHEN excluded.limit_state <> '' THEN excluded.limit_state ELSE quota_limits.limit_state END,
     unit = CASE WHEN excluded.unit <> '' THEN excluded.unit ELSE quota_limits.unit END,
     window_duration_seconds = COALESCE(excluded.window_duration_seconds, quota_limits.window_duration_seconds),
     resets_at = COALESCE(excluded.resets_at, quota_limits.resets_at),

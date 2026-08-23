@@ -44,6 +44,33 @@ func TestQuotaSnapshotPersistsUnknownsAndDeduplicatesHistory(t *testing.T) {
 	}
 }
 
+func TestQuotaSnapshotPersistsSpendLimitValuesAndState(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 24, 4, 1, 34, 0, time.UTC)
+	used, total, remaining := 333.68, 1.0, 0.0
+	snapshot := domain.QuotaSnapshot{
+		Provider: "cursor", AccountID: "default", Completeness: domain.QuotaComplete, ObservedAt: now,
+		Limits: []domain.QuotaLimit{{
+			ID: "on_demand", Name: "On-Demand", Category: domain.QuotaSpendLimit,
+			Scope: domain.QuotaAccountScope, UsedValue: &used, TotalValue: &total,
+			RemainingValue: &remaining, Unit: "USD", State: domain.QuotaLimitActive,
+		}},
+	}
+	if err := store.UpsertQuotaSnapshot(ctx, snapshot); err != nil {
+		t.Fatal(err)
+	}
+	got, ok, err := store.GetQuotaSnapshot(ctx, "cursor", "default")
+	if err != nil || !ok || len(got.Limits) != 1 {
+		t.Fatalf("snapshot = %+v, ok %v, err %v", got, ok, err)
+	}
+	limit := got.Limits[0]
+	if limit.UsedValue == nil || *limit.UsedValue != used || limit.TotalValue == nil || *limit.TotalValue != total ||
+		limit.RemainingValue == nil || *limit.RemainingValue != remaining || limit.State != domain.QuotaLimitActive {
+		t.Fatalf("limit = %+v", limit)
+	}
+}
+
 func TestPartialQuotaSnapshotPreservesOtherBuckets(t *testing.T) {
 	store := newTestStore(t)
 	ctx := context.Background()

@@ -212,8 +212,9 @@ func quotaResponse(snapshot domain.QuotaSnapshot, now time.Time) ProviderQuotaRe
 		response.Limits = append(response.Limits, QuotaLimitResponse{
 			ID: string(limit.ID), Name: limit.Name, Category: string(limit.Category), Scope: string(limit.Scope), ScopeID: limit.ScopeID,
 			WindowType: limit.WindowType, WindowDurationSeconds: seconds, UsedPercent: limit.UsedPercent,
-			RemainingPercent: limit.RemainingPercent(), RemainingValue: limit.RemainingValue, TotalValue: limit.TotalValue,
-			Unit: limit.Unit, ResetsAt: limit.ResetsAt, Reached: limit.Reached, ReachedReason: limit.ReachedReason,
+			RemainingPercent: limit.RemainingPercent(), UsedValue: limit.UsedValue, RemainingValue: limit.RemainingValue,
+			TotalValue: limit.TotalValue, State: string(limit.State), Unit: limit.Unit,
+			ResetsAt: limit.ResetsAt, Reached: limit.Reached, ReachedReason: limit.ReachedReason,
 			Severity: string(quotasvc.LimitSeverity(limit)),
 		})
 	}

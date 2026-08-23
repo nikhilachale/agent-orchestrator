@@ -461,7 +461,7 @@ func (q *Queries) ListQuotaHistoryForAccount(ctx context.Context, arg ListQuotaH
 }
 
 const listQuotaLimitsForAccount = `-- name: ListQuotaLimitsForAccount :many
-SELECT provider, account_id, limit_id, window_type, category, scope, scope_id, limit_name, used_percent, remaining_value, total_value, unit, window_duration_seconds, resets_at, reached, reached_reason, observed_at FROM quota_limits
+SELECT provider, account_id, limit_id, window_type, category, scope, scope_id, limit_name, used_percent, remaining_value, total_value, unit, window_duration_seconds, resets_at, reached, reached_reason, observed_at, used_value, limit_state FROM quota_limits
 WHERE provider = ? AND account_id = ?
 ORDER BY category, scope, scope_id, limit_name, limit_id, window_type
 `
@@ -498,6 +498,8 @@ func (q *Queries) ListQuotaLimitsForAccount(ctx context.Context, arg ListQuotaLi
 			&i.Reached,
 			&i.ReachedReason,
 			&i.ObservedAt,
+			&i.UsedValue,
+			&i.LimitState,
 		); err != nil {
 			return nil, err
 		}
@@ -627,15 +629,17 @@ func (q *Queries) UpsertQuotaBalance(ctx context.Context, arg UpsertQuotaBalance
 const upsertQuotaLimit = `-- name: UpsertQuotaLimit :exec
 INSERT INTO quota_limits (
     provider, account_id, limit_id, window_type, category, scope, scope_id,
-    limit_name, used_percent, remaining_value, total_value, unit,
+    limit_name, used_percent, used_value, remaining_value, total_value, limit_state, unit,
     window_duration_seconds, resets_at, reached, reached_reason, observed_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (provider, account_id, limit_id, window_type, scope, scope_id) DO UPDATE SET
     category = excluded.category,
     limit_name = CASE WHEN excluded.limit_name <> '' THEN excluded.limit_name ELSE quota_limits.limit_name END,
     used_percent = COALESCE(excluded.used_percent, quota_limits.used_percent),
+    used_value = COALESCE(excluded.used_value, quota_limits.used_value),
     remaining_value = COALESCE(excluded.remaining_value, quota_limits.remaining_value),
     total_value = COALESCE(excluded.total_value, quota_limits.total_value),
+    limit_state = CASE WHEN excluded.limit_state <> '' THEN excluded.limit_state ELSE quota_limits.limit_state END,
     unit = CASE WHEN excluded.unit <> '' THEN excluded.unit ELSE quota_limits.unit END,
     window_duration_seconds = COALESCE(excluded.window_duration_seconds, quota_limits.window_duration_seconds),
     resets_at = COALESCE(excluded.resets_at, quota_limits.resets_at),
@@ -655,8 +659,10 @@ type UpsertQuotaLimitParams struct {
 	ScopeID               string
 	LimitName             string
 	UsedPercent           sql.NullFloat64
+	UsedValue             sql.NullFloat64
 	RemainingValue        sql.NullFloat64
 	TotalValue            sql.NullFloat64
+	LimitState            string
 	Unit                  string
 	WindowDurationSeconds sql.NullInt64
 	ResetsAt              sql.NullTime
@@ -676,8 +682,10 @@ func (q *Queries) UpsertQuotaLimit(ctx context.Context, arg UpsertQuotaLimitPara
 		arg.ScopeID,
 		arg.LimitName,
 		arg.UsedPercent,
+		arg.UsedValue,
 		arg.RemainingValue,
 		arg.TotalValue,
+		arg.LimitState,
 		arg.Unit,
 		arg.WindowDurationSeconds,
 		arg.ResetsAt,

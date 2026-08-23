@@ -1101,8 +1101,10 @@ type QuotaLimitResponse struct {
 	WindowDurationSeconds *int64     `json:"windowDurationSeconds,omitempty"`
 	UsedPercent           *float64   `json:"usedPercent,omitempty"`
 	RemainingPercent      *float64   `json:"remainingPercent,omitempty"`
+	UsedValue             *float64   `json:"usedValue,omitempty"`
 	RemainingValue        *float64   `json:"remainingValue,omitempty"`
 	TotalValue            *float64   `json:"totalValue,omitempty"`
+	State                 string     `json:"state,omitempty" enum:"active,unlimited,disabled,unavailable"`
 	Unit                  string     `json:"unit,omitempty"`
 	ResetsAt              *time.Time `json:"resetsAt,omitempty"`
 	Reached               *bool      `json:"reached,omitempty"`

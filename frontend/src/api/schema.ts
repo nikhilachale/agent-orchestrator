@@ -2795,9 +2795,12 @@ export interface components {
             scopeId?: string;
             /** @enum {string} */
             severity: "normal" | "warning" | "critical" | "exhausted" | "unknown";
+            /** @enum {string} */
+            state?: "active" | "unlimited" | "disabled" | "unavailable";
             totalValue?: null | number;
             unit?: string;
             usedPercent?: null | number;
+            usedValue?: null | number;
             windowDurationSeconds?: null | number;
             windowType?: string;
         };

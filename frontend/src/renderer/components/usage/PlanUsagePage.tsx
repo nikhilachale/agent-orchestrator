@@ -109,7 +109,7 @@ function ProviderQuotaCard({ quota }: { quota: ProviderQuota }) {
 				{refresh.isError ? <p className="text-xs text-status-exited" role="alert">{refresh.error instanceof Error ? refresh.error.message : t("planUsage.refreshError")}</p> : null}
 				{quota.limits.length === 0 ? <p className="text-sm text-muted-foreground">{t("planUsage.waiting")}</p> : (
 					<div className="grid gap-3 sm:grid-cols-2">
-						{quota.limits.map((limit) => limit.category === "spend_limit" || limit.state ? (
+						{quota.limits.map((limit) => limit.usedPercent == null && (limit.usedValue != null || limit.state) ? (
 							<QuotaValueCard key={`${limit.id}:${limit.windowType}:${limit.scope}:${limit.scopeId ?? ""}`} limit={limit} />
 						) : <QuotaLimitBar key={`${limit.id}:${limit.windowType}:${limit.scope}:${limit.scopeId ?? ""}`} limit={limit} />)}
 					</div>
@@ -196,7 +196,9 @@ function providerName(provider: string) { return provider === "codex" ? "Codex" 
 function humanize(value: string) { return value.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
 function formatQuotaValue(value: number | null | undefined, unit?: string) {
 	if (value == null) return null;
-	if (unit === "USD") return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+	if (unit && /^[A-Z]{3}$/.test(unit)) {
+		try { return new Intl.NumberFormat("en-US", { style: "currency", currency: unit, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value); } catch { /* preserve unknown units below */ }
+	}
 	return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value)}${unit ? ` ${unit}` : ""}`;
 }
 function windowLabel(seconds?: number, fallback?: string) { if (!seconds) return fallback ? humanize(fallback) : "Usage window"; const hours = seconds / 3600; return hours >= 24 ? `${Math.round(hours / 24)}-day window` : `${Math.round(hours)}-hour window`; }

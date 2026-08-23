@@ -23,8 +23,8 @@ func TestNormalizeCursorUsageIncludesCreditsAndOnDemandSpend(t *testing.T) {
 	observedAt := time.Date(2026, 8, 24, 4, 1, 34, 0, time.UTC)
 	snapshot, err := normalizeCursorUsage(RawUsage{
 		PlanName: "Pro+", ResetLabel: "Resets Aug 25",
-		Included: RawIncludedUsage{TotalPercentUsed: 21, AutoPercentUsed: 10, APIPercentUsed: 100},
-		OnDemand: RawOnDemandUsage{Kind: "fixed", UsedDollars: 333.68, LimitDollars: 1},
+		Included: &RawIncludedUsage{TotalPercentUsed: float64Pointer(21), AutoPercentUsed: float64Pointer(10), APIPercentUsed: float64Pointer(100)},
+		OnDemand: &RawOnDemandUsage{Kind: "fixed", UsedDollars: float64Pointer(333.68), LimitDollars: float64Pointer(1)},
 	}, observedAt)
 	if err != nil {
 		t.Fatal(err)
@@ -56,21 +56,22 @@ func TestNormalizeCursorUsageIncludesCreditsAndOnDemandSpend(t *testing.T) {
 func TestNormalizeCursorUsagePreservesNonNumericOnDemandStates(t *testing.T) {
 	for _, kind := range []string{"unlimited", "disabled", "unavailable"} {
 		t.Run(kind, func(t *testing.T) {
-			snapshot, err := normalizeCursorUsage(RawUsage{OnDemand: RawOnDemandUsage{Kind: kind}}, time.Now().UTC())
+			snapshot, err := normalizeCursorUsage(RawUsage{OnDemand: &RawOnDemandUsage{Kind: kind, UsedDollars: float64Pointer(12.5)}}, time.Now().UTC())
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := snapshot.Limits[3].State; string(got) != kind {
+			if got := snapshot.Limits[0].State; string(got) != kind {
 				t.Fatalf("state = %q, want %q", got, kind)
 			}
-			if snapshot.Limits[3].TotalValue != nil {
-				t.Fatalf("total = %v, want unknown", snapshot.Limits[3].TotalValue)
+			if snapshot.Limits[0].TotalValue != nil || snapshot.Limits[0].UsedValue == nil || *snapshot.Limits[0].UsedValue != 12.5 {
+				t.Fatalf("limit = %+v, want spend preserved with unknown total", snapshot.Limits[0])
 			}
 		})
 	}
 }
 
 func TestCursorQuotaAccountRequiresAuthorizedSupportedBuild(t *testing.T) {
+	t.Setenv("CURSOR_API_KEY", "")
 	r := NewQuotaRefresher(fakeCursorQuotaPlugin{binary: "/cursor-agent", auth: ports.AgentAuthStatusAuthorized})
 	r.readVersion = func(context.Context, string) (string, error) { return supportedCursorUsageBuild, nil }
 	present, err := r.QuotaAccountPresent(context.Background(), "cursor", "default")
@@ -81,6 +82,19 @@ func TestCursorQuotaAccountRequiresAuthorizedSupportedBuild(t *testing.T) {
 	present, err = r.QuotaAccountPresent(context.Background(), "cursor", "default")
 	if err != nil || present {
 		t.Fatalf("unsupported present = %v, err = %v", present, err)
+	}
+}
+
+func TestCursorQuotaAccountRejectsAPIKeyOnlyMode(t *testing.T) {
+	t.Setenv("CURSOR_API_KEY", "secret")
+	r := NewQuotaRefresher(fakeCursorQuotaPlugin{binary: "/cursor-agent", auth: ports.AgentAuthStatusAuthorized})
+	r.readVersion = func(context.Context, string) (string, error) {
+		t.Fatal("API-key mode must not probe the private dashboard protocol")
+		return "", nil
+	}
+	present, err := r.QuotaAccountPresent(context.Background(), "cursor", "default")
+	if err != nil || present {
+		t.Fatalf("present = %v, err = %v", present, err)
 	}
 }
 

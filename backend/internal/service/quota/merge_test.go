@@ -40,6 +40,19 @@ func TestMergeCompleteRemovesDisappearedBuckets(t *testing.T) {
 	}
 }
 
+func TestMergePartialUpdatesAbsoluteValueAndState(t *testing.T) {
+	current := domain.QuotaSnapshot{Provider: "cursor", AccountID: "default", Limits: []domain.QuotaLimit{{
+		ID: "on_demand", UsedValue: float64ptr(5), State: domain.QuotaLimitActive,
+	}}}
+	update := domain.QuotaSnapshot{Provider: "cursor", AccountID: "default", Completeness: domain.QuotaPartial, Limits: []domain.QuotaLimit{{
+		ID: "on_demand", UsedValue: float64ptr(8), State: domain.QuotaLimitUnlimited,
+	}}}
+	got := Merge(current, update)
+	if got.Limits[0].UsedValue == nil || *got.Limits[0].UsedValue != 8 || got.Limits[0].State != domain.QuotaLimitUnlimited {
+		t.Fatalf("limit = %+v", got.Limits[0])
+	}
+}
+
 func TestRemainingSeverityAndFreshness(t *testing.T) {
 	used := 91.0
 	limit := domain.QuotaLimit{UsedPercent: &used}

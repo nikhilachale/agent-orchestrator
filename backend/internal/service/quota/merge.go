@@ -93,11 +93,17 @@ func mergeLimit(previous, update domain.QuotaLimit) domain.QuotaLimit {
 	if update.UsedPercent != nil {
 		merged.UsedPercent = update.UsedPercent
 	}
+	if update.UsedValue != nil {
+		merged.UsedValue = update.UsedValue
+	}
 	if update.RemainingValue != nil {
 		merged.RemainingValue = update.RemainingValue
 	}
 	if update.TotalValue != nil {
 		merged.TotalValue = update.TotalValue
+	}
+	if update.State != "" {
+		merged.State = update.State
 	}
 	if update.Unit != "" {
 		merged.Unit = update.Unit

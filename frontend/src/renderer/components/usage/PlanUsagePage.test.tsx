@@ -183,4 +183,16 @@ describe("PlanUsagePage", () => {
 		expect(screen.getAllByText("Unavailable")).toHaveLength(2);
 		expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
 	});
+
+	it("keeps percentage-based spend limits on the existing progress bar", () => {
+		hookState.providers = [quota({
+			limits: [{ category: "spend_limit", id: "individual", scope: "account", severity: "normal", usedPercent: 25, remainingPercent: 75, totalValue: 100 }],
+			provider: "codex",
+		})];
+
+		render(<PlanUsagePage />);
+
+		expect(screen.getByText("75% remaining")).toBeInTheDocument();
+		expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "25");
+	});
 });

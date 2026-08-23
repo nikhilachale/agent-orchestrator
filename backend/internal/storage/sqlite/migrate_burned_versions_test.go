@@ -112,6 +112,7 @@ var shippedMigrations = map[int64]string{
 	106: "0106_pr_comment_review_id.sql",
 	107: "0107_recovered_conversation_turns.sql",
 	108: "0108_provider_quota.sql",
+	109: "0109_extend_provider_quota_limits.sql",
 }
 
 // burnedVersion reports version numbers that must never be (re)used: they

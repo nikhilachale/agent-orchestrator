@@ -53,6 +53,9 @@ func (r *QuotaRefresher) QuotaAccountPresent(ctx context.Context, provider domai
 	if r == nil || r.plugin == nil || provider != "cursor" || accountID != "default" {
 		return false, nil
 	}
+	if strings.TrimSpace(os.Getenv("CURSOR_API_KEY")) != "" {
+		return false, nil
+	}
 	binary, err := r.plugin.ResolveBinary(ctx)
 	if err != nil {
 		if errors.Is(err, ports.ErrAgentBinaryNotFound) {
@@ -109,33 +112,47 @@ func normalizeCursorUsage(raw RawUsage, observedAt time.Time) (domain.QuotaSnaps
 		return domain.QuotaSnapshot{}, errors.New("Cursor usage observation time is required")
 	}
 	reset := parseCursorResetLabel(raw.ResetLabel, observedAt)
-	limits := []domain.QuotaLimit{
-		cursorPercentLimit("included", "Included", raw.Included.TotalPercentUsed, reset, observedAt),
-		cursorPercentLimit("auto", "Auto", raw.Included.AutoPercentUsed, reset, observedAt),
-		cursorPercentLimit("api", "API", raw.Included.APIPercentUsed, reset, observedAt),
+	limits := make([]domain.QuotaLimit, 0, 4)
+	if raw.Included != nil {
+		for _, entry := range []struct {
+			id   domain.QuotaLimitID
+			name string
+			used *float64
+		}{{"included", "Included", raw.Included.TotalPercentUsed}, {"auto", "Auto", raw.Included.AutoPercentUsed}, {"api", "API", raw.Included.APIPercentUsed}} {
+			if entry.used != nil {
+				limits = append(limits, cursorPercentLimit(entry.id, entry.name, entry.used, reset, observedAt))
+			}
+		}
 	}
-	spend := domain.QuotaLimit{
-		ID: "on_demand", Name: "On-Demand", Category: domain.QuotaSpendLimit,
-		Scope: domain.QuotaAccountScope, Unit: "USD", ObservedAt: observedAt,
+	if raw.OnDemand != nil {
+		spend := domain.QuotaLimit{
+			ID: "on_demand", Name: "On-Demand", Category: domain.QuotaSpendLimit,
+			Scope: domain.QuotaAccountScope, Unit: "USD", ObservedAt: observedAt,
+		}
+		if raw.OnDemand.UsedDollars != nil {
+			spend.UsedValue = float64Pointer(*raw.OnDemand.UsedDollars)
+		}
+		switch raw.OnDemand.Kind {
+		case "fixed":
+			spend.State = domain.QuotaLimitActive
+			spend.TotalValue = float64Pointer(*raw.OnDemand.LimitDollars)
+			spend.RemainingValue = float64Pointer(math.Max(0, *raw.OnDemand.LimitDollars-*raw.OnDemand.UsedDollars))
+			reached := *raw.OnDemand.UsedDollars >= *raw.OnDemand.LimitDollars
+			spend.Reached = &reached
+		case "unlimited":
+			spend.State = domain.QuotaLimitUnlimited
+		case "disabled":
+			spend.State = domain.QuotaLimitDisabled
+		case "unavailable":
+			spend.State = domain.QuotaLimitUnavailable
+		default:
+			return domain.QuotaSnapshot{}, fmt.Errorf("unsupported Cursor on-demand usage state %q", raw.OnDemand.Kind)
+		}
+		limits = append(limits, spend)
 	}
-	switch raw.OnDemand.Kind {
-	case "fixed":
-		spend.State = domain.QuotaLimitActive
-		spend.UsedValue = float64Pointer(raw.OnDemand.UsedDollars)
-		spend.TotalValue = float64Pointer(raw.OnDemand.LimitDollars)
-		spend.RemainingValue = float64Pointer(math.Max(0, raw.OnDemand.LimitDollars-raw.OnDemand.UsedDollars))
-		reached := raw.OnDemand.UsedDollars >= raw.OnDemand.LimitDollars
-		spend.Reached = &reached
-	case "unlimited":
-		spend.State = domain.QuotaLimitUnlimited
-	case "disabled":
-		spend.State = domain.QuotaLimitDisabled
-	case "unavailable", "":
-		spend.State = domain.QuotaLimitUnavailable
-	default:
-		return domain.QuotaSnapshot{}, fmt.Errorf("unsupported Cursor on-demand usage state %q", raw.OnDemand.Kind)
+	if len(limits) == 0 {
+		return domain.QuotaSnapshot{}, errors.New("Cursor usage contains no quota categories")
 	}
-	limits = append(limits, spend)
 	return domain.NormalizeQuotaSnapshot(domain.QuotaSnapshot{
 		Provider: "cursor", AccountID: "default", AccountLabel: "Cursor", PlanType: raw.PlanName,
 		Capabilities: domain.QuotaCapabilities{SupportsRead: true, SupportsHistory: true, SupportsCredits: true, SupportsSpendLimits: true},
@@ -143,10 +160,10 @@ func normalizeCursorUsage(raw RawUsage, observedAt time.Time) (domain.QuotaSnaps
 	}), nil
 }
 
-func cursorPercentLimit(id domain.QuotaLimitID, name string, used float64, reset *time.Time, observedAt time.Time) domain.QuotaLimit {
+func cursorPercentLimit(id domain.QuotaLimitID, name string, used *float64, reset *time.Time, observedAt time.Time) domain.QuotaLimit {
 	return domain.QuotaLimit{
 		ID: id, Name: name, Category: domain.QuotaUsageCredits, Scope: domain.QuotaAccountScope,
-		WindowType: "billing_cycle", UsedPercent: float64Pointer(used), ResetsAt: reset, ObservedAt: observedAt,
+		WindowType: "billing_cycle", UsedPercent: float64Pointer(*used), ResetsAt: reset, ObservedAt: observedAt,
 	}
 }
 

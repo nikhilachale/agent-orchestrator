@@ -109,7 +109,7 @@ func (r *QuotaRefresher) RefreshQuota(ctx context.Context, provider domain.Quota
 
 func normalizeCursorUsage(raw RawUsage, observedAt time.Time) (domain.QuotaSnapshot, error) {
 	if observedAt.IsZero() {
-		return domain.QuotaSnapshot{}, errors.New("Cursor usage observation time is required")
+		return domain.QuotaSnapshot{}, errors.New("cursor usage observation time is required")
 	}
 	reset := parseCursorResetLabel(raw.ResetLabel, observedAt)
 	limits := make([]domain.QuotaLimit, 0, 4)
@@ -151,7 +151,7 @@ func normalizeCursorUsage(raw RawUsage, observedAt time.Time) (domain.QuotaSnaps
 		limits = append(limits, spend)
 	}
 	if len(limits) == 0 {
-		return domain.QuotaSnapshot{}, errors.New("Cursor usage contains no quota categories")
+		return domain.QuotaSnapshot{}, errors.New("cursor usage contains no quota categories")
 	}
 	return domain.NormalizeQuotaSnapshot(domain.QuotaSnapshot{
 		Provider: "cursor", AccountID: "default", AccountLabel: "Cursor", PlanType: raw.PlanName,

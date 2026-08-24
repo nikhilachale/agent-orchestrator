@@ -21,7 +21,7 @@ const (
 	maxCursorUsageOutput      = 64 << 10
 )
 
-var errCursorUsageBuildUnsupported = errors.New("Cursor build does not expose a verified usage protocol")
+var errCursorUsageBuildUnsupported = errors.New("cursor build does not expose a verified usage protocol")
 
 // UsageClient reads Cursor's sanitized account usage model.
 type UsageClient interface {
@@ -74,10 +74,10 @@ func newUsageClient(binaryPath, version, runtimeDir string, runner usageCommandR
 func (c *privateUsageClient) ReadUsage(ctx context.Context) (RawUsage, error) {
 	out, err := c.run(ctx, c.binaryPath, c.runtimeDir)
 	if err != nil {
-		return RawUsage{}, fmt.Errorf("Cursor usage helper failed: %w", err)
+		return RawUsage{}, fmt.Errorf("cursor usage helper failed: %w", err)
 	}
 	if len(out) > maxCursorUsageOutput {
-		return RawUsage{}, errors.New("Cursor usage helper returned oversized output")
+		return RawUsage{}, errors.New("cursor usage helper returned oversized output")
 	}
 	var envelope struct {
 		CLIVersion string `json:"cliVersion"`
@@ -97,10 +97,10 @@ func (c *privateUsageClient) ReadUsage(ctx context.Context) (RawUsage, error) {
 		return RawUsage{}, fmt.Errorf("decode Cursor usage helper output: %w", err)
 	}
 	if envelope.CLIVersion != c.version {
-		return RawUsage{}, errors.New("Cursor usage helper build identity changed")
+		return RawUsage{}, errors.New("cursor usage helper build identity changed")
 	}
 	if envelope.Usage == nil || envelope.Usage.Kind != "available" || envelope.Usage.Model == nil || envelope.Usage.Model.Kind != "standard" {
-		return RawUsage{}, errors.New("Cursor usage is unavailable for this account")
+		return RawUsage{}, errors.New("cursor usage is unavailable for this account")
 	}
 	raw := RawUsage{
 		PlanName:   envelope.Usage.Model.PlanName,
@@ -122,27 +122,27 @@ func validateRawCursorUsage(raw RawUsage) error {
 				continue
 			}
 			if math.IsNaN(*value) || math.IsInf(*value, 0) {
-				return errors.New("Cursor usage contains a non-finite percentage")
+				return errors.New("cursor usage contains a non-finite percentage")
 			}
 			reported = true
 		}
 	}
 	if raw.OnDemand != nil {
 		if raw.OnDemand.Kind == "" {
-			return errors.New("Cursor on-demand usage has no state")
+			return errors.New("cursor on-demand usage has no state")
 		}
 		for _, value := range []*float64{raw.OnDemand.UsedDollars, raw.OnDemand.LimitDollars} {
 			if value != nil && (math.IsNaN(*value) || math.IsInf(*value, 0)) {
-				return errors.New("Cursor usage contains a non-finite spend value")
+				return errors.New("cursor usage contains a non-finite spend value")
 			}
 		}
 		if raw.OnDemand.Kind == "fixed" && (raw.OnDemand.UsedDollars == nil || raw.OnDemand.LimitDollars == nil) {
-			return errors.New("Cursor fixed on-demand usage is incomplete")
+			return errors.New("cursor fixed on-demand usage is incomplete")
 		}
 		reported = true
 	}
 	if !reported {
-		return errors.New("Cursor usage helper returned no quota categories")
+		return errors.New("cursor usage helper returned no quota categories")
 	}
 	return nil
 }
@@ -177,7 +177,7 @@ func runCursorUsageHelper(ctx context.Context, binaryPath, runtimeDir string) ([
 	if len(out) > maxCursorUsageOutput {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
-		return nil, errors.New("Cursor usage helper returned oversized output")
+		return nil, errors.New("cursor usage helper returned oversized output")
 	}
 	err = cmd.Wait()
 	if readErr != nil {

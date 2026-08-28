@@ -290,9 +290,9 @@ export function NotificationCenter({ style }: NotificationCenterProps) {
 					variant="icon"
 				>
 					{unreadCount > 0 ? (
-						<BellRing className="size-icon-base fill-current text-foreground" aria-hidden="true" />
+						<BellRing className="size-icon-base fill-current text-error" aria-hidden="true" />
 					) : (
-						<Bell className="size-icon-base" aria-hidden="true" />
+						<Bell className="size-icon-base text-error" aria-hidden="true" />
 					)}
 					{unreadCount > 0 ? (
 						<span className="pointer-events-none absolute right-px top-px grid h-3 min-w-3 place-items-center rounded-full bg-accent-strong px-0.5 font-mono text-[7px] font-semibold leading-none text-accent-foreground shadow-sm ring-1 ring-background">

@@ -39,6 +39,53 @@ func (q *Queries) ActivateConversationBranchSession(ctx context.Context, arg Act
 	return result.RowsAffected()
 }
 
+const checkpointSpawnWorkspaceReady = `-- name: CheckpointSpawnWorkspaceReady :execrows
+UPDATE sessions SET
+    branch = ?1,
+    workspace_path = ?2,
+    workspace_repo_path = ?3,
+    prompt = ?4,
+    model = ?5,
+    spawn_phase = ?6,
+    updated_at = ?7
+WHERE id = ?8
+  AND is_terminated = 0
+  AND spawn_phase = 'preparing'
+`
+
+type CheckpointSpawnWorkspaceReadyParams struct {
+	Branch            string
+	WorkspacePath     string
+	WorkspaceRepoPath string
+	Prompt            string
+	Model             string
+	SpawnPhase        domain.SpawnPhase
+	UpdatedAt         time.Time
+	ID                domain.SessionID
+}
+
+// Publish the workspace facts of an in-flight spawn as soon as the worktree
+// exists, before post-create provisioning, attachments, or any controller
+// launch. Guarded on the preparing phase so a retry, a concurrent recovery
+// pass, or a late write from an abandoned attempt cannot move an already
+// advanced session backwards.
+func (q *Queries) CheckpointSpawnWorkspaceReady(ctx context.Context, arg CheckpointSpawnWorkspaceReadyParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, checkpointSpawnWorkspaceReady,
+		arg.Branch,
+		arg.WorkspacePath,
+		arg.WorkspaceRepoPath,
+		arg.Prompt,
+		arg.Model,
+		arg.SpawnPhase,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const claimChatControllerGeneration = `-- name: ClaimChatControllerGeneration :execrows
 UPDATE sessions
 SET controller_generation = ?, updated_at = ?
@@ -116,7 +163,7 @@ SELECT id, project_id, num, issue_id, kind, harness,
     workspace_repo_path, terminate_on_pr_merge, diff_base_sha, diff_base_ref,
     reviewer_harness, reviewer_agent_config, is_pinned, pinned_at,
     session_mode, provider_conversation_id, controller_generation, browser_capability_verifier,
-    latest_user_prompt, latest_user_prompt_at, latest_assistant_update, native_transcript_path, auto_inject_review, auto_inject_ci, auto_review_enabled, model
+    latest_user_prompt, latest_user_prompt_at, latest_assistant_update, native_transcript_path, auto_inject_review, auto_inject_ci, auto_review_enabled, model, spawn_phase
 FROM sessions WHERE id = ?
 `
 
@@ -164,6 +211,7 @@ type GetSessionRow struct {
 	AutoInjectCI              bool
 	AutoReviewEnabled         bool
 	Model                     string
+	SpawnPhase                domain.SpawnPhase
 }
 
 func (q *Queries) GetSession(ctx context.Context, id domain.SessionID) (GetSessionRow, error) {
@@ -213,6 +261,7 @@ func (q *Queries) GetSession(ctx context.Context, id domain.SessionID) (GetSessi
 		&i.AutoInjectCI,
 		&i.AutoReviewEnabled,
 		&i.Model,
+		&i.SpawnPhase,
 	)
 	return i, err
 }
@@ -225,13 +274,13 @@ INSERT INTO sessions (
     runtime_launch_id, agent_session_id, agent_session_id_launch_id, prompt,
     latest_user_prompt, latest_user_prompt_at, latest_assistant_update, native_transcript_path,
     preview_url, preview_revision, terminate_on_pr_merge, cleanup_generation, browser_capability_verifier,
-    session_mode, provider_conversation_id, controller_generation, model,
+    session_mode, spawn_phase, provider_conversation_id, controller_generation, model,
     created_at, updated_at, is_pinned, pinned_at, auto_inject_review, auto_inject_ci
 ) VALUES (
     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 )
 `
 
@@ -270,6 +319,7 @@ type InsertSessionParams struct {
 	CleanupGeneration         int64
 	BrowserCapabilityVerifier string
 	SessionMode               domain.SessionMode
+	SpawnPhase                domain.SpawnPhase
 	ProviderConversationID    string
 	ControllerGeneration      string
 	Model                     string
@@ -317,6 +367,7 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 		arg.CleanupGeneration,
 		arg.BrowserCapabilityVerifier,
 		arg.SessionMode,
+		arg.SpawnPhase,
 		arg.ProviderConversationID,
 		arg.ControllerGeneration,
 		arg.Model,
@@ -339,7 +390,7 @@ SELECT id, project_id, num, issue_id, kind, harness,
     workspace_repo_path, terminate_on_pr_merge, diff_base_sha, diff_base_ref,
     reviewer_harness, reviewer_agent_config, is_pinned, pinned_at,
     session_mode, provider_conversation_id, controller_generation, browser_capability_verifier,
-    latest_user_prompt, latest_user_prompt_at, latest_assistant_update, native_transcript_path, auto_inject_review, auto_inject_ci, auto_review_enabled, model
+    latest_user_prompt, latest_user_prompt_at, latest_assistant_update, native_transcript_path, auto_inject_review, auto_inject_ci, auto_review_enabled, model, spawn_phase
 FROM sessions ORDER BY project_id, num
 `
 
@@ -387,6 +438,7 @@ type ListAllSessionsRow struct {
 	AutoInjectCI              bool
 	AutoReviewEnabled         bool
 	Model                     string
+	SpawnPhase                domain.SpawnPhase
 }
 
 func (q *Queries) ListAllSessions(ctx context.Context) ([]ListAllSessionsRow, error) {
@@ -442,6 +494,7 @@ func (q *Queries) ListAllSessions(ctx context.Context) ([]ListAllSessionsRow, er
 			&i.AutoInjectCI,
 			&i.AutoReviewEnabled,
 			&i.Model,
+			&i.SpawnPhase,
 		); err != nil {
 			return nil, err
 		}
@@ -465,7 +518,7 @@ SELECT id, project_id, num, issue_id, kind, harness,
     workspace_repo_path, terminate_on_pr_merge, diff_base_sha, diff_base_ref,
     reviewer_harness, reviewer_agent_config, is_pinned, pinned_at,
     session_mode, provider_conversation_id, controller_generation, browser_capability_verifier,
-    latest_user_prompt, latest_user_prompt_at, latest_assistant_update, native_transcript_path, auto_inject_review, auto_inject_ci, auto_review_enabled, model
+    latest_user_prompt, latest_user_prompt_at, latest_assistant_update, native_transcript_path, auto_inject_review, auto_inject_ci, auto_review_enabled, model, spawn_phase
 FROM sessions WHERE project_id = ? ORDER BY num
 `
 
@@ -513,6 +566,7 @@ type ListSessionsByProjectRow struct {
 	AutoInjectCI              bool
 	AutoReviewEnabled         bool
 	Model                     string
+	SpawnPhase                domain.SpawnPhase
 }
 
 func (q *Queries) ListSessionsByProject(ctx context.Context, projectID domain.ProjectID) ([]ListSessionsByProjectRow, error) {
@@ -568,6 +622,7 @@ func (q *Queries) ListSessionsByProject(ctx context.Context, projectID domain.Pr
 			&i.AutoInjectCI,
 			&i.AutoReviewEnabled,
 			&i.Model,
+			&i.SpawnPhase,
 		); err != nil {
 			return nil, err
 		}
@@ -591,6 +646,34 @@ func (q *Queries) NextSessionNum(ctx context.Context, projectID domain.ProjectID
 	var next int64
 	err := row.Scan(&next)
 	return next, err
+}
+
+const promoteSpawnPhaseWorkspaceReady = `-- name: PromoteSpawnPhaseWorkspaceReady :execrows
+UPDATE sessions SET
+    spawn_phase = ?1,
+    updated_at = ?2
+WHERE id = ?3
+  AND is_terminated = 0
+  AND spawn_phase = 'preparing'
+  AND workspace_path <> ''
+`
+
+type PromoteSpawnPhaseWorkspaceReadyParams struct {
+	SpawnPhase domain.SpawnPhase
+	UpdatedAt  time.Time
+	ID         domain.SessionID
+}
+
+// Recovery-only: a row migrated from an older build can still be in the
+// preparing phase yet already own a workspace. Promote it so the
+// workspace-recovery path, not the seed-cleanup path, takes it. Never applied
+// to a row with no workspace.
+func (q *Queries) PromoteSpawnPhaseWorkspaceReady(ctx context.Context, arg PromoteSpawnPhaseWorkspaceReadyParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, promoteSpawnPhaseWorkspaceReady, arg.SpawnPhase, arg.UpdatedAt, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const recordSessionHumanMessage = `-- name: RecordSessionHumanMessage :execrows
@@ -891,7 +974,7 @@ UPDATE sessions SET
     latest_user_prompt = ?, latest_user_prompt_at = ?, latest_assistant_update = ?, native_transcript_path = ?,
     preview_url = ?, preview_revision = ?, terminate_on_pr_merge = ?,
     cleanup_generation = ?, browser_capability_verifier = ?,
-    provider_conversation_id = ?, controller_generation = ?, model = ?, updated_at = ?,
+    provider_conversation_id = ?, controller_generation = ?, model = ?, spawn_phase = ?, updated_at = ?,
     is_pinned = ?, pinned_at = ?, auto_inject_review = ?, auto_inject_ci = ?
 WHERE id = ?
 `
@@ -930,6 +1013,7 @@ type UpdateSessionParams struct {
 	ProviderConversationID    string
 	ControllerGeneration      string
 	Model                     string
+	SpawnPhase                domain.SpawnPhase
 	UpdatedAt                 time.Time
 	IsPinned                  bool
 	PinnedAt                  sql.NullTime
@@ -973,6 +1057,7 @@ func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) er
 		arg.ProviderConversationID,
 		arg.ControllerGeneration,
 		arg.Model,
+		arg.SpawnPhase,
 		arg.UpdatedAt,
 		arg.IsPinned,
 		arg.PinnedAt,

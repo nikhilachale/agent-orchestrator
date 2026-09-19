@@ -562,6 +562,8 @@
 	"mobile.tailscale.step3": "Escaneie o código abaixo — seu endereço Tailscale e a senha são preenchidos automaticamente.",
 	"newTask.agent": "Agente",
 	"newTask.addFile": "Adicionar arquivo",
+	"newTask.default": "Padrão",
+	"newTask.effort": "Esforço",
 	"newTask.addImage": "Adicionar imagem",
 	"newTask.branch": "Branch",
 	"newTask.brief": "Briefing",

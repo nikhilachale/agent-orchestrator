@@ -274,7 +274,7 @@ func TestBaseDynamicCatalogsContainNoAOOwnedModelIDs(t *testing.T) {
 func TestCodexDiscoveryUsesStructuredProviderCatalog(t *testing.T) {
 	discoverer := Discoverer{CodexModels: func(context.Context, ports.AgentModelDiscoveryRequest) ([]ports.ChatModel, error) {
 		return []ports.ChatModel{
-			{ID: "gpt-current", DisplayName: "GPT Current", Default: true},
+			{ID: "gpt-current", DisplayName: "GPT Current", Default: true, Efforts: []string{"medium", "high"}, DefaultEffort: "high"},
 			{ID: "gpt-other", DisplayName: "GPT Other"},
 		}, nil
 	}}
@@ -283,7 +283,7 @@ func TestCodexDiscoveryUsesStructuredProviderCatalog(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []ports.AgentModelInfo{
-		{ID: "gpt-current", Label: "GPT Current", IsDefault: true},
+		{ID: "gpt-current", Label: "GPT Current", IsDefault: true, Efforts: []string{"medium", "high"}, DefaultEffort: "high"},
 		{ID: "gpt-other", Label: "GPT Other"},
 	}
 	if !reflect.DeepEqual(got.Models, want) || got.Source != "cli" {

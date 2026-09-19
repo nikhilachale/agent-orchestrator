@@ -1397,6 +1397,10 @@ func (c *SessionsController) delegateTask(w http.ResponseWriter, r *http.Request
 		envelope.WriteAPIError(w, r, http.StatusBadRequest, "bad_request", "MODEL_TOO_LONG", "Model must be 256 characters or fewer", nil)
 		return
 	}
+	if utf8.RuneCountInString(strings.TrimSpace(in.ReasoningEffort)) > 64 {
+		envelope.WriteAPIError(w, r, http.StatusBadRequest, "bad_request", "EFFORT_TOO_LONG", "Effort must be 64 characters or fewer", nil)
+		return
+	}
 	if in.Mode != "" {
 		mode, err := domain.ParseSessionMode(string(in.Mode))
 		if err != nil {
@@ -1416,13 +1420,14 @@ func (c *SessionsController) delegateTask(w http.ResponseWriter, r *http.Request
 	}
 
 	out, err := c.Svc.DelegateTask(r.Context(), sessionsvc.DelegateTaskInput{
-		ProjectID:      in.ProjectID,
-		Brief:          domain.SanitizeControlChars(in.Brief),
-		RequestedAgent: in.Agent,
-		Model:          domain.SanitizeControlChars(strings.TrimSpace(in.Model)),
-		ApprovalMode:   in.ApprovalMode,
-		RequestedMode:  in.Mode,
-		Attachments:    attachments,
+		ProjectID:       in.ProjectID,
+		Brief:           domain.SanitizeControlChars(in.Brief),
+		RequestedAgent:  in.Agent,
+		Model:           domain.SanitizeControlChars(strings.TrimSpace(in.Model)),
+		ReasoningEffort: domain.SanitizeControlChars(strings.TrimSpace(in.ReasoningEffort)),
+		ApprovalMode:    in.ApprovalMode,
+		RequestedMode:   in.Mode,
+		Attachments:     attachments,
 	})
 	if err != nil {
 		envelope.WriteError(w, r, err)

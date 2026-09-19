@@ -16,11 +16,12 @@ func TestDelegateTaskSpawnsWorkerThenRequestsTitleFromNewestActiveOrchestrator(t
 		name      string
 		agent     domain.AgentHarness
 		model     string
+		effort    string
 		mode      domain.SessionMode
 		wantAgent domain.AgentHarness
 	}{
 		{name: "project default"},
-		{name: "requested agent model and mode", agent: domain.HarnessCursor, model: "  sonnet-custom  ", mode: domain.SessionModeChat, wantAgent: domain.HarnessCursor},
+		{name: "requested agent model effort and mode", agent: domain.HarnessCursor, model: "  sonnet-custom  ", effort: "  high  ", mode: domain.SessionModeChat, wantAgent: domain.HarnessCursor},
 	}
 
 	for _, tt := range tests {
@@ -38,7 +39,7 @@ func TestDelegateTaskSpawnsWorkerThenRequestsTitleFromNewestActiveOrchestrator(t
 
 			brief := "  Fix the renderer\nwithout changing the API.  "
 			out, err := svc.DelegateTask(context.Background(), DelegateTaskInput{
-				ProjectID: "ao", Brief: brief, RequestedAgent: tt.agent, Model: tt.model, RequestedMode: tt.mode,
+				ProjectID: "ao", Brief: brief, RequestedAgent: tt.agent, Model: tt.model, ReasoningEffort: tt.effort, RequestedMode: tt.mode,
 			})
 			if err != nil {
 				t.Fatalf("DelegateTask: %v", err)
@@ -51,6 +52,9 @@ func TestDelegateTaskSpawnsWorkerThenRequestsTitleFromNewestActiveOrchestrator(t
 			}
 			if cmd.spawnedCfg.AgentConfig.Model != strings.TrimSpace(tt.model) {
 				t.Fatalf("spawn model = %q, want %q", cmd.spawnedCfg.AgentConfig.Model, strings.TrimSpace(tt.model))
+			}
+			if cmd.spawnedCfg.AgentConfig.Effort != strings.TrimSpace(tt.effort) {
+				t.Fatalf("spawn effort = %q, want %q", cmd.spawnedCfg.AgentConfig.Effort, strings.TrimSpace(tt.effort))
 			}
 			if cmd.spawnedCfg.RequestedMode != tt.mode {
 				t.Fatalf("spawn mode = %q, want %q", cmd.spawnedCfg.RequestedMode, tt.mode)
@@ -72,7 +76,7 @@ func TestDelegateTaskSpawnsWorkerThenRequestsTitleFromNewestActiveOrchestrator(t
 					t.Fatalf("title delegation missing %q:\n%s", want, cmd.sentMessages[0])
 				}
 			}
-			if tt.model != "" && !strings.Contains(cmd.sentMessages[0], "Requested model: sonnet-custom") {
+			if tt.model != "" && !strings.Contains(cmd.sentMessages[0], "Requested model: "+strings.TrimSpace(tt.model)) {
 				t.Fatalf("title delegation missing requested model:\n%s", cmd.sentMessages[0])
 			}
 		})

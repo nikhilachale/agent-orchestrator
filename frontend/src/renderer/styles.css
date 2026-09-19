@@ -970,9 +970,9 @@ button.settings-row-bar {
 	opacity: 0.75;
 }
 
-/* The composer is one continuous surface. Agent and model share equal, stable
-   tracks so changing provider names never moves the model or the primary action;
-   transparent controls keep the row reading as card padding rather than a form. */
+/* The composer is one continuous surface. Agent and model share equal primary
+   tracks while Effort uses half their width (2:2:1); transparent controls keep
+   the row reading as card padding rather than a form. */
 .composer-toolbar {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) auto auto;
@@ -1002,6 +1002,11 @@ button.settings-row-bar {
 	   by design there, since it always sits inside an already-painted dialog
 	   surface) — this pill floats on its own with nothing painted behind it. */
 	background-color: color-mix(in oklch, var(--card) 97%, var(--foreground));
+}
+
+.composer-run-controls-with-effort {
+	/* Models that advertise effort use Agent / Model / Effort = 2 / 2 / 1. */
+	grid-template-columns: minmax(0, 2fr) 1px minmax(0, 2fr) 1px minmax(5.5rem, 1fr);
 }
 
 .composer-toolbar-slot {

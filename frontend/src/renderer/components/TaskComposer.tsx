@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	TaskComposerView,
 	type TaskComposerAgentControl,
+	type TaskComposerEffortControl,
 	type TaskComposerModelCatalog,
 	type TaskComposerModelControl,
 } from "@aoagents/product-ui";
@@ -40,6 +41,7 @@ type CreateTaskInput = {
 	brief: string;
 	agent?: DelegateAgent;
 	model?: string;
+	reasoningEffort?: string;
 	mode?: "tui";
 	approvalMode?: "bypass-permissions";
 	attachments?: FileAttachmentPayload[];
@@ -97,10 +99,12 @@ export function TaskComposer({
 	const queryClient = useQueryClient();
 	const [isPromptDirty, setIsPromptDirty] = useState(false);
 	const [model, setModel] = useState("");
+	const [effort, setEffort] = useState("");
 	const [mode, setMode] = useState("");
 	const [agent, setAgent] = useState("");
 	const [agentTouched, setAgentTouched] = useState(false);
 	const [modelTouched, setModelTouched] = useState(false);
+	const [effortTouched, setEffortTouched] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | undefined>();
 	const [fallbackAction, setFallbackAction] = useState<FallbackAction>();
@@ -160,6 +164,7 @@ export function TaskComposer({
 						brief: input.brief,
 						agent: input.agent,
 						model: input.model,
+						reasoningEffort: input.reasoningEffort,
 						...(input.mode ? { mode: input.mode } : {}),
 						...(input.approvalMode ? { approvalMode: input.approvalMode } : {}),
 						...(input.attachments && input.attachments.length > 0 ? { attachments: input.attachments } : {}),
@@ -286,6 +291,12 @@ export function TaskComposer({
 	const defaultModelForSelectedAgent =
 		projectModelForSelectedAgent || (catalogUsesModes ? "" : catalogDefaultOption);
 	const defaultModeForSelectedAgent = projectModeForSelectedAgent || (catalogUsesModes ? catalogDefaultOption : "");
+	const selectedModelId = model || defaultModelForSelectedAgent;
+	const selectedModelOption = modelCatalogQuery.data?.models?.find((item) => item.id === selectedModelId);
+	const effortOptions = selectedModelOption?.efforts ?? [];
+	const defaultEffortForSelectedModel = selectedModelOption?.defaultEffort ?? "";
+	const effectiveEffort = effort || (!effortTouched ? defaultEffortForSelectedModel : "");
+	const supportsEffort = effortOptions.length > 0;
 
 	const selectedAgentLabel = agentCatalog?.agents.find((item) => item.id === selectedAgent)?.label || selectedAgent;
 	const requiresTuiFallback =
@@ -306,8 +317,7 @@ export function TaskComposer({
 			setMode(defaultModeForSelectedAgent);
 		}
 	}, [defaultModelForSelectedAgent, defaultModeForSelectedAgent, modelTouched]);
-
-	const isDirty = isPromptDirty || modelTouched || attachments.length > 0;
+	const isDirty = isPromptDirty || modelTouched || effortTouched || attachments.length > 0;
 	const handlePromptChange = useCallback((value: string) => {
 		const nextDirty = value.trim() !== "";
 		setIsPromptDirty((wasDirty) => (wasDirty === nextDirty ? wasDirty : nextDirty));
@@ -332,6 +342,7 @@ export function TaskComposer({
 
 		const cleanModel = model.trim();
 		const cleanMode = mode.trim();
+		const cleanEffort = supportsEffort ? effectiveEffort.trim() : "";
 		const requestedModel =
 			modelTouched && (cleanModel !== defaultModelForSelectedAgent || cleanMode !== defaultModeForSelectedAgent)
 				? cleanModel || cleanMode || undefined
@@ -349,6 +360,7 @@ export function TaskComposer({
 				// or the resolved default, so spawning names it explicitly.
 				agent: selectedAgent ? (selectedAgent as CreateTaskInput["agent"]) : undefined,
 				model: requestedModel,
+				reasoningEffort: cleanEffort || undefined,
 				mode: interfaceMode,
 				approvalMode,
 				attachments: attachmentPayloads.length > 0 ? attachmentPayloads : undefined,
@@ -382,6 +394,7 @@ export function TaskComposer({
 			onPromptChange={handlePromptChange}
 			labels={{
 				addFile: t("newTask.addFile"),
+				effort: t("newTask.effort", { defaultValue: "Effort" }),
 				fallbackAction: fallbackAction === "bypass-permissions"
 					? t("newTask.startWithoutApprovals", { defaultValue: "Start without approvals" })
 					: t("newTask.createAsTui"),
@@ -404,6 +417,8 @@ export function TaskComposer({
 					setModel("");
 					setMode("");
 					setModelTouched(false);
+					setEffort("");
+					setEffortTouched(false);
 				},
 			}}
 			model={{
@@ -423,11 +438,24 @@ export function TaskComposer({
 					setModel(value);
 					setMode("");
 					setModelTouched(true);
+					setEffort("");
+					setEffortTouched(false);
 				},
 				onModeChange: (value) => {
 					setMode(value);
 					setModel("");
 					setModelTouched(true);
+					setEffort("");
+					setEffortTouched(false);
+				},
+			}}
+			effort={{
+				disabled: isSubmitting || effortOptions.length === 0,
+				options: effortOptions,
+				value: effectiveEffort,
+				onChange: (value) => {
+					setEffort(value);
+					setEffortTouched(true);
 				},
 			}}
 			attachments={{
@@ -448,9 +476,44 @@ export function TaskComposer({
 				onSubmit: (brief) => void submitTask(brief, requiresTuiFallback ? "tui" : undefined),
 			}}
 			renderAgentControl={(control) => <DesktopAgentControl {...control} />}
+			renderEffortControl={(control) => <TaskEffortPicker {...control} />}
 			renderModelControl={(control) => <TaskModelPicker {...control} onRefresh={refreshSelectedModels} />}
+			showEffort={supportsEffort}
 		/>
 	);
+}
+
+function TaskEffortPicker({ disabled, label, onChange, options, value }: TaskComposerEffortControl) {
+	const { t } = useTranslation();
+	const defaultLabel = t("newTask.default", { defaultValue: "Default" });
+	const menuOptions = [
+		{ value: "__default__", label: defaultLabel },
+		...options.map((option) => ({ value: option, label: formatEffortLabel(option) })),
+	];
+	const visibleLabel = value ? formatEffortLabel(value) : defaultLabel;
+
+	return (
+		<SettingsOptionMenu
+			aria-label={label}
+			disabled={disabled}
+			value={value || "__default__"}
+			options={menuOptions}
+			triggerClassName="composer-chip composer-toolbar-option w-full justify-between"
+			menuAlign="end"
+			renderTrigger={() => (
+				<span className="min-w-0 truncate text-control text-foreground" title={visibleLabel}>
+					{visibleLabel}
+				</span>
+			)}
+			onChange={(nextEffort) => onChange(nextEffort === "__default__" ? "" : nextEffort)}
+		/>
+	);
+}
+
+function formatEffortLabel(value: string): string {
+	return value
+		.replace(/[-_]+/g, " ")
+		.replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function DesktopAgentControl(control: TaskComposerAgentControl) {

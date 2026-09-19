@@ -2441,6 +2441,7 @@ export interface components {
             state: "authorized" | "unauthorized" | "unknown" | "not_applicable";
         };
         AgentConfig: {
+            effort?: string;
             mode?: string;
             model?: string;
             permissions?: string;
@@ -2503,6 +2504,8 @@ export interface components {
             agents: components["schemas"]["AgentInstallPlan"][];
         };
         AgentModelInfo: {
+            defaultEffort?: string;
+            efforts?: string[];
             id: string;
             isDefault?: boolean;
             label: string;
@@ -3165,6 +3168,7 @@ export interface components {
             mode?: "tui" | "chat";
             model?: string;
             projectId: string;
+            reasoningEffort?: string;
         };
         DelegateTaskResponse: {
             ok: boolean;

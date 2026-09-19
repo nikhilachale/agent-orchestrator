@@ -469,6 +469,7 @@ func (s *Service) Start(ctx context.Context, cfg StartConfig) (*Controller, erro
 			WorkspacePath:         cfg.WorkspacePath,
 			Env:                   launchEnv,
 			Model:                 cfg.Model,
+			Effort:                cfg.Effort,
 			Permissions:           cfg.Permissions,
 			SystemPrompt:          cfg.SystemPrompt,
 			ProviderScopeID:       providerScopeID,

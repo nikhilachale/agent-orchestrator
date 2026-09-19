@@ -223,20 +223,56 @@ describe("TaskComposer", () => {
 		expect(h.agentValues).toHaveLength(1);
 	});
 
-	it("keeps agent and model in equal stable toolbar tracks", () => {
+	it("uses stable 2:2:1 toolbar tracks when the selected model supports effort", async () => {
+		h.get.mockImplementation(async (path: string) => {
+			if (path.includes("/models")) {
+				return {
+					data: {
+						agent: "codex",
+						selectionMode: "catalog",
+						models: [{ id: "gpt-5.6-terra", label: "GPT-5.6 Terra", isDefault: true, efforts: ["medium", "high"] }],
+						allowCustom: true,
+					},
+				};
+			}
+			return { data: { status: "ok", project: { agent: "codex", config: {} } } };
+		});
 		render(
 			<Wrap>
 				<TaskComposer projectId="proj-1" onCreated={vi.fn()} />
 			</Wrap>,
 		);
 
+		await screen.findByLabelText("Effort");
 		const runControls = screen.getByRole("group", { name: "Runs with" });
-		expect(runControls).toHaveClass("composer-run-controls");
+		expect(runControls).toHaveClass("composer-run-controls", "composer-run-controls-with-effort");
 		expect(runControls.closest(".composer-toolbar")).not.toBeNull();
-		expect(runControls.querySelectorAll(".composer-toolbar-slot")).toHaveLength(2);
+		expect(runControls.querySelectorAll(".composer-toolbar-slot")).toHaveLength(3);
 		expect(screen.getByTestId("agent-field").closest(".composer-toolbar-slot")).not.toBeNull();
 		expect(screen.getByLabelText("Model").closest(".composer-toolbar-slot")).not.toBeNull();
+		expect(screen.getByLabelText("Effort").closest(".composer-toolbar-effort-slot")).not.toBeNull();
 		expect(runControls.querySelector(".composer-toolbar-divider")).not.toBeNull();
+	});
+
+	it("hides effort and uses the two-column layout when the catalog has no effort capability", async () => {
+		h.get.mockImplementation(async (path: string) => {
+			if (path.includes("/models")) {
+				return { data: { agent: "claude-code", selectionMode: "text", models: [], allowCustom: true } };
+			}
+			return { data: { status: "ok", project: { agent: "claude-code", config: {} } } };
+		});
+
+		render(
+			<Wrap>
+				<TaskComposer projectId="proj-1" onCreated={vi.fn()} />
+			</Wrap>,
+		);
+
+		await waitFor(() => expect(screen.getByTestId("agent-field")).toHaveAttribute("data-value", "claude-code"));
+		const runControls = screen.getByRole("group", { name: "Runs with" });
+		expect(runControls).not.toHaveClass("composer-run-controls-with-effort");
+		expect(runControls.querySelectorAll(".composer-toolbar-slot")).toHaveLength(2);
+		expect(screen.queryByLabelText("Effort")).not.toBeInTheDocument();
 	});
 
 	it("keeps the file attach control in the bottom action row", () => {
@@ -685,6 +721,50 @@ describe("TaskComposer", () => {
 		);
 
 		expect(await screen.findByRole("button", { name: "Model" })).toHaveTextContent("GPT-5 Codex");
+	});
+
+	it("shows provider-owned effort choices and sends the selected effort", async () => {
+		h.get.mockImplementation(async (path: string) => {
+			if (path.includes("/models")) {
+				return {
+					data: {
+						agent: "codex",
+						selectionMode: "catalog",
+						models: [{
+							id: "gpt-5.6-terra",
+							label: "GPT-5.6 Terra",
+							isDefault: true,
+							efforts: ["medium", "high", "xhigh"],
+							defaultEffort: "high",
+						}],
+						allowCustom: true,
+					},
+				};
+			}
+			return { data: { status: "ok", project: { agent: "codex", config: {} } } };
+		});
+		h.post.mockResolvedValueOnce({ data: { workerId: "sess-effort" } });
+
+		render(
+			<Wrap>
+				<TaskComposer projectId="proj-1" onCreated={vi.fn()} />
+			</Wrap>,
+		);
+
+		const effort = await screen.findByRole("button", { name: "Effort" });
+		await waitFor(() => expect(effort).toHaveTextContent("High"));
+		await userEvent.click(effort);
+		await userEvent.click(screen.getByRole("menuitem", { name: "Medium" }));
+		fireEvent.click(screen.getByRole("button", { name: "Start task" }));
+
+		await waitFor(() =>
+			expect(h.post).toHaveBeenCalledWith(
+				"/api/v1/orchestrators/delegate",
+				expect.objectContaining({
+					body: expect.objectContaining({ reasoningEffort: "medium" }),
+				}),
+			),
+		);
 	});
 
 	it("clears a stale model while the newly selected agent catalog resolves", async () => {

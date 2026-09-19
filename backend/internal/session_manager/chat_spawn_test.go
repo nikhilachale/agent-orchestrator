@@ -1103,7 +1103,7 @@ func TestChatSpawnAppliesRequestAgentConfigOverProjectDefaults(t *testing.T) {
 		ProjectID:     chatTestProject,
 		Kind:          domain.KindWorker,
 		Harness:       domain.HarnessCodex,
-		AgentConfig:   ports.AgentConfig{Model: "request-model"},
+		AgentConfig:   ports.AgentConfig{Model: "request-model", Effort: "high"},
 		RequestedMode: domain.SessionModeChat,
 	})
 	if err != nil {
@@ -1114,6 +1114,9 @@ func TestChatSpawnAppliesRequestAgentConfigOverProjectDefaults(t *testing.T) {
 	}
 	if got := launcher.started[0].Model; got != "request-model" {
 		t.Fatalf("controller model = %q, want request-model", got)
+	}
+	if got := launcher.started[0].Effort; got != "high" {
+		t.Fatalf("controller effort = %q, want high", got)
 	}
 }
 

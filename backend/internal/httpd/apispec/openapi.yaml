@@ -6880,6 +6880,8 @@ components:
       type: object
     AgentConfig:
       properties:
+        effort:
+          type: string
         mode:
           type: string
         model:
@@ -7030,6 +7032,12 @@ components:
       type: object
     AgentModelInfo:
       properties:
+        defaultEffort:
+          type: string
+        efforts:
+          items:
+            type: string
+          type: array
         id:
           type: string
         isDefault:
@@ -8920,6 +8928,9 @@ components:
           maxLength: 256
           type: string
         projectId:
+          type: string
+        reasoningEffort:
+          maxLength: 64
           type: string
       required:
       - projectId

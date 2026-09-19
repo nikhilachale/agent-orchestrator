@@ -560,6 +560,8 @@
 	"mobile.tailscale.step3": "아래 코드를 스캔하면 Tailscale 주소와 비밀번호가 자동으로 입력됩니다.",
 	"newTask.agent": "에이전트",
 	"newTask.addFile": "파일 추가",
+	"newTask.default": "기본값",
+	"newTask.effort": "추론 강도",
 	"newTask.addImage": "이미지 추가",
 	"newTask.branch": "브랜치",
 	"newTask.brief": "브리프",

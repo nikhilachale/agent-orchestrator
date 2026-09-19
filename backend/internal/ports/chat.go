@@ -222,6 +222,8 @@ type ChatStartConfig struct {
 	Env map[string]string
 	// Model is optional; empty defers to the provider's configured default.
 	Model string
+	// Effort is optional; empty defers to the selected model's default.
+	Effort string
 	// Permissions is AO's existing per-session approval policy. Drivers map it
 	// onto their provider's native approval and sandbox settings.
 	Permissions PermissionMode

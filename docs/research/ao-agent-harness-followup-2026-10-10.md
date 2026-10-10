@@ -28,7 +28,7 @@ The released-native regression uses a middle canary in approximately 19 KiB of i
 
 ## Actual AO screenshots
 
-These are real scrot captures from owned Xvfb displays running isolated AO Electron. The native preload bridge and exact session were confirmed. After the finalized runner stopped, the supervisor reopened the same isolated data with the identical verified binary; native identity and restored terminal generation were reconfirmed. These are later retained-session captures, not original gate-time screenshots. Original gate-time images were unavailable because the API-first audit preceded the GUI.
+These are real scrot captures from owned Xvfb displays running isolated AO Electron. The native preload bridge and exact session were confirmed. After each finalized runner stopped, the supervisor reopened the same isolated data with the identical verified binary. Capture-time native-identity and restored-generation rechecks are explicitly recorded for Tau-002, Neovate-001 and Open Interpreter-001/002. Tau-001 records retained-session recovery and its audit identity, but no explicit capture-time digest/generation recheck; it supplies failure-state UI evidence. These are later retained-session captures, not original gate-time screenshots. Original gate-time images were unavailable because the API-first audit preceded the GUI.
 
 Images were visually inspected for relevance and credentials, and published bytes checked against recorded SHA-256 hashes. Screenshots show visible state; functional assertions establish lifecycle and instruction continuity. Open Interpreter retains upstream “Ask Codex” wording; pinned native binary and session provenance identify Rust Open Interpreter.
 

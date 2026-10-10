@@ -1,5 +1,7 @@
 # AO agent harness integration and audit: 10 October 2026
 
+> Follow-up: [Fresh restore proof and actual AO screenshots](ao-agent-harness-followup-2026-10-10.md) records later Tau, Neovate, Open Interpreter and MiniMax evidence. Results and limitations below remain historical.
+
 The [AO agent harness skill](../../.agents/skills/ao-agent-harness/SKILL.md) combines a production-integration guide with an executable audit of registered terminal agents. This session used that workflow to review 52 candidate agents, prepare three draft integrations, and test their native lifecycle through AO on an isolated Ubuntu VPS. Tau, Neovate Code, and Open Interpreter each recorded 17/17 functional lifecycle gate passes at the revisions below. Each revision also passed all 24 GitHub checks. Review while packaging this skill found that one historical gate overstated its evidence: the restore-only instruction token had already been included before the first turn, so `system_prompt_restore` did not prove refreshed or reinjected instructions.
 
 **The historical 17/17 labels are preserved, not endorsed as proof of all 17 intended behaviors.** Refreshed instruction delivery is unproven in all three historical runs. The packaged runner now introduces the fresh token only after kill and before restore; fixture coverage of that correction is separate from live-provider validation, which has not been rerun.

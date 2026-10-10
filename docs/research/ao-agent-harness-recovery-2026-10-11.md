@@ -5,7 +5,7 @@ This recovery completes the actual **TUI-only** AO integrations for PR6517 and P
 | Harness | Functional audit | Remaining strict gaps | Published evidence |
 | --- | --- | --- | --- |
 | Strands | 24 PASS | 1 auth BLOCKED, 1 catalog FAIL, 2 catalog NOT_RUN | [Pinned report](https://github.com/nikhilachale/agent-orchestrator/blob/022084e99b25e5aff7e31c46ebc1b6e869bf320f/docs/research/strands-tui-recovery-2026-10-11.md) · [PR comment](https://github.com/OrchestratorInc/agent-orchestrator/pull/6517#issuecomment-6102363961) |
-| memcode | 24 PASS | 1 auth BLOCKED, 1 catalog FAIL, 2 catalog NOT_RUN | [Pinned report](https://github.com/nikhilachale/agent-orchestrator/blob/ef48482c61044cfd006d5745969e319a6c0cb088/docs/research/memcode-tui-recovery-2026-10-11.md) · [PR comment](https://github.com/OrchestratorInc/agent-orchestrator/pull/6515#issuecomment-6102843130) |
+| memcode | 24 PASS | 1 auth BLOCKED, 1 catalog FAIL, 2 catalog NOT_RUN | [Pinned report](https://github.com/nikhilachale/agent-orchestrator/blob/62a2f5742a5756db0430a4c1c6020e87d5630416/docs/research/memcode-tui-recovery-2026-10-11.md) · [PR comment](https://github.com/OrchestratorInc/agent-orchestrator/pull/6515#issuecomment-6102843130) |
 
 Both overall audit verdicts remain **diagnostic FAIL**. Actual authorized Z.ai glm-5.3-flash calls succeeded; configured credentials do not make AO's auth observation verified. The unchanged runner SHA-256 is `8887aa2e7101b9e6d3950bfca08ffddf2e1e6c1c3f1d030c8dec2676443aecea`; its existing145/145 fixtures are separate runner evidence. No runner change, synthetic screenshot or relabeled original failure.
 
@@ -22,9 +22,9 @@ Ask-mode actual memcode control remained Blocked after selection changed to opti
 <!-- publication-images -->
 ![Real AO Strands restored conversation](https://raw.githubusercontent.com/nikhilachale/agent-orchestrator/022084e99b25e5aff7e31c46ebc1b6e869bf320f/docs/research/assets/strands-recovery-20261011/ao-003-electron-restored.png)
 
-![Real AO memcode restored conversation](https://raw.githubusercontent.com/nikhilachale/agent-orchestrator/ef48482c61044cfd006d5745969e319a6c0cb088/docs/research/assets/memcode-recovery-20261011/ao-004-electron-restored.png)
+![Real AO memcode restored conversation](https://raw.githubusercontent.com/nikhilachale/agent-orchestrator/62a2f5742a5756db0430a4c1c6020e87d5630416/docs/research/assets/memcode-recovery-20261011/ao-004-electron-restored.png)
 
-![Real AO memcode native Ask decision](https://raw.githubusercontent.com/nikhilachale/agent-orchestrator/ef48482c61044cfd006d5745969e319a6c0cb088/docs/research/assets/memcode-recovery-20261011/ao-permission-002-pending-approval.png)
+![Real AO memcode native Ask decision](https://raw.githubusercontent.com/nikhilachale/agent-orchestrator/62a2f5742a5756db0430a4c1c6020e87d5630416/docs/research/assets/memcode-recovery-20261011/ao-permission-002-pending-approval.png)
 <!-- /publication-images -->
 
 Strands capture2026-10-10T21:08:21.227532UTC: daemon source98365, UI878957, native CLI0.2.0/SDK1.20.0, glm-5.3-flash, native digest750f2289056d635ce4330cd6fcbf0002731214db6e9dbfcb0c8c7d4e86863ee8, generation1dcba694-ef1b-4c71-83c2-513d5c691724; PNG `ffae74a4e45becc91b11c019c8ece1ee128a2aa7c8651ab992c8b84e1b442303`. Later guard/ledger-only source fixes have focused/CI evidence, not extrapolated UI captures. See full report for binary SHA/session/profile boundaries.
@@ -35,7 +35,7 @@ memcode decision capture2026-10-10T22:05:37.710377UTC shares daemon/UI/binary/na
 
 ## Preserved failures and scope
 
-![Preserved real AO memcode decision observation failure](https://raw.githubusercontent.com/nikhilachale/agent-orchestrator/ef48482c61044cfd006d5745969e319a6c0cb088/docs/research/assets/memcode-recovery-20261011/ao-permission-001-pending-failure.png)
+![Preserved real AO memcode decision observation failure](https://raw.githubusercontent.com/nikhilachale/agent-orchestrator/62a2f5742a5756db0430a4c1c6020e87d5630416/docs/research/assets/memcode-recovery-20261011/ao-permission-001-pending-failure.png)
 
 Historical Ask failure PNG `3203b6042d9c54c6b5830767567c3985b295b6ee4bb59335ddde2fb7c87d414d` at21:42:12UTC/source77c36 records native card while AO remained active. No ordinary Send attempted in that unsafe state; owned session killed without approval. Its21:43:03 result includes identity/generation, but explicit capture-time before/after identity checks were not recorded. Do not borrow stronger successful-capture provenance.
 
@@ -47,7 +47,7 @@ MiniMax6520 (source17a146/evidencee83c,28PASS1authBLOCKED23CI), Tau6493 (b98a1bf
 
 ## Validation and cleanup
 
-Focused VPS production-boundary regressions and pinned lint passed; generated API/migration ledgers verified. Optional local race compilation aborted before tests for disk pressure, NOT_RUN. No duplicate full VPS suites/frontendOOM rerun or full-local pass. Complete final current evidence-head GitHub CI is verified separately in latest PR comments: Strands `022084e99b25e5aff7e31c46ebc1b6e869bf320f`23/23 success; memcode `ef48482c61044cfd006d5745969e319a6c0cb088` and this consolidated report head require their own completed checks, rather than earlier source-head checks. Counts in PR headers derive current GitHub changed files. Uploaded PNG bytes above were verified against local originals at these pinned URLs.
+Focused VPS production-boundary regressions and pinned lint passed; generated API/migration ledgers verified. Optional local race compilation aborted before tests for disk pressure, NOT_RUN. No duplicate full VPS suites/frontendOOM rerun or full-local pass. Complete final current evidence-head GitHub CI is verified separately in latest PR comments: Strands `022084e99b25e5aff7e31c46ebc1b6e869bf320f`23/23 success; memcode `62a2f5742a5756db0430a4c1c6020e87d5630416` and this consolidated report head require their own completed checks, rather than earlier source-head checks. Counts in PR headers derive current GitHub changed files. Uploaded PNG bytes above were verified against local originals at these pinned URLs.
 
 Individual harness PRs are checked against main; candidate branches have expected shared registry/enum/API/install/ledger textual collisions. Distinct0200/0201/0202 migrations avoid duplicate versions. No sibling import/combined PR/merge. All tests ran on VPS or complete remote CI; no Mac compute/connection/release.
 

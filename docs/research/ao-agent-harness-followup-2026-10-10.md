@@ -101,3 +101,8 @@ These results apply to the recorded native versions, source revisions, model/pro
 ## Cleanup
 
 Each audited session was API-terminated and confirmed. Owned Electron/daemon executables and isolated run-file provenance were checked before stopping. Neovate’s surviving owned scratch auth PTY host was also stopped; incomplete cleanup observations remain recorded. Sources, profiles, original reports and provenance binaries remain on the VPS. Credentials, profile contents, daemon databases and temporary worktrees are not committed. No merge or release was performed.
+
+
+## Completed Strands/memcode recovery
+
+[Recovery report with actual AO Electron screenshots](ao-agent-harness-recovery-2026-10-11.md) supersedes the earlier native-only checkpoint for PR6517/PR6515. Both are now TUI-only functional integrations; strict auth/catalog gaps and original failures remain. Other harness evidence and Tau001 capture-time provenance caveat remain unchanged.

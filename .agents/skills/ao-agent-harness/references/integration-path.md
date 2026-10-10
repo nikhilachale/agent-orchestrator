@@ -249,3 +249,66 @@ attempt visible even after a successful fix.
 
 Publish the PR/report when requested or already authorized. Do not send reports
 to unrelated channels or merge/publish releases as part of integration testing.
+
+
+## Supported native initialization and subprocess boundaries
+
+When argv resume is broken but the native TUI has a supported interactive resume
+command, qualify that path with native controls before registering it. Validate
+full native identity and real nonempty supported history before launch. Keep
+runtime I/O, bounded polling, exclusive input admission, publication and owned
+rollback in the manager; keep native command/history/terminal interpretation in
+the adapter. Do not label a taskless fresh launch as successful native resume.
+Require a current-launch witness naming the exact target, real loaded messages,
+and the initialized empty composer after the single resume command. A frontend
+banner alone can lie after native fallback. Ignore stale generations/sequences.
+Use the existing current rendered-viewport runtime boundary for terminal cues;
+raw output-ring tails can omit unterminated current rows and retain overwritten
+status frames. Fail closed when rendered evidence is unavailable.
+Never publish the transient fresh ID, and never replay the saved task as restore
+initialization. Check every direct resume caller and daemon-startup adoption path.
+
+Native startup hooks must return promptly. If AO parks callbacks until launch
+publication, use a local generation-scoped witness during initialization; a
+synchronous startup callback can deadlock. Publish the verified target afterward
+and read it back because stale publication signals can be silently discarded.
+Distinguish native conversation-end during interactive resume from process exit.
+If native hook stdout is capped per hook, preserve private instructions through
+ordered bounded chunks only when the native trim/join rule reproduces the original
+context exactly. Split at compatible paragraph boundaries, check native combination,
+and reject oversized indivisible segments or altered whitespace; never truncate.
+
+A visible Cancelled label is insufficient for an executing tool. Wait for a
+child-authored start marker, retain owned PID plus kernel start identity, then
+cancel. Check process reaping, composer recovery and delayed side effects across
+the scheduled deadline. Exercise AO Kill independently, with an unrelated live
+control whose state/generation are rechecked immediately and later. Keep native
+history, cross-session isolation and exact restore as separate assertions.
+
+Prefer supported native SDK/plugin APIs that propagate cancellation into the
+official sandbox while preserving tool schemas/errors/permissions. Prove real
+SDK initialization order and same-name replacement. Do not add a tool to narrowed
+children or overwrite unsupported custom tools. Check saved custom subagents,
+sandboxes/root IDs/session managers and system-prompt overrides as well as argv.
+An initial foreground flag does not constrain model-driven native reconfiguration;
+restrict that route through a supported capability boundary and verify public
+witnesses at the lifecycle phase where they exist. Document explicit human
+in-TUI profile/plugin takeover separately. Do not claim managed guarantees survive
+unsupported takeover or rely on private monkeypatches/terminal interception.
+
+Trace actual native provider/model precedence. A parsed flag or matching one
+saved field does not prove the TUI honored an AO override. Reject overrides when
+the effective selection cannot be proved, and qualify the native configured model
+with real provider/UI evidence. Native decision cards may suppress idle/spinner
+chrome; detect the newest current decision cue regardless of selected option,
+without letting earlier idle/spinner scrollback hide it. Prove ordinary AO input
+is refused while a decision is pending and only positively observed native
+resolution clears it.
+
+Measure native settlement separately from AO observation. Continuous terminal
+classification may still run on the observer's normal ticker rather than emit
+an event immediately. Inspect the actual daemon wiring/tick before choosing a
+confirmation bound; retain a stricter failed probe unchanged. Record current
+rendered-native and AO-state UTC/generation samples, distinguish fast owned tool
+reaping from delayed AO idle/blocked publication, and do not present a longer
+bounded confirmation as an instantaneous or guaranteed status transition.

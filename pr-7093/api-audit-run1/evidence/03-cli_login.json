@@ -1,0 +1,4 @@
+{
+  "code": 0,
+  "output": "Active profile: default\nConfig file:    ~/.stakpak/config.toml\nAPI endpoint:   https://apiv2.stakpak.dev\n\n  profile 'default' (active):\n    - Anthropic (Claude) (api_key) key=…mHwB\n    - minimax (api_key) key=…YqVM\n    - zai (api_key) key=…mHwB\n\n  profile 'readonly':\n    - Anthropic (Claude) (api_key) key=…mHwB\n    - minimax (api_key) key=…YqVM\n    - zai (api_key) key=…mHwB\n\nAPI check:      skipped (no stakpak credential on profile 'default')\n"
+}

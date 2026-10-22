@@ -1,0 +1,44 @@
+{
+  "session": {
+    "id": "audit-stakpak-95099c-1",
+    "projectId": "audit-stakpak-95099c",
+    "kind": "worker",
+    "harness": "stakpak",
+    "reviewerConfig": {},
+    "autoReviewEnabled": false,
+    "displayName": "audit-stakpak",
+    "mode": "tui",
+    "activity": {
+      "state": "idle",
+      "lastActivityAt": "2026-10-22T17:44:07.716888Z"
+    },
+    "isTerminated": false,
+    "terminateOnPrMerge": false,
+    "autoInjectReview": true,
+    "autoInjectCI": true,
+    "outputType": "none",
+    "createdAt": "2026-10-22T17:44:07.328904Z",
+    "updatedAt": "2026-10-22T17:44:08.128301Z",
+    "isPinned": false,
+    "provisionState": "ready",
+    "branchState": {
+      "commits": 0,
+      "unpushed": 0
+    },
+    "statusReadiness": "ready",
+    "chatProviderPreserved": false,
+    "status": "idle",
+    "kanbanColumn": "building",
+    "displayStatus": "Awaiting PR",
+    "terminalHandleId": "ptyhost-v1:audit-stakpak-95099c-1",
+    "branch": "ao/ao-audit-request/root",
+    "terminalGeneration": "4a5be948-0b5c-40f7-9bcb-bb99c9ef80de",
+    "lastUserMessageAt": "2026-10-22T17:44:07.652967Z",
+    "lastInteractionAt": "2026-10-22T17:44:07.652967Z",
+    "lastEventAt": "2026-10-22T17:44:07.716888Z",
+    "prs": []
+  },
+  "screen": [
+    "                                                                                                                                     │  If AO_AUDIT_PROF.jon aleady exists, keep it and incrementinitialPromptExecutions;otherwisesetitto1.nclude cwd (the output of pwd), nitialPrompToken (th request token) and inialPromptExecutions.      █                                                                                         F█o█l█l█o█w█ █t█h█i█s█ █p█r█o█j█e█c█t█'█s█ █c█o█n█v█e█n█t█i█o█n█s█ █f█o█r█ █P█R█O█O█F█.█j█s█o█n█ █f█i█l█e█s█.█ █D█o█ █n█o█t█ █i█n█c█l█u█d█e█ █t█h█e█ █h█i█s█t█o█r█y█-█o█n█l█y█ █t█o█k█e█n█.█ █T█h█e█n█ █s█t█o█p█ █a█n█d█ █w█a█i█t█.█┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐│→ pwd; not the AO session artifacts folder) as raw JSON.                                                                                                                                                                  │  If AO_AUDIT_PROF.jon aleady exists, keep it and incrementinitialPromptExecutions;otherwisesetitto1.nclude cwd (the output of pwd), nitialPrompToken (th request token) and inialPromptExecutions.      Folow thisproject's conventions for PROOF.json files. Do not include the hstory-only okn. Then stopandwait.█                                                                                                  "
+  ]
+}

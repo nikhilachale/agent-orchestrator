@@ -1,0 +1,27 @@
+Report: ~/Desktop/agents/ao-audit-reports/20261022-231349-audit/report.md
+Building AO from ~/Desktop/agent-orchestrator/.worktrees/feat-mimo-code (the first build downloads Go modules and can take minutes)
+
+stakpak
+  PASS    cli_installed: found ~/.local/bin/stakpak
+  PASS    cli_version: stakpak 0.3.88
+  PASS    cli_login: the CLI reports a logged-in account
+  PASS    ao_registered: AO knows this harness
+  PASS    ao_installed: AO found the installed CLI
+  PASS    ao_authenticated: AO verified the login (authorized)
+  PASS    ao_models: AO uses free-form model entry (the CLI has no model list)
+  PASS    tui_spawn: AO created a TUI session
+  FAIL    tui_prompt: the agent did not write the proof file before the timeout (prompt not delivered or not submitted)
+  SKIP    tui_worktree: the first prompt produced no proof file
+  SKIP    tui_system_prompt: the first prompt produced no proof file
+  SKIP    tui_agents_md: the first prompt produced no proof file
+  SKIP    tui_native_id: the first prompt produced no proof file
+  SKIP    tui_usage: the first prompt produced no proof file
+  SKIP    tui_stop: the first prompt produced no proof file
+  SKIP    tui_restore: the first prompt produced no proof file
+  SKIP    tui_restore_history: the first prompt produced no proof file
+  SKIP    tui_activity: the first prompt produced no proof file
+  SKIP    tui_follow_up: the first prompt produced no proof file
+  FAIL    role_worker: the worker gave no answer before the timeout
+  FAIL    role_orchestrator: the orchestrator gave no answer before the timeout
+
+Report: ~/Desktop/agents/ao-audit-reports/20261022-231349-audit/report.md

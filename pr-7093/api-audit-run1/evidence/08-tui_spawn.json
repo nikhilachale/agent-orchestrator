@@ -1,0 +1,46 @@
+{
+  "ok": true,
+  "status": 201,
+  "method": "POST",
+  "path": "sessions",
+  "data": {
+    "session": {
+      "id": "audit-stakpak-95099c-1",
+      "projectId": "audit-stakpak-95099c",
+      "kind": "worker",
+      "harness": "stakpak",
+      "reviewerConfig": {},
+      "autoReviewEnabled": false,
+      "displayName": "audit-stakpak",
+      "mode": "tui",
+      "activity": {
+        "state": "idle",
+        "lastActivityAt": "2026-10-22T17:44:07.716888Z"
+      },
+      "isTerminated": false,
+      "terminateOnPrMerge": false,
+      "autoInjectReview": true,
+      "autoInjectCI": true,
+      "outputType": "none",
+      "createdAt": "2026-10-22T17:44:07.328904Z",
+      "updatedAt": "2026-10-22T17:44:07.716888Z",
+      "isPinned": false,
+      "provisionState": "ready",
+      "statusReadiness": "ready",
+      "chatProviderPreserved": false,
+      "status": "idle",
+      "kanbanColumn": "building",
+      "displayStatus": "Awaiting PR",
+      "terminalHandleId": "ptyhost-v1:audit-stakpak-95099c-1",
+      "branch": "ao/audit-stakpak-95099c-1/root",
+      "terminalGeneration": "4a5be948-0b5c-40f7-9bcb-bb99c9ef80de",
+      "lastUserMessageAt": "2026-10-22T17:44:07.652967Z",
+      "lastInteractionAt": "2026-10-22T17:44:07.652967Z",
+      "lastEventAt": "2026-10-22T17:44:07.716888Z",
+      "prs": []
+    },
+    "promptBytes": 579,
+    "systemPromptBytes": 18063
+  },
+  "ms": 714
+}

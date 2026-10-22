@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "harness": "stakpak",
+  "displayName": "Stakpak",
+  "finishedAt": "2026-10-22T21:20:57.737Z",
+  "dismissedDialogs": [
+    "Import projects from your earlier AO? → Skip"
+  ],
+  "checkpoints": [
+    {
+      "id": "harness-listed",
+      "title": "Agent Harness page lists the harness",
+      "status": "PASS",
+      "reason": "listed as \"Stakpak\"; detail view opened",
+      "screenshot": "/Users/nikhilachale/Desktop/agents/ao-audit-reports/20261023-024833-ui-stakpak/01-harness-listed-PASS.png"
+    },
+    {
+      "id": "install",
+      "title": "Install from the Account tab",
+      "status": "PASS",
+      "reason": "already installed; the Install action was not exercised",
+      "screenshot": "/Users/nikhilachale/Desktop/agents/ao-audit-reports/20261023-024833-ui-stakpak/02-install-PASS.png"
+    },
+    {
+      "id": "health",
+      "title": "Health tab shows status, authentication and executable",
+      "status": "PASS",
+      "reason": "health shows Authentication, Executable, Last checked",
+      "screenshot": "/Users/nikhilachale/Desktop/agents/ao-audit-reports/20261023-024833-ui-stakpak/03-health-PASS.png"
+    },
+    {
+      "id": "models",
+      "title": "Models tab lists the harness models",
+      "status": "PASS",
+      "reason": "1 model(s) on this page; 1 of 1 shown in model pickers",
+      "screenshot": "/Users/nikhilachale/Desktop/agents/ao-audit-reports/20261023-024833-ui-stakpak/04-models-PASS.png"
+    },
+    {
+      "id": "login",
+      "title": "Login or configure is offered (or already connected)",
+      "status": "PASS",
+      "reason": "connected; Refresh login is offered",
+      "screenshot": "/Users/nikhilachale/Desktop/agents/ao-audit-reports/20261023-024833-ui-stakpak/05-login-PASS.png"
+    },
+    {
+      "id": "auth-check",
+      "title": "Auth check: Health says Connected",
+      "status": "PASS",
+      "reason": "authentication verified: Connected",
+      "screenshot": "/Users/nikhilachale/Desktop/agents/ao-audit-reports/20261023-024833-ui-stakpak/06-auth-check-PASS.png"
+    },
+    {
+      "id": "update",
+      "title": "Update the harness",
+      "status": "NOT_RUN",
+      "reason": "skipped in v0",
+      "screenshot": "/Users/nikhilachale/Desktop/agents/ao-audit-reports/20261023-024833-ui-stakpak/07-update-NOT_RUN.png"
+    },
+    {
+      "id": "new-task-agent-tui",
+      "title": "New Task lists the agent (tui)",
+      "status": "PASS",
+      "reason": "\"Stakpak\" selectable in New Task",
+      "screenshot": "/Users/nikhilachale/Desktop/agents/ao-audit-reports/20261023-024833-ui-stakpak/08-new-task-agent-tui-PASS.png"
+    },
+    {
+      "id": "new-task-models-tui",
+      "title": "New Task lists the harness models (tui)",
+      "status": "PASS",
+      "reason": "1 model option(s), e.g. claude-sonnet-4-5",
+      "screenshot": "/Users/nikhilachale/Desktop/agents/ao-audit-reports/20261023-024833-ui-stakpak/09-new-task-models-tui-PASS.png"
+    },
+    {
+      "id": "running-tui",
+      "title": "Spawned agent runs in the terminal (TUI)",
+      "status": "PASS",
+      "reason": "terminal session is running; its text is not readable from the page (WebGL renderer), see the screenshot",
+      "screenshot": "/Users/nikhilachale/Desktop/agents/ao-audit-reports/20261023-024833-ui-stakpak/10-running-tui-PASS.png"
+    }
+  ]
+}

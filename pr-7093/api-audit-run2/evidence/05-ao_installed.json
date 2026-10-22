@@ -1,0 +1,51 @@
+{
+  "ok": true,
+  "status": 200,
+  "method": "POST",
+  "path": "agents/readiness/ensure",
+  "data": {
+    "agents": [
+      {
+        "id": "stakpak",
+        "label": "Stakpak",
+        "installation": {
+          "state": "installed",
+          "freshness": "fresh",
+          "checkedAt": "2026-10-22T18:15:55.205573Z",
+          "attemptedAt": "2026-10-22T18:15:55.205573Z",
+          "reasonCode": "installed",
+          "reason": "Stakpak is installed."
+        },
+        "authentication": {
+          "state": "authorized",
+          "freshness": "fresh",
+          "checkedAt": "2026-10-22T18:15:55.262326Z",
+          "attemptedAt": "2026-10-22T18:15:55.262326Z",
+          "reasonCode": "authorized",
+          "reason": "Stakpak appears signed in.",
+          "account": {
+            "provider": "anthropic, minimax, zai",
+            "method": "api_key",
+            "sourceKind": "file",
+            "source": "~/.stakpak/config.toml"
+          },
+          "diagnostics": [
+            {
+              "method": "selected_credential",
+              "code": "credential_present",
+              "reason": "A local credential is configured; its presence alone does not prove provider access.",
+              "source": "~/.stakpak/config.toml",
+              "provider": "anthropic, minimax, zai",
+              "checkedAt": "2026-10-22T23:45:58.411653+05:30",
+              "cached": false,
+              "durationMs": 0
+            }
+          ]
+        },
+        "effectiveReadiness": "ready",
+        "usageCount": 0
+      }
+    ]
+  },
+  "ms": 3
+}

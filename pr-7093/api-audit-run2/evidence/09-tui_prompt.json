@@ -1,0 +1,44 @@
+{
+  "session": {
+    "id": "audit-stakpak-cdb6aa-1",
+    "projectId": "audit-stakpak-cdb6aa",
+    "kind": "worker",
+    "harness": "stakpak",
+    "reviewerConfig": {},
+    "autoReviewEnabled": false,
+    "displayName": "audit-stakpak",
+    "mode": "tui",
+    "activity": {
+      "state": "blocked",
+      "lastActivityAt": "2026-10-22T18:17:25.131811Z"
+    },
+    "isTerminated": false,
+    "terminateOnPrMerge": false,
+    "autoInjectReview": true,
+    "autoInjectCI": true,
+    "outputType": "none",
+    "createdAt": "2026-10-22T18:15:59.901829Z",
+    "updatedAt": "2026-10-22T18:17:25.201002Z",
+    "isPinned": false,
+    "provisionState": "ready",
+    "branchState": {
+      "commits": 0,
+      "unpushed": 0
+    },
+    "statusReadiness": "ready",
+    "chatProviderPreserved": false,
+    "status": "needs_input",
+    "kanbanColumn": "building",
+    "displayStatus": "Blocked",
+    "terminalHandleId": "ptyhost-v1:audit-stakpak-cdb6aa-1",
+    "branch": "ao/ao-audit-request/root",
+    "terminalGeneration": "05b4dc50-f068-4994-ab83-f1aadcc46c14",
+    "lastUserMessageAt": "2026-10-22T18:16:00.222508Z",
+    "lastInteractionAt": "2026-10-22T18:16:00.222508Z",
+    "lastEventAt": "2026-10-22T18:17:25.131811Z",
+    "prs": []
+  },
+  "screen": [
+    "                                                                                                                                                                                                                                                ╭─● Run Command ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮│$ pwd && echo \"---\" && cat AO_AUDIT_PROOF.json 2>/dev/null || echo \"NO_EXISTING_FILE\" │╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯┌─ Approval Required ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐│ ✓ Run Command │ │ space toggle  ←→ navigate  enter submit  esc reject all                                                                                                                               │  └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                                                                                                                                                                                                                                   "
+  ]
+}

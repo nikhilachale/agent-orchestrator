@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "status": 200,
+  "method": "GET",
+  "path": "agents/stakpak/models",
+  "data": {
+    "agentId": "stakpak",
+    "selectionMode": "text",
+    "models": [],
+    "customModelEntry": "direct",
+    "allowCustom": true,
+    "source": "manual",
+    "metadata": {
+      "binary": "~/.local/bin/stakpak",
+      "scope": "project"
+    },
+    "inputFingerprint": "d20864e82aeee90a",
+    "binaryVersion": "d20864e82aeee90a",
+    "fetchedAt": "2026-10-22T17:44:07.066456Z",
+    "validatedAt": "2026-10-22T17:44:07.066457Z",
+    "lastSuccessAt": "2026-10-22T17:44:07.066457Z",
+    "refreshState": "idle",
+    "stale": false
+  },
+  "ms": 6550
+}

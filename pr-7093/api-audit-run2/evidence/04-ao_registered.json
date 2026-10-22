@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "status": 200,
+  "method": "POST",
+  "path": "agents/stakpak/probe",
+  "data": {
+    "agent": {
+      "id": "stakpak",
+      "label": "Stakpak",
+      "authStatus": "authorized"
+    },
+    "supported": true,
+    "installed": true
+  },
+  "ms": 3156
+}

@@ -1,0 +1,50 @@
+{
+  "ok": true,
+  "status": 201,
+  "method": "POST",
+  "path": "sessions",
+  "data": {
+    "session": {
+      "id": "audit-stakpak-cdb6aa-1",
+      "projectId": "audit-stakpak-cdb6aa",
+      "kind": "worker",
+      "harness": "stakpak",
+      "reviewerConfig": {},
+      "autoReviewEnabled": false,
+      "displayName": "audit-stakpak",
+      "mode": "tui",
+      "activity": {
+        "state": "idle",
+        "lastActivityAt": "2026-10-22T18:16:00.241421Z"
+      },
+      "isTerminated": false,
+      "terminateOnPrMerge": false,
+      "autoInjectReview": true,
+      "autoInjectCI": true,
+      "outputType": "none",
+      "createdAt": "2026-10-22T18:15:59.901829Z",
+      "updatedAt": "2026-10-22T18:16:00.241421Z",
+      "isPinned": false,
+      "provisionState": "ready",
+      "branchState": {
+        "commits": 0,
+        "unpushed": 0
+      },
+      "statusReadiness": "ready",
+      "chatProviderPreserved": false,
+      "status": "idle",
+      "kanbanColumn": "building",
+      "displayStatus": "Awaiting PR",
+      "terminalHandleId": "ptyhost-v1:audit-stakpak-cdb6aa-1",
+      "branch": "ao/audit-stakpak-cdb6aa-1/root",
+      "terminalGeneration": "05b4dc50-f068-4994-ab83-f1aadcc46c14",
+      "lastUserMessageAt": "2026-10-22T18:16:00.222508Z",
+      "lastInteractionAt": "2026-10-22T18:16:00.222508Z",
+      "lastEventAt": "2026-10-22T18:16:00.241421Z",
+      "prs": []
+    },
+    "promptBytes": 579,
+    "systemPromptBytes": 18063
+  },
+  "ms": 55334
+}

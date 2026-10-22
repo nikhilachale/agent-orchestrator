@@ -1,0 +1,150 @@
+{
+  "startedAt": "2026-10-22T17:43:49.543Z",
+  "repo": "~/Desktop/agent-orchestrator/.worktrees/feat-mimo-code",
+  "commit": "beaf8950b5 2026-10-22",
+  "out": "~/Desktop/agents/ao-audit-reports/20261022-231349-audit",
+  "agents": [
+    {
+      "agent": "stakpak",
+      "checks": [
+        {
+          "id": "cli_installed",
+          "status": "PASS",
+          "reason": "found ~/.local/bin/stakpak"
+        },
+        {
+          "id": "cli_version",
+          "status": "PASS",
+          "reason": "stakpak 0.3.88",
+          "evidence": "~/Desktop/agents/ao-audit-reports/20261022-231349-audit/evidence/stakpak/02-cli_version.json"
+        },
+        {
+          "id": "cli_login",
+          "status": "PASS",
+          "reason": "the CLI reports a logged-in account",
+          "evidence": "~/Desktop/agents/ao-audit-reports/20261022-231349-audit/evidence/stakpak/03-cli_login.json"
+        },
+        {
+          "id": "ao_registered",
+          "status": "PASS",
+          "reason": "AO knows this harness",
+          "evidence": "~/Desktop/agents/ao-audit-reports/20261022-231349-audit/evidence/stakpak/04-ao_registered.json"
+        },
+        {
+          "id": "ao_installed",
+          "status": "PASS",
+          "reason": "AO found the installed CLI",
+          "evidence": "~/Desktop/agents/ao-audit-reports/20261022-231349-audit/evidence/stakpak/05-ao_installed.json"
+        },
+        {
+          "id": "ao_authenticated",
+          "status": "PASS",
+          "reason": "AO verified the login (authorized)",
+          "evidence": "~/Desktop/agents/ao-audit-reports/20261022-231349-audit/evidence/stakpak/06-ao_authenticated.json"
+        },
+        {
+          "id": "ao_models",
+          "status": "PASS",
+          "reason": "AO uses free-form model entry (the CLI has no model list)",
+          "evidence": "~/Desktop/agents/ao-audit-reports/20261022-231349-audit/evidence/stakpak/07-ao_models.json"
+        },
+        {
+          "id": "tui_spawn",
+          "status": "PASS",
+          "reason": "AO created a TUI session",
+          "evidence": "~/Desktop/agents/ao-audit-reports/20261022-231349-audit/evidence/stakpak/08-tui_spawn.json"
+        },
+        {
+          "id": "tui_prompt",
+          "status": "FAIL",
+          "reason": "the agent did not write the proof file before the timeout (prompt not delivered or not submitted); the terminal screen is saved in the evidence file",
+          "evidence": "~/Desktop/agents/ao-audit-reports/20261022-231349-audit/evidence/stakpak/09-tui_prompt.json",
+          "triage": {
+            "owner": "ao",
+            "action": "Fix in the AO implementation, add a Go test that fails without the fix, then rerun this agent.",
+            "where": [
+              "backend/internal/adapters/agent/stakpak/ (prompt delivery, ready cue)"
+            ]
+          }
+        },
+        {
+          "id": "tui_worktree",
+          "status": "SKIP",
+          "reason": "the first prompt produced no proof file"
+        },
+        {
+          "id": "tui_system_prompt",
+          "status": "SKIP",
+          "reason": "the first prompt produced no proof file"
+        },
+        {
+          "id": "tui_agents_md",
+          "status": "SKIP",
+          "reason": "the first prompt produced no proof file"
+        },
+        {
+          "id": "tui_activity",
+          "status": "SKIP",
+          "reason": "the first prompt produced no proof file"
+        },
+        {
+          "id": "tui_native_id",
+          "status": "SKIP",
+          "reason": "the first prompt produced no proof file"
+        },
+        {
+          "id": "tui_follow_up",
+          "status": "SKIP",
+          "reason": "the first prompt produced no proof file"
+        },
+        {
+          "id": "tui_usage",
+          "status": "SKIP",
+          "reason": "the first prompt produced no proof file"
+        },
+        {
+          "id": "tui_stop",
+          "status": "SKIP",
+          "reason": "the first prompt produced no proof file"
+        },
+        {
+          "id": "tui_restore",
+          "status": "SKIP",
+          "reason": "the first prompt produced no proof file"
+        },
+        {
+          "id": "tui_restore_history",
+          "status": "SKIP",
+          "reason": "the first prompt produced no proof file"
+        },
+        {
+          "id": "role_worker",
+          "status": "FAIL",
+          "reason": "the worker gave no answer before the timeout",
+          "triage": {
+            "owner": "ao",
+            "action": "Fix in the AO implementation, add a Go test that fails without the fix, then rerun this agent.",
+            "where": [
+              "backend/internal/session_manager/prompt.go",
+              "the harness's system-prompt channel"
+            ]
+          }
+        },
+        {
+          "id": "role_orchestrator",
+          "status": "FAIL",
+          "reason": "the orchestrator gave no answer before the timeout",
+          "triage": {
+            "owner": "ao",
+            "action": "Fix in the AO implementation, add a Go test that fails without the fix, then rerun this agent.",
+            "where": [
+              "backend/internal/session_manager/prompt.go",
+              "the harness's system-prompt channel"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "acpRuntime": "~/Desktop/agent-orchestrator/.worktrees/feat-mimo-code/frontend/resources/acp-runtime"
+}

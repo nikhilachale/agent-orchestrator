@@ -1,0 +1,3 @@
+time=2026-10-23T16:26:40.288Z level=INFO msg="http request" id=vps-linux/g9mXos8Gxk-000081 method=POST path=/api/v1/sessions/standalone-1/kill status=200 bytes=39 duration=85.753634ms remote=127.0.0.1:48582
+time=2026-10-23T16:26:40.360Z level=INFO msg="http request" id=vps-linux/g9mXos8Gxk-000082 method=POST path=/api/v1/sessions/standalone-1/restore status=500 bytes=146 duration=71.451122ms remote=127.0.0.1:48590 error="restore standalone-1: restore command: mastra-code restore requires a complete native thread UUID; refusing fresh fallback"
+time=2026-10-23T16:26:40.363Z level=INFO msg="http request" id=vps-linux/g9mXos8Gxk-000083 method=GET path=/api/v1/sessions/standalone-1 status=200 bytes=855 duration=1.868936ms remote=127.0.0.1:45398

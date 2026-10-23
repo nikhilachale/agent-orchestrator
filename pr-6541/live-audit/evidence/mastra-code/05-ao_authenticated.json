@@ -1,0 +1,44 @@
+{
+  "ok": true,
+  "status": 200,
+  "method": "POST",
+  "path": "agents/readiness/ensure",
+  "data": {
+    "agents": [
+      {
+        "id": "mastra-code",
+        "label": "Mastra Code",
+        "installation": {
+          "state": "installed",
+          "freshness": "fresh",
+          "checkedAt": "2026-10-23T16:23:38.621576073Z",
+          "attemptedAt": "2026-10-23T16:23:38.621576073Z",
+          "reasonCode": "installed",
+          "reason": "Mastra Code is installed."
+        },
+        "authentication": {
+          "state": "unknown",
+          "freshness": "stale",
+          "checkedAt": null,
+          "attemptedAt": "2026-10-23T16:23:42.551699961Z",
+          "reasonCode": "auth_check_inconclusive",
+          "reason": "Authentication check was inconclusive.",
+          "diagnostics": [
+            {
+              "method": "authentication",
+              "code": "check_inconclusive",
+              "reason": "AO could not determine authentication from the available evidence. This is not proof that the harness is signed out.",
+              "nextStep": "Compare the executable and credential sources below with the working terminal, then re-check. If they match, report the harness version and these diagnostics.",
+              "checkedAt": "2026-10-23T16:23:42.551729797Z",
+              "cached": false,
+              "durationMs": 0
+            }
+          ]
+        },
+        "effectiveReadiness": "unknown",
+        "usageCount": 0
+      }
+    ]
+  },
+  "ms": 4
+}

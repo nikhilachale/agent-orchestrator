@@ -1,0 +1,9 @@
+{
+  "bin": {
+    "mastracode": "./dist/cli.js"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "dependencies.@mastra/code-sdk": "^1.11.0"
+}

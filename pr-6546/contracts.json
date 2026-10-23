@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "agents": {
+    "codebuddy": {
+      "binary": "native/bin/codebuddy",
+      "versionArgs": [
+        "--version"
+      ],
+      "surfaces": [
+        "tui"
+      ],
+      "adapters": {
+        "tui": "codebuddy"
+      }
+    }
+  }
+}

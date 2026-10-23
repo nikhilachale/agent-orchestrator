@@ -1,0 +1,44 @@
+{
+  "ok": true,
+  "status": 200,
+  "method": "POST",
+  "path": "agents/readiness/ensure",
+  "data": {
+    "agents": [
+      {
+        "id": "codebuddy",
+        "label": "CodeBuddy Code",
+        "installation": {
+          "state": "installed",
+          "freshness": "fresh",
+          "checkedAt": "2026-10-23T16:06:57.477758264Z",
+          "attemptedAt": "2026-10-23T16:06:57.477758264Z",
+          "reasonCode": "installed",
+          "reason": "CodeBuddy Code is installed."
+        },
+        "authentication": {
+          "state": "unknown",
+          "freshness": "stale",
+          "checkedAt": null,
+          "attemptedAt": "2026-10-23T16:06:57.755645727Z",
+          "reasonCode": "auth_check_inconclusive",
+          "reason": "Authentication check was inconclusive.",
+          "diagnostics": [
+            {
+              "method": "authentication",
+              "code": "check_inconclusive",
+              "reason": "AO could not determine authentication from the available evidence. This is not proof that the harness is signed out.",
+              "nextStep": "Compare the executable and credential sources below with the working terminal, then re-check. If they match, report the harness version and these diagnostics.",
+              "checkedAt": "2026-10-23T16:06:57.755686383Z",
+              "cached": false,
+              "durationMs": 0
+            }
+          ]
+        },
+        "effectiveReadiness": "unknown",
+        "usageCount": 0
+      }
+    ]
+  },
+  "ms": 13
+}

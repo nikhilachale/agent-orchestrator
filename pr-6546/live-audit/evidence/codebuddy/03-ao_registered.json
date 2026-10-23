@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "status": 200,
+  "method": "POST",
+  "path": "agents/codebuddy/probe",
+  "data": {
+    "agent": {
+      "id": "codebuddy",
+      "label": "CodeBuddy Code",
+      "authStatus": "unknown"
+    },
+    "supported": true,
+    "installed": true
+  },
+  "ms": 39
+}

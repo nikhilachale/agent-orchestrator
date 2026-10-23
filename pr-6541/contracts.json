@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "agents": {
+    "mastra-code": {
+      "binary": "mastracode",
+      "versionArgs": [
+        "--version"
+      ],
+      "surfaces": [
+        "tui"
+      ],
+      "adapters": {
+        "tui": "mastracode"
+      }
+    }
+  }
+}

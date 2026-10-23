@@ -1,0 +1,4 @@
+Node: v22.23.2 · Go: go1.27.1 · sqlite3: ok
+AO checkout: repo (adb222647 2026-10-19)
+Chat bridge: not built (ACP Chat needs it: npm run build:acp-runtime in frontend/)
+  mastra-code: Usage: mastracode --prompt <text> [options] · no login check

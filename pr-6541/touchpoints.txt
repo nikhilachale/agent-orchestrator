@@ -1,0 +1,49 @@
+Touchpoints for mastra-code (Go package mastracode), reference opencode
+
+## tui: partial (11/13 required)
+  [ok  ] adapter-package      backend/internal/adapters/agent/mastracode/
+  [ok  ] domain-harness       backend/internal/domain/harness.go (HarnessMastraCode in AllHarnesses)
+  [ok  ] agent-registry       backend/internal/adapters/agent/registry/registry.go
+  [ok  ] sqlite-constraint    backend/internal/storage/sqlite/db.go (sessions.harness CHECK repair constants)
+  [ok  ] sqlite-migration     backend/internal/storage/sqlite/migrations/ (20261019154911099_allow_mastra_code_harness.sql)
+  [ok  ] api-dto-enums        backend/internal/httpd/controllers/dto.go (2/2 domain.AgentHarness enums include "mastra-code")
+  [ok  ] openapi-spec         backend/internal/httpd/apispec/openapi.yaml (regenerate with npm run api)
+  [ok  ] generated-schema     frontend/src/api/schema.ts (regenerate with npm run api)
+  [ok  ] product-ui-label     packages/product-ui/src/agents.ts
+  [ok  ] agent-hooks          backend/internal/adapters/agent/mastracode/ (hooks.go)
+  [ok  ] activity-dispatch    backend/internal/adapters/agent/activitydispatch/dispatch.go (map `ao hooks <id>` callbacks to activity states here, or the hooks report nothing)
+  [ok  ] cli-spawn-help       backend/internal/cli/spawn.go
+  [opt ] doctor-probe         backend/internal/cli/doctor.go (harnessProbeSpecs entry (BinaryName, VersionArg, ExpectedVersionPrefix); needed when the binary is not named like the ID or a version is pinned) -> add beside opencode at backend/internal/cli/doctor.go:80
+  [TODO] terminal-refresh     backend/internal/adapters/agent/mastracode/ (adapter does not implement SupportsTerminalVersionRefresh (ports.AgentTerminalVersionRefresher))
+  [TODO] refresh-test-matrix  backend/internal/session_manager/tui_version_refresh_test.go (add the binary to registry/version_refresh_test.go, or list the ID as unsupported here)
+
+## install: wired (2/2 required)
+  [ok  ] install-target       backend/internal/service/systeminstall/systeminstall.go (TargetMastraCode in agentTargets)
+  [ok  ] install-plan         backend/internal/service/systeminstall/agentplans.go (case TargetMastraCode)
+
+## auth: wired (1/1 required)
+  [ok  ] auth-plan            backend/internal/service/agentauth/plans.go
+
+## models: wired (1/1 required)
+  [ok  ] model-catalog        backend/internal/adapters/agent/modelcatalog/catalog.go
+  [opt ] effort-gate          backend/internal/session_manager/manager.go (only if the harness has native effort: allowlist is "codex, claude-code, and command-code agents")
+
+## branding: wired (2/2 required)
+  [ok  ] avatar-asset         frontend/src/renderer/assets/agents/mastra-code.svg|png (mastra-code.svg)
+  [opt ] avatar-license       frontend/src/renderer/assets/agents/LICENSE-mastra-code.txt (file not found in this checkout)
+  [ok  ] avatar-map           frontend/src/renderer/components/AgentAvatar.tsx
+
+## docs: wired (0/0 required)
+  [ok  ] harness-doc          docs/harnesses/mastra-code.md
+  [opt ] docs-index           docs/README.md
+  [ok  ] docs-agents-index    frontend/src/docs/content/plugins/agents/index.mdx
+
+## chat: absent (0/2 required)
+  [TODO] chat-switch-target   frontend/src/renderer/lib/agent-switch-targets.ts (file not found in this checkout)
+  [opt ] multi-provider-models frontend/src/renderer/components/settings/harness/HarnessModelsPanel.tsx (only for CLIs that offer many providers' models (OpenCode, Kilo Code)) -> add beside opencode at frontend/src/renderer/components/settings/harness/HarnessModelsPanel.tsx:22
+  [TODO] chat-registry        backend/internal/adapters/chatdriver/registry/registry.go -> add beside opencode at backend/internal/adapters/chatdriver/registry/registry.go:24
+
+## reviewer: absent (0/3 required)
+  [TODO] reviewer-harness     backend/internal/domain/reviewerharness.go (no ReviewerHarness constant for "mastra-code") -> add beside opencode at backend/internal/domain/reviewerharness.go:19
+  [TODO] reviewer-registry    backend/internal/adapters/reviewer/registry.go -> add beside opencode at backend/internal/adapters/reviewer/registry.go:28,64
+  [TODO] reviewer-dto-enums   backend/internal/httpd/controllers/dto.go (0/2 domain.ReviewerHarness enums include "mastra-code") -> add beside opencode at backend/internal/httpd/controllers/dto.go:814,3356

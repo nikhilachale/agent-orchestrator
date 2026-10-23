@@ -1,0 +1,6 @@
+{
+  "skillHead": "04c8c95b23d717ccd2bc314e4577a0596b92e840",
+  "originalSHA256": "8b87c205cf2160a9f69878af7a302a627cc119de9a4960d55aabc3e74e10e7b5",
+  "runtimeSHA256": "2c0cb175a5c27b09c4c11f97fcf47fbb80342d07d1856244629517899216b45e",
+  "onlyChange": "Temporary audit root /tmp/ao-audit-* \u2192 ~/.ao/cb-audit-*; checks unchanged."
+}

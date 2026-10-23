@@ -1,0 +1,3 @@
+time=2026-10-23T16:15:11.048Z level=INFO msg="http request" id=vps-linux/t97Af3tP3v-000240 method=OPTIONS path=/api/v1/sessions/standalone-1/restore status=204 bytes=0 duration=15.459µs remote=127.0.0.1:47150
+time=2026-10-23T16:15:11.073Z level=INFO msg="http request" id=vps-linux/t97Af3tP3v-000241 method=POST path=/api/v1/sessions/standalone-1/restore status=500 bytes=146 duration=18.599024ms remote=127.0.0.1:47150 error="restore standalone-1: restore command: codebuddy: exact native session ID required for restore"
+time=2026-10-23T16:15:12.307Z level=INFO msg="http request" id=vps-linux/t97Af3tP3v-000242 method=GET path=/api/v1/side-chats/launch/state status=200 bytes=70 duration=127.108µs remote=127.0.0.1:47156

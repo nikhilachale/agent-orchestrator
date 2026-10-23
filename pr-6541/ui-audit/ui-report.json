@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "harness": "mastra-code",
+  "displayName": "Mastra Code",
+  "finishedAt": "2026-10-23T16:27:59.683Z",
+  "dismissedDialogs": [],
+  "checkpoints": [
+    {
+      "id": "harness-listed",
+      "title": "Agent Harness page lists the harness",
+      "status": "PASS",
+      "reason": "listed as \"Mastra Code\"; detail view opened",
+      "screenshot": "ui-audit/01-harness-listed-PASS.png"
+    },
+    {
+      "id": "install",
+      "title": "Install from the Account tab",
+      "status": "PASS",
+      "reason": "already installed; the Install action was not exercised",
+      "screenshot": "ui-audit/02-install-PASS.png"
+    },
+    {
+      "id": "health",
+      "title": "Health tab shows status, authentication and executable",
+      "status": "PASS",
+      "reason": "health shows Authentication, Executable, Last checked",
+      "screenshot": "ui-audit/03-health-PASS.png"
+    },
+    {
+      "id": "models",
+      "title": "Models tab lists the harness models",
+      "status": "FAIL",
+      "reason": "Models tab says: \"reported no models\"",
+      "screenshot": "ui-audit/04-models-FAIL.png"
+    },
+    {
+      "id": "login",
+      "title": "Login or configure is offered (or already connected)",
+      "status": "FAIL",
+      "reason": "not connected and no Login/Set up button",
+      "screenshot": "ui-audit/05-login-FAIL.png"
+    },
+    {
+      "id": "auth-check",
+      "title": "Auth check: Health says Connected",
+      "status": "NEEDS_USER",
+      "reason": "not authenticated: log in or provide the API key, then rerun",
+      "screenshot": "ui-audit/06-auth-check-NEEDS_USER.png"
+    },
+    {
+      "id": "update",
+      "title": "Update the harness",
+      "status": "NOT_RUN",
+      "reason": "skipped in v0",
+      "screenshot": "ui-audit/07-update-NOT_RUN.png"
+    },
+    {
+      "id": "new-task-agent-tui",
+      "title": "New Task lists the agent (tui)",
+      "status": "PASS",
+      "reason": "\"Mastra Code\" selectable in New Task",
+      "screenshot": "ui-audit/08-new-task-agent-tui-PASS.png"
+    },
+    {
+      "id": "new-task-models-tui",
+      "title": "New Task lists the harness models (tui)",
+      "status": "FAIL",
+      "reason": "Model picker opened with no models",
+      "screenshot": "ui-audit/09-new-task-models-tui-FAIL.png"
+    }
+  ]
+}

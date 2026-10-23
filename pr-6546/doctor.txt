@@ -1,0 +1,5 @@
+Node: v22.23.2 · Go: go1.27.1 · sqlite3: ok
+AO checkout: source (c9e14d966 2026-10-19)
+Chat bridge: not built (ACP Chat needs it: npm run build:acp-runtime in frontend/)
+  codebuddy: 2.164.0 · no login check
+

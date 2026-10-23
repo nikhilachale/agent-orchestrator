@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 1,
+  "repo": "source",
+  "harness": {
+    "id": "codebuddy",
+    "pkg": "codebuddy",
+    "reviewerPkg": "codebuddy"
+  },
+  "like": {
+    "id": "opencode",
+    "pkg": "opencode"
+  },
+  "summary": {
+    "tui": {
+      "requiredWired": 11,
+      "requiredTotal": 13,
+      "state": "partial"
+    },
+    "install": {
+      "requiredWired": 2,
+      "requiredTotal": 2,
+      "state": "wired"
+    },
+    "auth": {
+      "requiredWired": 1,
+      "requiredTotal": 1,
+      "state": "wired"
+    },
+    "models": {
+      "requiredWired": 1,
+      "requiredTotal": 1,
+      "state": "wired"
+    },
+    "branding": {
+      "requiredWired": 0,
+      "requiredTotal": 2,
+      "state": "absent"
+    },
+    "docs": {
+      "requiredWired": 0,
+      "requiredTotal": 0,
+      "state": "wired"
+    }
+  },
+  "touchpoints": [
+    {
+      "id": "adapter-package",
+      "surface": "tui",
+      "required": true,
+      "file": "backend/internal/adapters/agent/codebuddy/",
+      "wired": true
+    },
+    {
+      "id": "domain-harness",
+      "surface": "tui",
+      "required": true,
+      "file": "backend/internal/domain/harness.go",
+      "wired": true,
+      "detail": "HarnessCodeBuddy in AllHarnesses",
+      "likeLines": [
+        11
+      ]
+    },
+    {
+      "id": "agent-registry",
+      "surface": "tui",
+      "required": true,
+      "file": "backend/internal/adapters/agent/registry/registry.go",
+      "wired": true,
+      "likeLines": [
+        40,
+        61
+      ]
+    },
+    {
+      "id": "sqlite-constraint",
+      "surface": "tui",
+      "required": true,
+      "file": "backend/internal/storage/sqlite/db.go",
+      "wired": true,
+      "detail": "sessions.harness CHECK repair constants",
+      "likeLines": [
+        2070,
+        2071,
+        2072,
+        2073,
+        2074,
+        2075,
+        2076,
+        2077
+      ]
+    },
+    {
+      "id": "sqlite-migration",
+      "surface": "tui",
+      "required": true,
+      "file": "backend/internal/storage/sqlite/migrations/",
+      "wired": true,
+      "detail": "20261019155340715_allow_codebuddy_harness.sql"
+    },
+    {
+      "id": "api-dto-enums",
+      "surface": "tui",
+      "required": true,
+      "file": "backend/internal/httpd/controllers/dto.go",
+      "wired": true,
+      "detail": "2/2 domain.AgentHarness enums include \"codebuddy\"",
+      "likeLines": [
+        442,
+        1117
+      ]
+    },
+    {
+      "id": "openapi-spec",
+      "surface": "tui",
+      "required": true,
+      "file": "backend/internal/httpd/apispec/openapi.yaml",
+      "wired": true,
+      "detail": "regenerate with npm run api",
+      "likeLines": [
+        11795,
+        11844,
+        14624,
+        15640,
+        16341,
+        18984,
+        19557,
+        20093
+      ]
+    },
+    {
+      "id": "generated-schema",
+      "surface": "tui",
+      "required": true,
+      "file": "frontend/src/api/schema.ts",
+      "wired": true,
+      "detail": "regenerate with npm run api"
+    },
+    {
+      "id": "product-ui-label",
+      "surface": "tui",
+      "required": true,
+      "file": "packages/product-ui/src/agents.ts",
+      "wired": true,
+      "likeLines": [
+        7
+      ]
+    },
+    {
+      "id": "agent-hooks",
+      "surface": "tui",
+      "required": true,
+      "file": "backend/internal/adapters/agent/codebuddy/",
+      "wired": true,
+      "detail": "hooks.go"
+    },
+    {
+      "id": "activity-dispatch",
+      "surface": "tui",
+      "required": true,
+      "file": "backend/internal/adapters/agent/activitydispatch/dispatch.go",
+      "wired": true,
+      "detail": "map `ao hooks <id>` callbacks to activity states here, or the hooks report nothing",
+      "likeLines": [
+        32,
+        61
+      ]
+    },
+    {
+      "id": "cli-spawn-help",
+      "surface": "tui",
+      "required": false,
+      "file": "backend/internal/cli/spawn.go",
+      "wired": true,
+      "likeLines": [
+        234
+      ]
+    },
+    {
+      "id": "doctor-probe",
+      "surface": "tui",
+      "required": false,
+      "file": "backend/internal/cli/doctor.go",
+      "wired": false,
+      "detail": "harnessProbeSpecs entry (BinaryName, VersionArg, ExpectedVersionPrefix); needed when the binary is not named like the ID or a version is pinned",
+      "likeLines": [
+        80
+      ]
+    },
+    {
+      "id": "terminal-refresh",
+      "surface": "tui",
+      "required": true,
+      "file": "backend/internal/adapters/agent/codebuddy/",
+      "wired": false,
+      "detail": "adapter does not implement SupportsTerminalVersionRefresh (ports.AgentTerminalVersionRefresher)"
+    },
+    {
+      "id": "refresh-test-matrix",
+      "surface": "tui",
+      "required": true,
+      "file": "backend/internal/session_manager/tui_version_refresh_test.go",
+      "wired": false,
+      "detail": "add the binary to registry/version_refresh_test.go, or list the ID as unsupported here"
+    },
+    {
+      "id": "install-target",
+      "surface": "install",
+      "required": true,
+      "file": "backend/internal/service/systeminstall/systeminstall.go",
+      "wired": true,
+      "detail": "TargetCodeBuddy in agentTargets",
+      "likeLines": [
+        53
+      ]
+    },
+    {
+      "id": "install-plan",
+      "surface": "install",
+      "required": true,
+      "file": "backend/internal/service/systeminstall/agentplans.go",
+      "wired": true,
+      "detail": "case TargetCodeBuddy"
+    },
+    {
+      "id": "auth-plan",
+      "surface": "auth",
+      "required": true,
+      "file": "backend/internal/service/agentauth/plans.go",
+      "wired": true,
+      "likeLines": [
+        22,
+        182
+      ]
+    },
+    {
+      "id": "model-catalog",
+      "surface": "models",
+      "required": true,
+      "file": "backend/internal/adapters/agent/modelcatalog/catalog.go",
+      "wired": true,
+      "likeLines": [
+        112,
+        235,
+        317,
+        845
+      ]
+    },
+    {
+      "id": "effort-gate",
+      "surface": "models",
+      "required": false,
+      "file": "backend/internal/session_manager/manager.go",
+      "wired": false,
+      "detail": "only if the harness has native effort: allowlist is \"codex, claude-code, and command-code agents\""
+    },
+    {
+      "id": "avatar-asset",
+      "surface": "branding",
+      "required": true,
+      "file": "frontend/src/renderer/assets/agents/codebuddy.svg|png",
+      "wired": false
+    },
+    {
+      "id": "avatar-license",
+      "surface": "branding",
+      "required": false,
+      "file": "frontend/src/renderer/assets/agents/LICENSE-codebuddy.txt",
+      "wired": false,
+      "detail": "file not found in this checkout",
+      "missingFile": true
+    },
+    {
+      "id": "avatar-map",
+      "surface": "branding",
+      "required": true,
+      "file": "frontend/src/renderer/components/AgentAvatar.tsx",
+      "wired": false,
+      "likeLines": [
+        78
+      ]
+    },
+    {
+      "id": "harness-doc",
+      "surface": "docs",
+      "required": false,
+      "file": "docs/harnesses/codebuddy.md",
+      "wired": true
+    },
+    {
+      "id": "docs-index",
+      "surface": "docs",
+      "required": false,
+      "file": "docs/README.md",
+      "wired": false
+    },
+    {
+      "id": "docs-agents-index",
+      "surface": "docs",
+      "required": false,
+      "file": "frontend/src/docs/content/plugins/agents/index.mdx",
+      "wired": true,
+      "likeLines": [
+        25,
+        26,
+        86,
+        87,
+        118
+      ]
+    }
+  ]
+}

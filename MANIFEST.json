@@ -1,0 +1,424 @@
+{
+  "skillHead": "04c8c95b23d717ccd2bc314e4577a0596b92e840",
+  "reviewHeads": {
+    "6546": "c9e14d9661257a429530aa0213e27bc0c9ab6e7e",
+    "6541": "adb222647b06e3f4b0ffa1adcb777106fb0ccf6f"
+  },
+  "screenshots": 22,
+  "files": [
+    {
+      "path": "pr-6546/contracts.json",
+      "bytes": 258,
+      "sha256": "956592b207a786739e57ec3f967f88ad06a839967865bd2a719559fb08af545c",
+      "sourceSHA256": "e5a6dc48af437d59b456f4ed8d904c65024bcde60a0d4f2c3c8d1f59a527668e"
+    },
+    {
+      "path": "pr-6546/doctor.txt",
+      "bytes": 212,
+      "sha256": "77b20afe978d948ff93657e24c1ae7635f2011ecd7e292ef5d7808b474bddda1",
+      "sourceSHA256": "d40d9c31e05717a62da8b9429ba1b7c4a3ea5962662612c493bb84b9bb9d254b"
+    },
+    {
+      "path": "pr-6546/native-help.txt",
+      "bytes": 13153,
+      "sha256": "12ebe87c86f7c16d846f9a2a36ef2e7fb677301e9c7a4450dcaffbe99f493f94",
+      "sourceSHA256": "12ebe87c86f7c16d846f9a2a36ef2e7fb677301e9c7a4450dcaffbe99f493f94"
+    },
+    {
+      "path": "pr-6546/native-version.txt",
+      "bytes": 9,
+      "sha256": "336c9f8078be745355af439bad29a257d003cfbc325c04325a309424b81496dc",
+      "sourceSHA256": "336c9f8078be745355af439bad29a257d003cfbc325c04325a309424b81496dc"
+    },
+    {
+      "path": "pr-6546/negative-restore.json",
+      "bytes": 1745,
+      "sha256": "ef5358a6d8ccdbc953338d0ccf9e9a3119a71b58669f4ef09ebfb9c3d48a24b3",
+      "sourceSHA256": "ef5358a6d8ccdbc953338d0ccf9e9a3119a71b58669f4ef09ebfb9c3d48a24b3"
+    },
+    {
+      "path": "pr-6546/live-audit/report.json",
+      "bytes": 1966,
+      "sha256": "47bffea83a0fd0e982c0d39762f86a80d3e4d1220dc3ee8e0f44fae398c70c0a",
+      "sourceSHA256": "e8f57277d6727dec9437d90c5d7e5f8fd5d8a1385325d84c6225c8176bb57786"
+    },
+    {
+      "path": "pr-6546/live-audit/report.md",
+      "bytes": 1297,
+      "sha256": "133b8faf3705f57081e60e03cae65b6e14c6314b04303aa38b77f113af3e91fd",
+      "sourceSHA256": "9cfb19534c7bfd4fe07bd8f24db4cd95e0954e8cfef0e9354954646e5a29423f"
+    },
+    {
+      "path": "pr-6546/live-audit/run.log",
+      "bytes": 527,
+      "sha256": "5ce808abf97b9b1641e7bc2a353c23df0ecbe0dbac86f70989a3787610000b01",
+      "sourceSHA256": "ed01dfd9655f25de8439cb87f18d2e4fceb1a4994fa0ad4e465e02e194b3efdf"
+    },
+    {
+      "path": "pr-6546/live-audit/daemon.log",
+      "bytes": 13329,
+      "sha256": "dd738597ae45a3603d389b7e800c208409b349ac2cad9de053cf1fddd3fc07eb",
+      "sourceSHA256": "dd738597ae45a3603d389b7e800c208409b349ac2cad9de053cf1fddd3fc07eb"
+    },
+    {
+      "path": "pr-6546/ui-audit/ui-report.json",
+      "bytes": 2311,
+      "sha256": "f91c4a61e361fdfdd642746cff74563f33a9a3facbd4a5a1d1ff07f25c17ded9",
+      "sourceSHA256": "089ecc314cf2670a1362a02309b8261c3395dea27ce2fb0da7ebf34ea0d5cce5"
+    },
+    {
+      "path": "pr-6546/ui-audit/ui-report.md",
+      "bytes": 1265,
+      "sha256": "1ccda99651f5959de624d5919c7a732b825e57a308dd117fff512553f48fd67b",
+      "sourceSHA256": "1ccda99651f5959de624d5919c7a732b825e57a308dd117fff512553f48fd67b"
+    },
+    {
+      "path": "pr-6546/native-fingerprint.json",
+      "bytes": 208,
+      "sha256": "43341ee01e813d01dfeeacc6d1034a315943255243def95b8a41e67f8a757d0f",
+      "sourceSHA256": "43341ee01e813d01dfeeacc6d1034a315943255243def95b8a41e67f8a757d0f"
+    },
+    {
+      "path": "pr-6546/skill-runtime-adaptation.json",
+      "bytes": 335,
+      "sha256": "0e0e6562a88ca26104f8342511de4735d37e1fbc23286a226874a795437d0f3c",
+      "sourceSHA256": "0e0e6562a88ca26104f8342511de4735d37e1fbc23286a226874a795437d0f3c"
+    },
+    {
+      "path": "pr-6546/checks-final.json",
+      "bytes": 4501,
+      "sha256": "97e9105d34fce31a36898ebb2c69a0072a36a409a3bac8b40e671c61f139aad4",
+      "sourceSHA256": "97e9105d34fce31a36898ebb2c69a0072a36a409a3bac8b40e671c61f139aad4"
+    },
+    {
+      "path": "pr-6546/touchpoints.json",
+      "bytes": 7405,
+      "sha256": "e9b7eb2622d4ad52c137624da5a4c09550f47bc84bdfe450f972bdd50946aee1",
+      "sourceSHA256": "35f78ab9071d70d38cedde632354f2f2c430936493127410dd49c02597632ad8"
+    },
+    {
+      "path": "pr-6546/live-audit/evidence/codebuddy/02-cli_version.json",
+      "bytes": 90,
+      "sha256": "de0ba55d4b115b88f7c399c449bcdf36e1f66f801da2830cb7e35be454b779e0",
+      "sourceSHA256": "de0ba55d4b115b88f7c399c449bcdf36e1f66f801da2830cb7e35be454b779e0"
+    },
+    {
+      "path": "pr-6546/live-audit/evidence/codebuddy/03-ao_registered.json",
+      "bytes": 274,
+      "sha256": "9921e665159290155472715d8c436c2c3a4a6df82b7610732a6a221290373aab",
+      "sourceSHA256": "9921e665159290155472715d8c436c2c3a4a6df82b7610732a6a221290373aab"
+    },
+    {
+      "path": "pr-6546/live-audit/evidence/codebuddy/04-ao_installed.json",
+      "bytes": 1499,
+      "sha256": "db222570e84a02cee211593b396ab6ed218d0a9562d5df119f479a486a3deec3",
+      "sourceSHA256": "db222570e84a02cee211593b396ab6ed218d0a9562d5df119f479a486a3deec3"
+    },
+    {
+      "path": "pr-6546/live-audit/evidence/codebuddy/05-ao_authenticated.json",
+      "bytes": 1499,
+      "sha256": "db222570e84a02cee211593b396ab6ed218d0a9562d5df119f479a486a3deec3",
+      "sourceSHA256": "db222570e84a02cee211593b396ab6ed218d0a9562d5df119f479a486a3deec3"
+    },
+    {
+      "path": "pr-6546/live-audit/evidence/codebuddy/06-ao_models.json",
+      "bytes": 657,
+      "sha256": "4da5406aa535ca5840f9cc9b63dd85ce36bf5a0e7678f3d669330edf79ec05bd",
+      "sourceSHA256": "6416a2d126ed5eb075c27132f7d64c498411320cf11c454d43772655f782513e"
+    },
+    {
+      "path": "pr-6546/ui-audit/01-harness-listed-PASS.png",
+      "bytes": 46828,
+      "sha256": "acbd0a297f8886f47454aa41e2e7ce038d7491b15c2f543700ce00cf0b108cf5",
+      "sourceSHA256": "acbd0a297f8886f47454aa41e2e7ce038d7491b15c2f543700ce00cf0b108cf5"
+    },
+    {
+      "path": "pr-6546/ui-audit/02-install-PASS.png",
+      "bytes": 55393,
+      "sha256": "de1511c92c4a40dc8d5aba27598e89a26d5c7fd9ac5fdc9d964617228a70995e",
+      "sourceSHA256": "de1511c92c4a40dc8d5aba27598e89a26d5c7fd9ac5fdc9d964617228a70995e"
+    },
+    {
+      "path": "pr-6546/ui-audit/03-health-PASS.png",
+      "bytes": 65583,
+      "sha256": "1b1db1a9fcd2c0043161441be61c245377fc568561053a7d24a8db2a97199b63",
+      "sourceSHA256": "1b1db1a9fcd2c0043161441be61c245377fc568561053a7d24a8db2a97199b63"
+    },
+    {
+      "path": "pr-6546/ui-audit/04-models-FAIL.png",
+      "bytes": 41514,
+      "sha256": "3f0b77065dd0370dd2a9e742946292caeaac5329bc56e268261a8d763ae0654a",
+      "sourceSHA256": "3f0b77065dd0370dd2a9e742946292caeaac5329bc56e268261a8d763ae0654a"
+    },
+    {
+      "path": "pr-6546/ui-audit/05-login-FAIL.png",
+      "bytes": 55396,
+      "sha256": "7c98b4009c1e905715ad11400ab866f7ab11523c9b40f2924a61652b4e60ded9",
+      "sourceSHA256": "7c98b4009c1e905715ad11400ab866f7ab11523c9b40f2924a61652b4e60ded9"
+    },
+    {
+      "path": "pr-6546/ui-audit/06-auth-check-NEEDS_USER.png",
+      "bytes": 66017,
+      "sha256": "13650ecdbfcce75016b435cfd517e4db8ecbae6061741adca4fb70cb71bd51be",
+      "sourceSHA256": "13650ecdbfcce75016b435cfd517e4db8ecbae6061741adca4fb70cb71bd51be"
+    },
+    {
+      "path": "pr-6546/ui-audit/07-update-NOT_RUN.png",
+      "bytes": 55396,
+      "sha256": "7c98b4009c1e905715ad11400ab866f7ab11523c9b40f2924a61652b4e60ded9",
+      "sourceSHA256": "7c98b4009c1e905715ad11400ab866f7ab11523c9b40f2924a61652b4e60ded9"
+    },
+    {
+      "path": "pr-6546/ui-audit/08-new-task-agent-tui-PASS.png",
+      "bytes": 51645,
+      "sha256": "f9793155eca78eddc36f93ec6e27b65431af76e5b7d83d3361d25d4344ecc937",
+      "sourceSHA256": "f9793155eca78eddc36f93ec6e27b65431af76e5b7d83d3361d25d4344ecc937"
+    },
+    {
+      "path": "pr-6546/ui-audit/09-new-task-models-tui-FAIL.png",
+      "bytes": 52984,
+      "sha256": "8e696335276904506c393ef85502ca6b60b945e97992643ae9febcaa9c24d3b5",
+      "sourceSHA256": "8e696335276904506c393ef85502ca6b60b945e97992643ae9febcaa9c24d3b5"
+    },
+    {
+      "path": "pr-6546/ui-audit/manual-model-menu.png",
+      "bytes": 52382,
+      "sha256": "545bf922c78732fd0d81cb5c8e521929d0240b109480be0e458dfa3849da0f4b",
+      "sourceSHA256": "545bf922c78732fd0d81cb5c8e521929d0240b109480be0e458dfa3849da0f4b"
+    },
+    {
+      "path": "pr-6546/restore-daemon-excerpt.log",
+      "bytes": 726,
+      "sha256": "d660bdc671268b5384bc16e9cf70e7296a5fa7791f392cf7f88db967bd4e631a"
+    },
+    {
+      "path": "pr-6546/README.md",
+      "bytes": 2084,
+      "sha256": "7d4fe4871f8d626cc07951f7c48d0a8938238484d466a3bc48a68a66161e9e62"
+    },
+    {
+      "path": "pr-6541/contracts.json",
+      "bytes": 252,
+      "sha256": "b8654ddd2125e94c8c441badced0dc4901947c3258e44aae387ef475634f9bb2",
+      "sourceSHA256": "b8654ddd2125e94c8c441badced0dc4901947c3258e44aae387ef475634f9bb2"
+    },
+    {
+      "path": "pr-6541/doctor.txt",
+      "bytes": 247,
+      "sha256": "50642c6c2ea6d9d32ef920f493a7a8b6a2aea86e095aaf7b1c56fff8c4ed787e",
+      "sourceSHA256": "bbde1af2b22228e3e22264afc9da0da25551e5f510f018023cb823b096c42da0"
+    },
+    {
+      "path": "pr-6541/native-help.txt",
+      "bytes": 3036,
+      "sha256": "ae5a2eb132773d23ee03a21cc524245b694a0761e0cec07353788d7c6faf414d",
+      "sourceSHA256": "cdad686d6a08366277a35d188dee03983ee38e6c82720d8f7fdaa167f8c84191"
+    },
+    {
+      "path": "pr-6541/native-version.txt",
+      "bytes": 3159,
+      "sha256": "e5442223dfa7d383b6523aff264ad21dc63818986e7022ea279175b07ff31ccc",
+      "sourceSHA256": "2129075b4d05873decb68d007e3266321bc343b21074de8c4004149d4addf441"
+    },
+    {
+      "path": "pr-6541/negative-restore.json",
+      "bytes": 3875,
+      "sha256": "c396a5cb510a78aefaeb1af4a41e509bd2bf5e4f97091d721e6450f01f7bf700",
+      "sourceSHA256": "49abaf20917553fe3863755783c01feb9c8d16e8d7fe60c2d0a0b282847bc918"
+    },
+    {
+      "path": "pr-6541/live-audit/report.json",
+      "bytes": 2168,
+      "sha256": "bd31f1483a36a35981a0f416257b6321f60e40cfcc54d4c46f6148700f1ca1e0",
+      "sourceSHA256": "dad3720d1664d681d5dd462499853fba1a0eb94c920dfa2f99b0dba274df257b"
+    },
+    {
+      "path": "pr-6541/live-audit/report.md",
+      "bytes": 1502,
+      "sha256": "d2e0641b6f23e99ac07d94146bae1ccb6f387a5dbce27326e7141449bf585b96",
+      "sourceSHA256": "70218fdbc6c0739b556aaab1f7abcc07e43cb7ef3c504bbbb6a50529210cfd4e"
+    },
+    {
+      "path": "pr-6541/live-audit/run.log",
+      "bytes": 531,
+      "sha256": "240fc38e512ab7165c61c490c6fb1defaf99eb331c235bc7eb84440000984ed7",
+      "sourceSHA256": "cf48334234a6a227486a1f2115f672061e78d2f62f42117fdfeedd8d55fa7842"
+    },
+    {
+      "path": "pr-6541/live-audit/daemon.log",
+      "bytes": 26169,
+      "sha256": "066e21aa48b30dc7f5ef16e82a32c278c8acd48ef8e57bdf46a7d3797f2e2070",
+      "sourceSHA256": "066e21aa48b30dc7f5ef16e82a32c278c8acd48ef8e57bdf46a7d3797f2e2070"
+    },
+    {
+      "path": "pr-6541/ui-audit/ui-report.json",
+      "bytes": 2304,
+      "sha256": "0ef4018f4749a0161f61f49c83427ffae9ccafeca5941e81d415771b02aa25be",
+      "sourceSHA256": "9faae3b7c020790eb38a5f3fa6c95d6cabb4d35bf46ab6a9c3d24ec7b2fa230c"
+    },
+    {
+      "path": "pr-6541/ui-audit/ui-report.md",
+      "bytes": 1256,
+      "sha256": "3406cbf2a97412f70251a086c6846ab52b75db36c29a2f69dbb40396a3d5586d",
+      "sourceSHA256": "3406cbf2a97412f70251a086c6846ab52b75db36c29a2f69dbb40396a3d5586d"
+    },
+    {
+      "path": "pr-6541/native-qualified-versions.json",
+      "bytes": 41,
+      "sha256": "2bc3b3aae6b282fa5b9c18ab0f960b6b43f5b8c7e0b426ac1c474d51e89505ad",
+      "sourceSHA256": "2bc3b3aae6b282fa5b9c18ab0f960b6b43f5b8c7e0b426ac1c474d51e89505ad"
+    },
+    {
+      "path": "pr-6541/native-package.json",
+      "bytes": 143,
+      "sha256": "37a7e8654aec1d8bb6a12810ee0675aa5b387da7d36ab21997d9d0f51f60abfd",
+      "sourceSHA256": "37a7e8654aec1d8bb6a12810ee0675aa5b387da7d36ab21997d9d0f51f60abfd"
+    },
+    {
+      "path": "pr-6541/compatibility.md",
+      "bytes": 1393,
+      "sha256": "703ce512f99a40df2948ac50be84db51677b2d551525e53e378df9dc7b5d0ea5",
+      "sourceSHA256": "703ce512f99a40df2948ac50be84db51677b2d551525e53e378df9dc7b5d0ea5"
+    },
+    {
+      "path": "pr-6541/audit-runtime-hashes.txt",
+      "bytes": 160,
+      "sha256": "e695dd1e853b202875ea50e640878819c9720e4c70d59ed959e391296cec5a32",
+      "sourceSHA256": "e695dd1e853b202875ea50e640878819c9720e4c70d59ed959e391296cec5a32"
+    },
+    {
+      "path": "pr-6541/check-runs.json",
+      "bytes": 78054,
+      "sha256": "54413aa2aa3ee0702c19636d321bd6a36742438429ace3e44795b9299640afa9",
+      "sourceSHA256": "54413aa2aa3ee0702c19636d321bd6a36742438429ace3e44795b9299640afa9"
+    },
+    {
+      "path": "pr-6541/touchpoints.txt",
+      "bytes": 4328,
+      "sha256": "84fdab2fa5a2e5abb8e221bc3b908fadaca8623348cce6e4db1de02b60f80878",
+      "sourceSHA256": "84fdab2fa5a2e5abb8e221bc3b908fadaca8623348cce6e4db1de02b60f80878"
+    },
+    {
+      "path": "pr-6541/live-audit/evidence/mastra-code/02-cli_version.json",
+      "bytes": 2852,
+      "sha256": "0718725e46f26c2b714d64d7bfadd75a7eea3fe582a903c5ac092f7eade0213c",
+      "sourceSHA256": "0718725e46f26c2b714d64d7bfadd75a7eea3fe582a903c5ac092f7eade0213c"
+    },
+    {
+      "path": "pr-6541/live-audit/evidence/mastra-code/03-ao_registered.json",
+      "bytes": 275,
+      "sha256": "03282f4e1e82b83c5587f6e29dd2f76815be1aa81c451181da5dd8fc37906b28",
+      "sourceSHA256": "03282f4e1e82b83c5587f6e29dd2f76815be1aa81c451181da5dd8fc37906b28"
+    },
+    {
+      "path": "pr-6541/live-audit/evidence/mastra-code/04-ao_installed.json",
+      "bytes": 1494,
+      "sha256": "675de544f57a875fe00328b6ec8c5727b4bcde034c9e82233ba7614726460630",
+      "sourceSHA256": "675de544f57a875fe00328b6ec8c5727b4bcde034c9e82233ba7614726460630"
+    },
+    {
+      "path": "pr-6541/live-audit/evidence/mastra-code/05-ao_authenticated.json",
+      "bytes": 1494,
+      "sha256": "675de544f57a875fe00328b6ec8c5727b4bcde034c9e82233ba7614726460630",
+      "sourceSHA256": "675de544f57a875fe00328b6ec8c5727b4bcde034c9e82233ba7614726460630"
+    },
+    {
+      "path": "pr-6541/live-audit/evidence/mastra-code/06-ao_models.json",
+      "bytes": 679,
+      "sha256": "5c32e948b22ad35b1fd71762d2ec3a16c28c230ebacc6ab699ddd76a2d66f1d5",
+      "sourceSHA256": "e2092ca20da28c3a5751a183ed9df30286a3711ab9816243dde2f4750daf868b"
+    },
+    {
+      "path": "pr-6541/ui-audit/01-harness-listed-PASS.png",
+      "bytes": 58987,
+      "sha256": "a57119e3301527af9a3e90b90b2714daf58c5f8c2dc4e2c83bafa951c812eff1",
+      "sourceSHA256": "a57119e3301527af9a3e90b90b2714daf58c5f8c2dc4e2c83bafa951c812eff1"
+    },
+    {
+      "path": "pr-6541/ui-audit/02-install-PASS.png",
+      "bytes": 58987,
+      "sha256": "a57119e3301527af9a3e90b90b2714daf58c5f8c2dc4e2c83bafa951c812eff1",
+      "sourceSHA256": "a57119e3301527af9a3e90b90b2714daf58c5f8c2dc4e2c83bafa951c812eff1"
+    },
+    {
+      "path": "pr-6541/ui-audit/03-health-PASS.png",
+      "bytes": 57170,
+      "sha256": "3d5dcf145bb61f7919b4e0d8719df81828ecf5e9d1e00f96f5b81f2ef9c2c81c",
+      "sourceSHA256": "3d5dcf145bb61f7919b4e0d8719df81828ecf5e9d1e00f96f5b81f2ef9c2c81c"
+    },
+    {
+      "path": "pr-6541/ui-audit/04-models-FAIL.png",
+      "bytes": 40617,
+      "sha256": "f902f5dd33fac0fb934951423f9b69d69556a5b614ba25e92fe90c4a3d4c3cc1",
+      "sourceSHA256": "f902f5dd33fac0fb934951423f9b69d69556a5b614ba25e92fe90c4a3d4c3cc1"
+    },
+    {
+      "path": "pr-6541/ui-audit/05-login-FAIL.png",
+      "bytes": 58990,
+      "sha256": "274bed402ecade317ff83d5d291f337cec846b69ee808c741321f31110923ab7",
+      "sourceSHA256": "274bed402ecade317ff83d5d291f337cec846b69ee808c741321f31110923ab7"
+    },
+    {
+      "path": "pr-6541/ui-audit/06-auth-check-NEEDS_USER.png",
+      "bytes": 57623,
+      "sha256": "c4c9e1d81c5a292f8319a2cc8bc2956ac9b21b4fb26e693c5ce237df2157e8c3",
+      "sourceSHA256": "c4c9e1d81c5a292f8319a2cc8bc2956ac9b21b4fb26e693c5ce237df2157e8c3"
+    },
+    {
+      "path": "pr-6541/ui-audit/07-update-NOT_RUN.png",
+      "bytes": 58990,
+      "sha256": "274bed402ecade317ff83d5d291f337cec846b69ee808c741321f31110923ab7",
+      "sourceSHA256": "274bed402ecade317ff83d5d291f337cec846b69ee808c741321f31110923ab7"
+    },
+    {
+      "path": "pr-6541/ui-audit/08-new-task-agent-tui-PASS.png",
+      "bytes": 53951,
+      "sha256": "4faca60084bc8fa8674b1729f409c369909f6724a7286c6f6bed53933406c477",
+      "sourceSHA256": "4faca60084bc8fa8674b1729f409c369909f6724a7286c6f6bed53933406c477"
+    },
+    {
+      "path": "pr-6541/ui-audit/09-new-task-models-tui-FAIL.png",
+      "bytes": 55060,
+      "sha256": "554d8c98eeb561d344b09a71fd49551f7691ad3658d1e2db7d5d7d233265f9d3",
+      "sourceSHA256": "554d8c98eeb561d344b09a71fd49551f7691ad3658d1e2db7d5d7d233265f9d3"
+    },
+    {
+      "path": "pr-6541/ui-audit/10-manual-new-task-model.png",
+      "bytes": 53305,
+      "sha256": "85ce7c4f124dcf6b10dbb5e416c348647a4547d631efe1789d56f7a262649d16",
+      "sourceSHA256": "85ce7c4f124dcf6b10dbb5e416c348647a4547d631efe1789d56f7a262649d16"
+    },
+    {
+      "path": "pr-6541/ui-audit/11-manual-account-configure.png",
+      "bytes": 79176,
+      "sha256": "488b72a4600084deeb386942c329258f58a9eb9471a0fe80946ccbbd4ac8d120",
+      "sourceSHA256": "488b72a4600084deeb386942c329258f58a9eb9471a0fe80946ccbbd4ac8d120"
+    },
+    {
+      "path": "pr-6541/ui-audit/12-manual-model-open.png",
+      "bytes": 53305,
+      "sha256": "85ce7c4f124dcf6b10dbb5e416c348647a4547d631efe1789d56f7a262649d16",
+      "sourceSHA256": "85ce7c4f124dcf6b10dbb5e416c348647a4547d631efe1789d56f7a262649d16"
+    },
+    {
+      "path": "pr-6541/restore-daemon-excerpt.log",
+      "bytes": 750,
+      "sha256": "baba08dde72e68aed6b11b05e1d34bfa1ee68ba3152d0844f8debbcf39e6cae0"
+    },
+    {
+      "path": "pr-6541/README.md",
+      "bytes": 2253,
+      "sha256": "4978f045435415a00bf8399ed352fc7ecaedcc7d34be766e025b371b6aa0c13f"
+    }
+  ],
+  "scan": {
+    "screenshotOCR": "22 images; no provider/GitHub/JWT/private-key/email pattern matches",
+    "selectedText": "No provider/GitHub/JWT/private-key/key-assignment pattern matches",
+    "limitation": "Pattern/OCR checks are limited; private env/config files were excluded"
+  },
+  "textTransformations": [
+    "Remove ANSI styling",
+    "Normalize private test-root prefixes; substitute home path with ~"
+  ],
+  "pngTransformations": []
+}

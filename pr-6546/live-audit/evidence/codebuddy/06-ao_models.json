@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "status": 200,
+  "method": "GET",
+  "path": "agents/codebuddy/models",
+  "data": {
+    "agentId": "codebuddy",
+    "selectionMode": "text",
+    "models": [],
+    "customModelEntry": "direct",
+    "allowCustom": true,
+    "source": "manual",
+    "metadata": {
+      "binary": "native/bin/codebuddy",
+      "scope": "project"
+    },
+    "inputFingerprint": "5ef81fc4b772405c",
+    "binaryVersion": "5ef81fc4b772405c",
+    "fetchedAt": "2026-10-23T16:06:57.768348942Z",
+    "validatedAt": "2026-10-23T16:06:57.768350896Z",
+    "lastSuccessAt": "2026-10-23T16:06:57.768350896Z",
+    "refreshState": "idle",
+    "stale": false
+  },
+  "ms": 8
+}

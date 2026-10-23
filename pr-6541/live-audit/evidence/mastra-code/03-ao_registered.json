@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "status": 200,
+  "method": "POST",
+  "path": "agents/mastra-code/probe",
+  "data": {
+    "agent": {
+      "id": "mastra-code",
+      "label": "Mastra Code",
+      "authStatus": "unknown"
+    },
+    "supported": true,
+    "installed": true
+  },
+  "ms": 16
+}

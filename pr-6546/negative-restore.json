@@ -1,0 +1,62 @@
+{
+  "spawn": {
+    "status": 201,
+    "ms": 84,
+    "body": {
+      "session": {
+        "id": "standalone-1",
+        "kind": "worker",
+        "harness": "codebuddy",
+        "reviewerConfig": {},
+        "autoReviewEnabled": false,
+        "displayName": "Review6546 restore diagnostic",
+        "mode": "tui",
+        "activity": {
+          "state": "idle",
+          "lastActivityAt": "2026-10-23T16:15:10.702371591Z"
+        },
+        "isTerminated": false,
+        "terminateOnPrMerge": false,
+        "autoInjectReview": true,
+        "autoInjectCI": true,
+        "outputType": "none",
+        "createdAt": "2026-10-23T16:15:10.644604565Z",
+        "updatedAt": "2026-10-23T16:15:10.702371591Z",
+        "isPinned": false,
+        "provisionState": "ready",
+        "statusReadiness": "ready",
+        "chatProviderPreserved": false,
+        "status": "idle",
+        "kanbanColumn": "building",
+        "displayStatus": "Awaiting PR",
+        "terminalHandleId": "ptyhost-v1:standalone-1",
+        "terminalGeneration": "f05d968f-61c2-4952-8ec3-478f45a7e877",
+        "lastUserMessageAt": "2026-10-23T16:15:10.701582415Z",
+        "lastInteractionAt": "2026-10-23T16:15:10.701582415Z",
+        "lastEventAt": "2026-10-23T16:15:10.702371591Z",
+        "prs": []
+      },
+      "promptBytes": 65,
+      "systemPromptBytes": 6706
+    }
+  },
+  "sessionId": "standalone-1",
+  "kill": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "sessionId": "standalone-1"
+    }
+  },
+  "restore": {
+    "status": 500,
+    "ms": 31,
+    "body": {
+      "error": "internal",
+      "code": "INTERNAL_ERROR",
+      "message": "Internal server error",
+      "requestId": "vps-linux/t97Af3tP3v-000241",
+      "reporting_owner": "http"
+    }
+  }
+}

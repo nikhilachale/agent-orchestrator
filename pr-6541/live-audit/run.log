@@ -1,0 +1,12 @@
+Report: live-audit/report.md
+
+mastra-code
+  PASS    cli_installed: found native/node_modules/mastracode/dist/cli.js
+  FAIL    cli_version: `mastracode --version` exited 1
+  PASS    ao_registered: AO knows this harness
+  PASS    ao_installed: AO found the installed CLI
+  FAIL    ao_authenticated: Authentication check was inconclusive.
+  PASS    ao_models: AO uses free-form model entry (the CLI has no model list)
+  SKIP    live: AO cannot launch the harness yet (see above); live checks did not run
+
+Report: live-audit/report.md

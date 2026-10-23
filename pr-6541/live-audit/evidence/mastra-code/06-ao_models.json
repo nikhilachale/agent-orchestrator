@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "status": 200,
+  "method": "GET",
+  "path": "agents/mastra-code/models",
+  "data": {
+    "agentId": "mastra-code",
+    "selectionMode": "text",
+    "models": [],
+    "customModelEntry": "direct",
+    "allowCustom": true,
+    "source": "manual",
+    "metadata": {
+      "binary": "native/node_modules/.bin/mastracode",
+      "scope": "project"
+    },
+    "inputFingerprint": "8ae9441cef74f4b5",
+    "binaryVersion": "8ae9441cef74f4b5",
+    "fetchedAt": "2026-10-23T16:23:43.810320771Z",
+    "validatedAt": "2026-10-23T16:23:43.810322514Z",
+    "lastSuccessAt": "2026-10-23T16:23:43.810322514Z",
+    "refreshState": "idle",
+    "stale": false
+  },
+  "ms": 1262
+}

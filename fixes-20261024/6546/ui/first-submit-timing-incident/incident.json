@@ -1,0 +1,8 @@
+{
+  "firstCaptureGuardEndedEarly": true,
+  "requestAborted": false,
+  "actualIsolatedSessionCreated": "standalone-1",
+  "sessionAlreadyTerminatedWhenChecked": true,
+  "nativeCredentialEntry": false,
+  "correctedProofWillWaitForActualAbort": true
+}

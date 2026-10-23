@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@mastra/code-sdk": "^1.11.0",
+    "@tencent-ai/codebuddy-code": "^2.164.0",
+    "mastracode": "^0.45.0"
+  }
+}

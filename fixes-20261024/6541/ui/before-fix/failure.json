@@ -1,0 +1,7 @@
+{
+  "sourceHead": "481de061abefc7af6ecf9a1214d30a584107e8d3",
+  "nativeElectron": true,
+  "preloadBridge": "window.ao object",
+  "observed": "Installed native Mastra with unknown credential_missing auth has available login plan but no Login action in Account UI",
+  "verdict": "FAIL"
+}

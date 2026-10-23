@@ -1,0 +1,28 @@
+{
+  "checkedAt": "2026-10-23T20:43:49.783028+00:00",
+  "query": "SELECT id,harness,session_permissions,is_terminated FROM sessions WHERE id=?",
+  "databaseScope": "Explicit owned isolated test data only; read-only SQLite connection",
+  "rows": [
+    {
+      "pr": "6541",
+      "id": "standalone-1",
+      "harness": "mastra-code",
+      "permissionMode": "default",
+      "terminated": true
+    },
+    {
+      "pr": "6546",
+      "id": "standalone-2",
+      "harness": "codebuddy",
+      "permissionMode": "default",
+      "terminated": true
+    },
+    {
+      "pr": "6546",
+      "id": "standalone-3",
+      "harness": "codebuddy",
+      "permissionMode": "default",
+      "terminated": true
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "uiCaptureHead": "765dc537384806741464ccc426d8205ffa4a41c4",
+  "capturedAt": "2026-10-23T19:52:48.349480+00:00",
+  "captures": [
+    "01-account-login-action.png",
+    "02-native-model-entry-guidance.png"
+  ],
+  "nativeChooserCaptureParent": "dcc2ce5a8012c6604e1869a813ef169da305eede",
+  "nativeChooserCapture": "03-native-login-terminal.png",
+  "uiSourceSHA256": {
+    "frontend/src/renderer/components/settings/harness/HarnessAccountTab.tsx": "87fa6e79cf4617cbe55656686e5699081d9b0a27006dc3ceb20a3081bdbd37bf",
+    "frontend/src/renderer/components/settings/harness/describe-harness.ts": "aa7b81cf36d37d915b7cd26cb4248ee931bbf8efc593e228b6f6f9043d4abf07",
+    "frontend/src/renderer/components/settings/harness/HarnessModelsPanel.tsx": "72f686d07b0e0e251b22ee43abed0bc5633e966df4d09926b8d0c97695ffa953",
+    "frontend/src/renderer/components/TaskComposer.tsx": "9e2431b80be048e6aed2331c8b6f6db17389d821eb69429fcb00ee3864713945"
+  },
+  "worktreeStatusAtCapture": " M backend/internal/session_manager/manager.go\n M backend/internal/session_manager/provision_test.go\n",
+  "dataDir": "$HOME/.ao/dev/m6541fix/data",
+  "nativeHome": "$HOME/.ao/dev/m6541fix/home",
+  "providerCredentialsEntered": false,
+  "daemonVCSBuild": [
+    "build\tvcs.revision=765dc537384806741464ccc426d8205ffa4a41c4",
+    "build\tvcs.time=2026-10-23T19:37:45Z",
+    "build\tvcs.modified=true"
+  ],
+  "productionIdentityHTTP": 200,
+  "productionPIDPresent": true
+}

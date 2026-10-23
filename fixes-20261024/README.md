@@ -1,0 +1,22 @@
+# Login/auth/model fix evidence
+Source heads are recorded in shared/source-freeze.json. These are isolated Linux VPS checks. The real Electron screenshots used fresh profiles; no account was selected and no key was entered in those windows. Separate bounded native requests used the user-supplied provider keys through temporary process environments. Temporary credential profiles were removed; raw provider answers and key values were not retained.
+
+MiniMax completed native inference with CodeBuddy 2.164.0. Mastra 0.45.0 / SDK1.11.0 / core1.75.0 initially returned successful text/model metadata that the old probe rejected. The installed AI SDK6.0.314 and Mastra V2 router can retain documented V3/V4 structured finishReason.unified and usage.outputTokens.total fields. The corrected probe accepted the real MiniMax response. shared/final-auth-probe-equivalence.json proves those probe bytes match the final Mastra source head.
+
+Z.ai's native Mastra check returned HTTP429 and remained configured/unverified. CodeBuddy JSON mode returned no qualifying structured result for Z.ai; no successful authentication is inferred from its zero exit status.
+
+## UI and native-launch scope
+Each ui-report.json identifies its actual screenshot source revision. Login/Setup is now available while auth is Unknown. Models is native freeform: New Task accepts a model ID; no synthetic model catalog was created. Configured credentials are presented as Credentials not verified.
+
+Ordinary unmodified UI requests omitted approvalMode and persisted native default permissions. Mastra reached its actual0.45 setup TUI. CodeBuddy's first practical UI launch used2.173 because the private Node toolchain bin shadowed the separately installed2.164. Those original screenshots/receipts remain identified as2.173. After correcting only private PATH precedence, an API retry on the same final daemon launched pinned2.164 and its real terminal mux showed the native login chooser. This is API/native evidence, not another UI form claim.
+
+The earlier CodeBuddy serialization driver released its guard before an asynchronous POST; one owned session was created and rejected before native launch due Auto permissions. The incident is retained. A later outgoing-model proof actually aborted its request and verified unchanged session count. The subsequent Default-policy fix was exercised by ordinary accepted requests. No successful provider turn inside an AO UI session, full lifecycle/restore/permission enforcement or cross-platform native-provider qualification is claimed.
+
+Policy JSON is an explicitly allowlisted public selection. Configuration/termination was independently checked from the owned test SQLite rows. Process-enumeration arrays were omitted rather than represented as authoritative native-process proof. No full command line, private instructions, database or credential file is attached.
+
+## Reproduction inputs
+Use the source heads and pinned native/package/tool versions in the receipts. The provider runners were executed with a task layout at $HOME/.ao/dev/harness-fixes-6541-6546-20261023: mastra/ and codebuddy/ source worktrees; native/ npm prefix; node24-path.txt containing the private Node24 bin directory. Recreate the native prefix with mastracode0.45.0, @mastra/code-sdk1.11.0, @tencent-ai/codebuddy-code2.164.0 and the retained package lock before rerunning. Set ONNXRUNTIME_NODE_INSTALL=skip when preparing optional native dependencies. The provider runners accept credentials through stdin and create/delete their own fresh profiles. No credential input is included in this evidence.
+
+After the recorded UI proof heads, CI-only repairs remove one unsupported Testing Library ByRole option and add one exported-method comment. They change no runtime behavior. Exact current heads and earlier UI proof heads are retained in source-freeze.json. The private installed-type probe is a narrow diagnostic; it does not replace the unchanged full project typecheck.
+
+The full local/remote CI snapshot is still in progress. Initial local Go failures were reproduced under inherited HOME/login profile and umask0002; corrected private CI fixtures use fresh HOME, cleared app/path overrides and umask0022. The failed attempt is retained privately and the four targeted repro packages passed after environment correction without product changes. Full-suite reruns are required before a blanket local-CI pass.

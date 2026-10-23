@@ -1,0 +1,38 @@
+{
+  "sourceHead": "8a7252bfbb1eff54cda3e035305348efe0730eb3",
+  "alreadyBuiltDaemonVCS": {
+    "vcs.revision": "8a7252bfbb1eff54cda3e035305348efe0730eb3",
+    "vcs.time": "2026-10-23T20:01:49Z",
+    "vcs.modified": "false"
+  },
+  "nativePublicEntry": "$AO_TEST_ROOT/native/node_modules/.bin/codebuddy",
+  "nativeRealEntry": "$AO_TEST_ROOT/native/node_modules/@tencent-ai/codebuddy-code/bin/codebuddy",
+  "nativeVersion": "2.164.0",
+  "node": "v24.22.1",
+  "pathOrder": [
+    "B/native/node_modules/.bin",
+    "Node24/bin",
+    "Go/bin",
+    "system bins"
+  ],
+  "scopedEnvironmentVariableNames": [
+    "HOME",
+    "PATH",
+    "AO_DATA_DIR",
+    "AO_RUN_FILE",
+    "AO_PORT",
+    "XDG_CACHE_HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    "TMPDIR",
+    "DISABLE_AUTOUPDATER",
+    "GOMAXPROCS",
+    "GOMEMLIMIT"
+  ],
+  "credentialOrAccountFilesRead": false,
+  "sourceChanged": false,
+  "frontendABIRebuildPerformed": false,
+  "nativePackageHash": "68e0ff61dfa12f526d40e6cc1de24ad7d7f06e93aa3f235753b61b0ddc5a11b8",
+  "nativeHeadlessHash": "f9affe2aed036a3a3ee8486b82e77b176a2a4b21f7bed721074c1c1e4a312e65",
+  "actualNativeEntryVerifiedFromOwnedProcess": true
+}

@@ -1,0 +1,15 @@
+{
+  "sourceHead": "8a7252bfbb1eff54cda3e035305348efe0730eb3",
+  "ownedSessionID": "standalone-2",
+  "requestApprovalModeOmitted": true,
+  "transportIntercepted": false,
+  "persisted": {
+    "permissionMode": "default",
+    "harness": "codebuddy",
+    "terminated": false,
+    "model": "MiniMax-M3"
+  },
+  "nativeGate": "see practical-native-gate.json and screenshots",
+  "providerInferenceAttempted": false,
+  "publicSelection": "Allowlisted configuration/native-gate fields; process enumeration omitted"
+}

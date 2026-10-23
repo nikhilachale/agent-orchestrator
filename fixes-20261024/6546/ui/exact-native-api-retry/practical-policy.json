@@ -1,0 +1,17 @@
+{
+  "sourceHead": "8a7252bfbb1eff54cda3e035305348efe0730eb3",
+  "ownedSessionID": "standalone-3",
+  "requestApprovalModeOmitted": true,
+  "transportIntercepted": false,
+  "persisted": {
+    "permissionMode": "default",
+    "harness": "codebuddy",
+    "terminated": false,
+    "model": "MiniMax-M3"
+  },
+  "nativeGate": "Actual native2.164.0 login-method chooser after exact owned-folder trust",
+  "providerInferenceAttempted": false,
+  "nativeTerminalEvidence": "02-native-login-viewport.txt",
+  "transportSurface": "API retry, not an additional real UI form interaction",
+  "publicSelection": "Allowlisted configuration/native-gate fields; original process enumeration omitted"
+}

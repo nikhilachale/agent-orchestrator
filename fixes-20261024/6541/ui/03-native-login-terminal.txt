@@ -1,0 +1,39 @@
+General
+Harness
+Subscriptions
+Browser
+Mobile
+Shortcuts
+Updates
+Help
+daemon ready
+Back
+Harness
+Search harnesses
+Logging in…
+Mastra Code
+Mastra Code
+Account
+Models
+Health
+Installation
+Installed version
+Version unavailable
+
+Install mastracode 0.45.0 (@mastra/code-sdk 1.11.0) with Node >=22.19. AO qualifies the native TUI only. ONNXRUNTIME_NODE_INSTALL=skip is the supported way to omit optional CUDA downloads for API-backed use.
+
+Account
+Logging in…
+Login
+
+Log in to Mastra Code
+
+Sign in to Mastra Code
+  1. Anthropic (Claude Pro/Max)
+  2. ChatGPT Plus/Pro (Codex Subscription)
+  3. GitHub Copilot
+  4. Kimi For Coding
+  5. xAI (Grok)
+  6. Add an API key
+Choose an option:  
+Orchestrator.inc

@@ -1,0 +1,13 @@
+{
+  "harness": "mastra-code",
+  "model": "minimax/MiniMax-M3",
+  "ownedSessionID": "standalone-1",
+  "previousSessionIDs": [],
+  "createRequest": {
+    "harness": "mastra-code",
+    "model": "minimax/MiniMax-M3",
+    "mode": "tui",
+    "approvalModePresent": false
+  },
+  "transportIntercepted": false
+}

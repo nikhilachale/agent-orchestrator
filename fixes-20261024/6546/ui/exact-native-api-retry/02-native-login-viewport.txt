@@ -1,0 +1,47 @@
+╭─── CodeBuddy Code v2.164.0 ────────────────────────────────────────────────────────────────────────────────╮
+│                                   │ Tips for getting started                                               │
+│                                   │ Press / to use commands, @ to mention files.                           │
+│                                   │ Open Web UI in browser for a richer interactive experience.            │
+│          ████        ████         │ Press Esc twice to reset the input box.                                │
+│          ████████████████         │ ────────────────────────────────────────────────────────────────────── │
+│        ████            ████       │ Recent activity                                                        │
+│        ████  ██    ██  ████       │ No recent activity                                                     │
+│        ████  ██    ██  ████       │ ────────────────────────────────────────────────────────────────────── │
+│        ████            ████       │ http://127.0.0.1:54097                                                 │
+│          ████████████████         │ MiniMax-M3                                                             │
+│                                   │ …user/.ao/dev/c6546fix/data/worktrees/standalone/sessions/standalone-3 │
+│                                   │                                                                        │
+│                                   │                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+ Select login method:
+
+ ❯ Log in via Chinese Site
+
+   Log in via International Site
+
+   Log in via Enterprise Domain
+
+   Log in via iOA (Tencent only)
+
+ (Use ↑↓ to select, Enter to login)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

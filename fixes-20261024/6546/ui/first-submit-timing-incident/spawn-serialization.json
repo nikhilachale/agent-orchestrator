@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "harness": "codebuddy",
+  "model": "minimax/MiniMax-M3",
+  "requestAborted": true,
+  "successfulResponseMocked": false,
+  "daemonSessionAccepted": false,
+  "nativeExecutionVerified": false
+}

@@ -1,0 +1,49 @@
+{
+  "nativePackages": {
+    "mastracode": "0.45.0",
+    "@mastra/code-sdk": "1.11.0",
+    "@mastra/core": "1.75.0",
+    "@tencent-ai/codebuddy-code": "2.164.0"
+  },
+  "aiVersion": "6.0.314",
+  "files": [
+    {
+      "path": "native/node_modules/mastracode/package.json",
+      "sha256": "f6d85ec734adde9bafb13879be403eb9a3a03b0d656c52478a8247139592c897",
+      "bytes": 4150
+    },
+    {
+      "path": "native/node_modules/mastracode/dist/index.js",
+      "sha256": "5c19022c208729d613b8f4771b3c6b40cfe2cb8e41c2ecc5652942ce06a45b1f",
+      "bytes": 45
+    },
+    {
+      "path": "native/node_modules/@mastra/code-sdk/package.json",
+      "sha256": "191ada5eaeae8ad17618f70e7e7f1eb4c981434311dddbb6360b2dfa098c282a",
+      "bytes": 3028
+    },
+    {
+      "path": "native/node_modules/@mastra/core/package.json",
+      "sha256": "4e96ecd7abd0537c8623decbd648013f76ee31c100ef661b0a2e79817a85c5c6",
+      "bytes": 29893
+    },
+    {
+      "path": "native/node_modules/ai/package.json",
+      "sha256": "e54d25f32628f3955dcd0d63403cf6e13c4ef9c24fd3b3ad0e887052b946b919",
+      "bytes": 3116
+    },
+    {
+      "path": "native/node_modules/@tencent-ai/codebuddy-code/package.json",
+      "sha256": "68e0ff61dfa12f526d40e6cc1de24ad7d7f06e93aa3f235753b61b0ddc5a11b8",
+      "bytes": 2740
+    },
+    {
+      "path": "native/node_modules/@tencent-ai/codebuddy-code/dist/codebuddy-headless.js",
+      "sha256": "f9affe2aed036a3a3ee8486b82e77b176a2a4b21f7bed721074c1c1e4a312e65",
+      "bytes": 22926943
+    }
+  ],
+  "node": "v24.22.1",
+  "platform": "Linux x86_64",
+  "ephemeralCredentialProfilesRemaining": 0
+}

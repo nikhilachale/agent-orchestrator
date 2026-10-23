@@ -1,0 +1,15 @@
+{
+  "sourceHead": "0772781da61fa446ee91c08d4989eba65a31c08d",
+  "ownedSessionID": "standalone-1",
+  "requestApprovalModeOmitted": true,
+  "transportIntercepted": false,
+  "persisted": {
+    "permissionMode": "default",
+    "harness": "mastra-code",
+    "terminated": false,
+    "model": "minimax/MiniMax-M3"
+  },
+  "nativeGate": "Mastra0.45.0 native first-run /setup welcome",
+  "providerInferenceAttempted": false,
+  "publicSelection": "Allowlisted configuration/native-gate fields; process enumeration omitted"
+}

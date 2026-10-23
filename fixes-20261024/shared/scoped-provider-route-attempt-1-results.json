@@ -1,0 +1,69 @@
+{
+  "nativePackages": {
+    "mastracode": "0.45.0",
+    "@mastra/code-sdk": "1.11.0",
+    "@mastra/core": "1.75.0",
+    "@tencent-ai/codebuddy-code": "2.164.0"
+  },
+  "sourceHead": "dcc2ce5a8012c6604e1869a813ef169da305eede",
+  "credentialsPersistedByRunner": false,
+  "profilesRetained": false,
+  "checks": [
+    {
+      "harness": "mastra-code",
+      "provider": "zai",
+      "model": "zai/glm-5.2",
+      "route": "native general API provider, not coding-plan tool emulation",
+      "setupExit": 0,
+      "status": "UNVERIFIED",
+      "exit": 0,
+      "termination": "completed",
+      "seconds": 1.47,
+      "nativeProbe": {
+        "status": "configured",
+        "code": "provider_rate_limited",
+        "provider": "zai",
+        "httpStatus": 429
+      }
+    },
+    {
+      "harness": "mastra-code",
+      "provider": "minimax",
+      "model": "minimax/MiniMax-M3",
+      "route": "native general API provider, not coding-plan tool emulation",
+      "setupExit": 0,
+      "status": "UNVERIFIED",
+      "exit": 0,
+      "termination": "completed",
+      "seconds": 2.16,
+      "nativeProbe": {
+        "status": "configured",
+        "code": "provider_unsupported",
+        "provider": "minimax",
+        "httpStatus": 0
+      }
+    },
+    {
+      "harness": "codebuddy",
+      "provider": "zai",
+      "model": "glm-5.2",
+      "baseUrl": "https://api.z.ai/api/paas/v4",
+      "exit": 0,
+      "termination": "completed",
+      "seconds": 15.12,
+      "status": "INCONCLUSIVE",
+      "structuredStatusCodes": []
+    },
+    {
+      "harness": "codebuddy",
+      "provider": "minimax",
+      "model": "MiniMax-M3",
+      "baseUrl": "https://api.minimax.io/v1",
+      "exit": 0,
+      "termination": "completed",
+      "seconds": 15.06,
+      "status": "PASS",
+      "structuredStatusCodes": []
+    }
+  ]
+}

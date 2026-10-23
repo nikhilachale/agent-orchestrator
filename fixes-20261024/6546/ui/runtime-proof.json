@@ -1,0 +1,84 @@
+{
+  "sourceHead": "9a0060f5e684c5d605ea32813a6792382afd5a1e",
+  "dataDir": "$HOME/.ao/dev/c6546fix/data",
+  "runFile": "$HOME/.ao/dev/c6546fix/running.json",
+  "electronProfile": "$HOME/.ao/dev/c6546fix/electron",
+  "nativeHome": "$HOME/.ao/dev/c6546fix/home",
+  "daemon": "http://127.0.0.1:31046",
+  "renderer": "http://localhost:5173/",
+  "cdp": "http://127.0.0.1:9223",
+  "electronPreload": "window.ao object",
+  "nativeCredentialsEntered": false,
+  "providerInferenceExecuted": false,
+  "nativeTrust": "Only current isolated auth-workspace folder trusted; no parent/global trust",
+  "nativeLoginMenu": "First-run native login method chooser observed; no account/site selected",
+  "manualLoginInput": "NOT_RUN because native chooser already open; injecting Enter could choose a site",
+  "readiness": {
+    "id": "codebuddy",
+    "label": "CodeBuddy Code",
+    "installation": {
+      "state": "installed",
+      "freshness": "fresh",
+      "checkedAt": "2026-10-23T19:47:46.384610455Z",
+      "attemptedAt": "2026-10-23T19:47:46.384610455Z",
+      "reasonCode": "installed",
+      "reason": "CodeBuddy Code is installed."
+    },
+    "authentication": {
+      "state": "unknown",
+      "freshness": "stale",
+      "checkedAt": null,
+      "attemptedAt": "2026-10-23T19:47:46.384675116Z",
+      "reasonCode": "auth_check_inconclusive",
+      "reason": "Authentication check was inconclusive.",
+      "diagnostics": [
+        {
+          "method": "native_inference",
+          "code": "output_unrecognized",
+          "reason": "AO could not recognize the CLI authentication response.",
+          "nextStep": "Check the CLI version and its native login status; include these diagnostics in a bug report.",
+          "checkedAt": "2026-10-23T19:47:50.426377791Z",
+          "cached": false,
+          "durationMs": 4041
+        }
+      ]
+    },
+    "effectiveReadiness": "unknown",
+    "usageCount": 1,
+    "lastUsedAt": "2026-10-23T19:43:30.100993392Z"
+  },
+  "models": {
+    "agentId": "codebuddy",
+    "selectionMode": "text",
+    "models": [],
+    "customModelEntry": "direct",
+    "allowCustom": true,
+    "source": "manual"
+  },
+  "authPlan": {
+    "agentId": "codebuddy",
+    "action": "setup",
+    "launchMode": "terminal",
+    "available": true,
+    "displayCommand": "codebuddy",
+    "guidance": "Use native first-run login, or select Open setup after CodeBuddy finishes starting to open /login; configure third-party endpoints and keys in CodeBuddy",
+    "documentationUrl": "https://www.codebuddy.ai/docs/cli/quickstart"
+  },
+  "isolatedSessions": [
+    {
+      "id": "standalone-1",
+      "harness": "codebuddy",
+      "mode": "tui",
+      "isTerminated": true
+    }
+  ],
+  "productionPIDPresent": true,
+  "productionIdentityHTTP": 200,
+  "ownMainPIDs": [
+    1663971
+  ],
+  "ownDaemonPIDs": [
+    1664056
+  ],
+  "ownPTYProcessesStopped": []
+}

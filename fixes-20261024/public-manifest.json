@@ -1,0 +1,481 @@
+[
+  {
+    "path": "6541/preflight.json",
+    "sha256": "28961884bc8982d2c135e41d8f52904dc861a11f6ab7f4f068b165f12038d860",
+    "bytes": 3231,
+    "originalSha256": "a6d964a4acdbbd39bb5bd647b22886123b96395e2a85a19fcd72addb3bbd57bb",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/preflight.json",
+    "sha256": "ad9dd54104958a2c4d6e29db49ebb41a422befe5a66704454f089ac4b7630b2e",
+    "bytes": 3230,
+    "originalSha256": "aff6ed5c7793b0d2f4cf13291fa1c0b13aa72f8314085765c55ef8793f91c6df",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "shared/native-fix-provenance.json",
+    "sha256": "39ba6ebdde4eec1945c11d9ac76f6a0441c5504f8318cdd2c2bcc79be0b97698",
+    "bytes": 1602,
+    "originalSha256": "39ba6ebdde4eec1945c11d9ac76f6a0441c5504f8318cdd2c2bcc79be0b97698",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "shared/scoped-provider-route-attempt-1-results.json",
+    "sha256": "3f4ceb85766d4b62081dca064dc25b01ab713564b97b463f4098aefadc2be208",
+    "bytes": 1812,
+    "originalSha256": "3f4ceb85766d4b62081dca064dc25b01ab713564b97b463f4098aefadc2be208",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "shared/mastra-minimax-native-shape.json",
+    "sha256": "740cb195bf49954691e2b62de0ac0883a5ac02b1b3a4c49202ff67582fd4755f",
+    "bytes": 495,
+    "originalSha256": "740cb195bf49954691e2b62de0ac0883a5ac02b1b3a4c49202ff67582fd4755f",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "shared/mastra-minimax-provider-after-fix.json",
+    "sha256": "249f45f6a62652f0495d2af2443638fda98546b5cdd2eda5331f240647e6210a",
+    "bytes": 549,
+    "originalSha256": "249f45f6a62652f0495d2af2443638fda98546b5cdd2eda5331f240647e6210a",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "shared/ci-environment-correction.json",
+    "sha256": "b6dac45151c65082509fb8b9a433d546eac50fac4447ddce1a3e9a84978ac188",
+    "bytes": 650,
+    "originalSha256": "75f85305bec4d652f58d562b782674183092763bc3380670674a393e879c2470",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "shared/source-freeze.json",
+    "sha256": "9c864707f5ecb5aba78c6568fed588db07378e57ddcd282849b39b63ff6fe05c",
+    "bytes": 1289,
+    "originalSha256": "421161ab0a600608f5371176585dc68c4b41a1c16437c300093971a5fbd7c2f7",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "shared/final-auth-probe-equivalence.json",
+    "sha256": "305f5e18bc7439e5ed88b75e7f90c6a260de71b680983dc87439e38daed4eff4",
+    "bytes": 384,
+    "transformation": "Allowlisted JSON fields; task/home paths redacted"
+  },
+  {
+    "path": "6541/ui/ui-report.json",
+    "sha256": "122fa5b0ca38724ba8695bcb5a3359313d3b6fc8bc8137f1c96c3dc63f66fe88",
+    "bytes": 2896,
+    "originalSha256": "122fa5b0ca38724ba8695bcb5a3359313d3b6fc8bc8137f1c96c3dc63f66fe88",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6541/ui/ui-report.md",
+    "sha256": "dc5415e75fb977d3082535dcf2d8b5bb53f4c30818c3a830f457a560b017c575",
+    "bytes": 1841,
+    "originalSha256": "dc5415e75fb977d3082535dcf2d8b5bb53f4c30818c3a830f457a560b017c575",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6541/ui/ui-source-sha256.json",
+    "sha256": "a075789bf93a453fa3fe3afe0be489370c652647d161f713c312a4b0fd30aa87",
+    "bytes": 560,
+    "originalSha256": "a075789bf93a453fa3fe3afe0be489370c652647d161f713c312a4b0fd30aa87",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6541/ui/runtime-proof.json",
+    "sha256": "9334d6d832e301543ea57600ab60c99f5cb3584577353c652919e5e3c574801a",
+    "bytes": 2697,
+    "originalSha256": "e105465be5c7dbb18d65e1d0996b0bc40f5140f802869064598edac5be950662",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6541/ui/spawn-serialization.json",
+    "sha256": "5ff3304169c93e62f6d8aa6dd0fe2469bdd4ab11d027fc7b4042eb91b6f5d43c",
+    "bytes": 572,
+    "originalSha256": "5ff3304169c93e62f6d8aa6dd0fe2469bdd4ab11d027fc7b4042eb91b6f5d43c",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6541/ui/practical-stop.json",
+    "sha256": "b940f8932473ca4b066eb6b1bffdeba7ba9962c68674b77bd9253fe7c6812abb",
+    "bytes": 301,
+    "originalSha256": "b940f8932473ca4b066eb6b1bffdeba7ba9962c68674b77bd9253fe7c6812abb",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6541/ui/practical-launch-source.json",
+    "sha256": "f3c02bf0ffb31a03e27d42950585125ad118484d6f166c3e988d80348eef99aa",
+    "bytes": 387,
+    "originalSha256": "b68845d76b6a835401705bf7025cb8f1619731ee8c9dae4ea0cb47d21e164aa7",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6541/ui/practical-session-seed.json",
+    "sha256": "0856269a060d0cba69c2dff1b74ac1274bfd229116c73c1b055cbcf0fabe159b",
+    "bytes": 304,
+    "originalSha256": "0856269a060d0cba69c2dff1b74ac1274bfd229116c73c1b055cbcf0fabe159b",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6541/ui/frozen-head-settings/01-account-login-action.png",
+    "sha256": "459e4ca97e262c7ce7ac319eaf71b89eb1a367da5eabca65a0291431ccf5cdbc",
+    "bytes": 58834,
+    "originalSha256": "459e4ca97e262c7ce7ac319eaf71b89eb1a367da5eabca65a0291431ccf5cdbc",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6541/ui/frozen-head-settings/02-native-model-entry-guidance.png",
+    "sha256": "432062fb4177fd89f75b0dba6147aae4f17f3889a7fc22d9739b19c1e1125502",
+    "bytes": 42508,
+    "originalSha256": "432062fb4177fd89f75b0dba6147aae4f17f3889a7fc22d9739b19c1e1125502",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6541/ui/03-native-login-terminal.png",
+    "sha256": "4d25d85aa048d0e85d8c8e5550a89f08143314d4dc884230eff8bbc2ce2e24a2",
+    "bytes": 54601,
+    "originalSha256": "4d25d85aa048d0e85d8c8e5550a89f08143314d4dc884230eff8bbc2ce2e24a2",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6541/ui/03-native-login-terminal.txt",
+    "sha256": "e2731de177f45d441d3aee22664b2cc950315a699e2e472c7e0487967426d9f2",
+    "bytes": 695,
+    "originalSha256": "e2731de177f45d441d3aee22664b2cc950315a699e2e472c7e0487967426d9f2",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6541/ui/05-auth-missing-blocked.png",
+    "sha256": "5944aef9e0889574bee15bdd47130377e4f27734cc7de152289292c4be145a1a",
+    "bytes": 55978,
+    "originalSha256": "5944aef9e0889574bee15bdd47130377e4f27734cc7de152289292c4be145a1a",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6541/ui/06-direct-model-use-action.png",
+    "sha256": "35bc2d297958f2fa218f04702715af1312ae678cf8ce94ce9207a07567708ae0",
+    "bytes": 77523,
+    "originalSha256": "35bc2d297958f2fa218f04702715af1312ae678cf8ce94ce9207a07567708ae0",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6541/ui/07-direct-model-selected.png",
+    "sha256": "9721bcce77f9e523c95eafddcf903fd7b493843874a8c4c84d41e965fd9cbf73",
+    "bytes": 76047,
+    "originalSha256": "9721bcce77f9e523c95eafddcf903fd7b493843874a8c4c84d41e965fd9cbf73",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6541/ui/08-submit-request-aborted.png",
+    "sha256": "6b2f01fe0ca574faec82f800b48fad4f3cfed265795501d29b2e160bbc49d3a7",
+    "bytes": 70712,
+    "originalSha256": "6b2f01fe0ca574faec82f800b48fad4f3cfed265795501d29b2e160bbc49d3a7",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6541/ui/09-practical-form-unmodified.png",
+    "sha256": "67fe3210c28ce110ec29c048b6587542625065624cc043420299318c6004e77a",
+    "bytes": 75837,
+    "originalSha256": "67fe3210c28ce110ec29c048b6587542625065624cc043420299318c6004e77a",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6541/ui/10-practical-native-gate.png",
+    "sha256": "be3e0204ed837ec816d4d5603eb7d71479755081ccaae961479e0486e57f1215",
+    "bytes": 51740,
+    "originalSha256": "be3e0204ed837ec816d4d5603eb7d71479755081ccaae961479e0486e57f1215",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6541/ui/before-fix/01-account-login-action.png",
+    "sha256": "c31b6b42b5ecc9ac085eb039f50c802d101fa35dd1a2cef09c6e393ae1872bea",
+    "bytes": 57660,
+    "originalSha256": "c31b6b42b5ecc9ac085eb039f50c802d101fa35dd1a2cef09c6e393ae1872bea",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6541/ui/before-fix/failure.json",
+    "sha256": "6231418a939ec54c02a8832cf01806fe68b073356017ef51cb4bf4bec870a28d",
+    "bytes": 286,
+    "originalSha256": "6231418a939ec54c02a8832cf01806fe68b073356017ef51cb4bf4bec870a28d",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6541/ui/final-source-capture.json",
+    "sha256": "37423319a4744a3efbdfd6746d416d34467ce8d0ac7909e8ec0a4beb2bcb7ddb",
+    "bytes": 1441,
+    "originalSha256": "7a75a7adbda5171bef53b129e3fed366f7d40e94748cf68366f19b60f3ba0ddb",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6541/ui/practical-policy.json",
+    "sha256": "2e39d3ccf4ea57f9a8d153bae5882588da4a9525eb3cbbaa4a0f4f169abe2976",
+    "bytes": 515,
+    "originalSha256": "8a0dd7d6257d4d8526c1edcd63f324a7d183186e8eccd8ad58f6c3b43c672c5b",
+    "transformation": "Allowlisted JSON fields; task/home paths redacted"
+  },
+  {
+    "path": "6546/ui/ui-report.json",
+    "sha256": "932ebdefca9853e8061654ce9d46a2f7e87dd330ad847defc6d7857f6df4e3d4",
+    "bytes": 4137,
+    "originalSha256": "932ebdefca9853e8061654ce9d46a2f7e87dd330ad847defc6d7857f6df4e3d4",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/ui-report.md",
+    "sha256": "9c174a800b978b53f3180ee9531075c63ff7106421f3282591150d9a0c51d555",
+    "bytes": 2705,
+    "originalSha256": "9c174a800b978b53f3180ee9531075c63ff7106421f3282591150d9a0c51d555",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/ui-source-sha256.json",
+    "sha256": "a075789bf93a453fa3fe3afe0be489370c652647d161f713c312a4b0fd30aa87",
+    "bytes": 560,
+    "originalSha256": "a075789bf93a453fa3fe3afe0be489370c652647d161f713c312a4b0fd30aa87",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/runtime-proof.json",
+    "sha256": "56e432e12ae7729c084cdfc0f4639a7e55968268af143121b95417407f87b823",
+    "bytes": 2857,
+    "originalSha256": "06c39ddd501a6dc41d71a8fd7c3f0fb364c39a48e61b41fe1f74a14a2aa51576",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/spawn-serialization.json",
+    "sha256": "7a39c9ff862a2e57a2cd559cdb1b640a6a360c91277a6463a2d6f8a0f58aceea",
+    "bytes": 611,
+    "originalSha256": "7a39c9ff862a2e57a2cd559cdb1b640a6a360c91277a6463a2d6f8a0f58aceea",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/practical-stop.json",
+    "sha256": "9a35a34f2e73e00d23ca8b1b8f3c821659ebd32f8afeb52c8bf975e90ac52327",
+    "bytes": 301,
+    "originalSha256": "9a35a34f2e73e00d23ca8b1b8f3c821659ebd32f8afeb52c8bf975e90ac52327",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/practical-launch-source.json",
+    "sha256": "6e22d93e91ab2e6adfba2ace98b4e28be09fc31194b0e7d31a0cf8a15c0f718e",
+    "bytes": 390,
+    "originalSha256": "f521fd8b977c707ad2f55a4e360e8bcd157e0ab517b9f10d31f5b7c50ad70ee6",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/practical-session-seed.json",
+    "sha256": "dc9b83022c12e060e605a89dd483a285d46e6539d07404b1bd921b19d2e0a273",
+    "bytes": 306,
+    "originalSha256": "dc9b83022c12e060e605a89dd483a285d46e6539d07404b1bd921b19d2e0a273",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/frozen-head-settings/01-account-login-action.png",
+    "sha256": "ad9224eb6e7f54888c11c09758e8b767aa58ad61293a231a351fe7324440dfdc",
+    "bytes": 44448,
+    "originalSha256": "ad9224eb6e7f54888c11c09758e8b767aa58ad61293a231a351fe7324440dfdc",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6546/ui/frozen-head-settings/02-native-model-entry-guidance.png",
+    "sha256": "df8fd8372c0797958cc432f0a5191a2ef1ca1b93767fa61eef5fb554f312cb26",
+    "bytes": 42416,
+    "originalSha256": "df8fd8372c0797958cc432f0a5191a2ef1ca1b93767fa61eef5fb554f312cb26",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6546/ui/03-native-login-terminal.png",
+    "sha256": "a5a898823f7e295f8c665129dc0c527ebb7ebf8cacd3ab2b303dda4ff42796ad",
+    "bytes": 46217,
+    "originalSha256": "a5a898823f7e295f8c665129dc0c527ebb7ebf8cacd3ab2b303dda4ff42796ad",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6546/ui/03-native-login-terminal.txt",
+    "sha256": "55ef7776a0b8360d78236a2333e999f420c9119cd4be966a0ac93a1c9a0a7903",
+    "bytes": 3066,
+    "originalSha256": "368e3580397aea06246c8b691d0ac85f54b58500b960caa04587622b84abdf05",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/05-auth-missing-blocked.png",
+    "sha256": "e2d49b56bddb4fe92a4049d57cb5476c497dc05595e8c912337c16e88053ec67",
+    "bytes": 64927,
+    "originalSha256": "e2d49b56bddb4fe92a4049d57cb5476c497dc05595e8c912337c16e88053ec67",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6546/ui/06-direct-model-use-action.png",
+    "sha256": "ac34c4b954e8ff237db66cf28a98d323ac822a1e9df83be669422ff13363d340",
+    "bytes": 63349,
+    "originalSha256": "ac34c4b954e8ff237db66cf28a98d323ac822a1e9df83be669422ff13363d340",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6546/ui/07-direct-model-selected.png",
+    "sha256": "65d2530325339df9d8f1d7a46b1b5bd93802a160e10bf9b67601cc8595bfa3a0",
+    "bytes": 60693,
+    "originalSha256": "65d2530325339df9d8f1d7a46b1b5bd93802a160e10bf9b67601cc8595bfa3a0",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6546/ui/08-submit-request-aborted.png",
+    "sha256": "05eab8c8be682cf53037b51663740a3bdbf4ef02573be224b8059a7a81408ac4",
+    "bytes": 60211,
+    "originalSha256": "05eab8c8be682cf53037b51663740a3bdbf4ef02573be224b8059a7a81408ac4",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6546/ui/09-practical-form-unmodified.png",
+    "sha256": "8723d39b660ca9d512a684167bbd22e4e8643a2170057331a99fff51d511dc0f",
+    "bytes": 77686,
+    "originalSha256": "8723d39b660ca9d512a684167bbd22e4e8643a2170057331a99fff51d511dc0f",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6546/ui/03b-native-owned-workspace-ready.png",
+    "sha256": "66bbac157f5d765a1b769b0ba329e720d543c88f7fea997cf9270b944f12bbe2",
+    "bytes": 77293,
+    "originalSha256": "66bbac157f5d765a1b769b0ba329e720d543c88f7fea997cf9270b944f12bbe2",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6546/ui/03b-native-owned-workspace-ready.txt",
+    "sha256": "d060a81ac3dcb860d1d952e561674e09a91a7cc5d67fdd2b3ee87ef61673a97e",
+    "bytes": 2577,
+    "originalSha256": "d060a81ac3dcb860d1d952e561674e09a91a7cc5d67fdd2b3ee87ef61673a97e",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/10b-practical-native-login.png",
+    "sha256": "b822852bc7dd507216be7091a2180ade61d5dee1b386d5ff8fc6e1b26d185068",
+    "bytes": 75406,
+    "originalSha256": "b822852bc7dd507216be7091a2180ade61d5dee1b386d5ff8fc6e1b26d185068",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6546/ui/practical-version-provenance.json",
+    "sha256": "4f3a9af32c54802f98f92124604f8d0f91b04bf1f72e7c4cab90c7bade903daa",
+    "bytes": 977,
+    "originalSha256": "60928e879304e8a35f7a28f2df8da230bde688122e1da0c3750324af751c9acc",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/exact-native-api-retry/native-terminal-proof.json",
+    "sha256": "a2c413d49663691faeedba97f866e5b8ba0077e0076eb3944e6763b501246baf",
+    "bytes": 397,
+    "originalSha256": "a2c413d49663691faeedba97f866e5b8ba0077e0076eb3944e6763b501246baf",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/exact-native-api-retry/practical-stop.json",
+    "sha256": "b90b39b70968d4463b2aee2475bdb49baaec9a06467d3d9a1f0b4ab12ad67896",
+    "bytes": 262,
+    "originalSha256": "b90b39b70968d4463b2aee2475bdb49baaec9a06467d3d9a1f0b4ab12ad67896",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/exact-native-api-retry/source-and-native-provenance.json",
+    "sha256": "6d03f344971d22c7d4dcb5d7d025387ab7af9c2ddd84b3795aa2b089e1a383fd",
+    "bytes": 1166,
+    "originalSha256": "df67dd36a3f079050ec539f2643663ba3c6d198e789cb8621370284624125d39",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/exact-native-api-retry/01-native-initial-viewport.txt",
+    "sha256": "0bdf051fc94182884a919761afc997a31507a005ebb9d913eac308d618de71b0",
+    "bytes": 4447,
+    "originalSha256": "989af8e888dbdd369ef1988ea07d8220a3cba9935a9267920e530151fa8621c6",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/exact-native-api-retry/02-native-login-viewport.txt",
+    "sha256": "14e815baae08f5b8e488fa589806bd71bc851d80d22c637f38d28d792a05be2d",
+    "bytes": 2790,
+    "originalSha256": "14e815baae08f5b8e488fa589806bd71bc851d80d22c637f38d28d792a05be2d",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/exact-native-api-retry/final-cleanup.json",
+    "sha256": "f2fdc3a7007e2c570cf599edfa61047a3ff4ba6856551cddb6b96dd694332c26",
+    "bytes": 128,
+    "originalSha256": "f2fdc3a7007e2c570cf599edfa61047a3ff4ba6856551cddb6b96dd694332c26",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/first-submit-timing-incident/incident.json",
+    "sha256": "9d5ec587e0869945aa8b87d280fe220cd96ec56f187c8bddfc176107561a6486",
+    "bytes": 248,
+    "originalSha256": "9d5ec587e0869945aa8b87d280fe220cd96ec56f187c8bddfc176107561a6486",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/first-submit-timing-incident/spawn-serialization.json",
+    "sha256": "0b59efa1479e8ad35212f61c950e6353da972d67657eae18dca8a1ad2a594c4f",
+    "bytes": 217,
+    "originalSha256": "0b59efa1479e8ad35212f61c950e6353da972d67657eae18dca8a1ad2a594c4f",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "6546/ui/first-submit-timing-incident/08-submit-request-aborted.png",
+    "sha256": "2e6064af0d4480635b76f1a6779d1da334f75195a75b7400e1ba73dd58991c6d",
+    "bytes": 62178,
+    "originalSha256": "2e6064af0d4480635b76f1a6779d1da334f75195a75b7400e1ba73dd58991c6d",
+    "transformation": "Original PNG, unchanged"
+  },
+  {
+    "path": "6546/ui/practical-policy.json",
+    "sha256": "75b0e777271eabb96ea0a69d6a008df4d56d3a46a576b555573e734f37c0c8f7",
+    "bytes": 507,
+    "originalSha256": "77e838c4fa0b5c510beac5e3b15b51d1a27b853395c191f23ba937f7b2ea92a9",
+    "transformation": "Allowlisted JSON fields; task/home paths redacted"
+  },
+  {
+    "path": "6546/ui/exact-native-api-retry/practical-policy.json",
+    "sha256": "5e439806a8bf521b4714caa794de505d706276a26c91ba70311885483a99709d",
+    "bytes": 681,
+    "originalSha256": "5708ddc5f5c2eaa3e29f1c08d5e116ab8d45f2019049169ee188b6899a6b763c",
+    "transformation": "Allowlisted JSON fields; task/home paths redacted"
+  },
+  {
+    "path": "shared/root-owned-session-verification.json",
+    "sha256": "5bf9de9913bde6d6d57280c81b86fc37f21cdca5775eda258ab1f4f516b89a7a",
+    "bytes": 706,
+    "transformation": "Allowlisted JSON fields; task/home paths redacted"
+  },
+  {
+    "path": "shared/native-dependencies/package.json",
+    "sha256": "83811f7aa66948a72950c694fe3545aec321ec17aebe17cace267ad0970f9e2f",
+    "bytes": 137,
+    "originalSha256": "83811f7aa66948a72950c694fe3545aec321ec17aebe17cace267ad0970f9e2f",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "shared/native-dependencies/package-lock.json",
+    "sha256": "b66d77c3eb8aeb3e792ef8c982b3ed821fdc6462dd43df58134296b97aad1465",
+    "bytes": 393376,
+    "originalSha256": "b66d77c3eb8aeb3e792ef8c982b3ed821fdc6462dd43df58134296b97aad1465",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "shared/runners/check-scoped-provider-routes.py",
+    "sha256": "8ae1392cf9a83d64534fac2125d614889fc2d51fd9ce4ef2e104c91e571eb523",
+    "bytes": 5275,
+    "originalSha256": "8ae1392cf9a83d64534fac2125d614889fc2d51fd9ce4ef2e104c91e571eb523",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "shared/runners/check-mastra-minimax-fixed.py",
+    "sha256": "5c290671c7f907ccca6485d657c759527e7c35950d1d94fe2a6666cf29c734ca",
+    "bytes": 2987,
+    "originalSha256": "5c290671c7f907ccca6485d657c759527e7c35950d1d94fe2a6666cf29c734ca",
+    "transformation": "ANSI removed; task/home paths and credential-shaped strings redacted"
+  },
+  {
+    "path": "README.md",
+    "sha256": "399661003d3bcf0f0c0fe45997a77fdaa1920f09d68bbeb95690df3c6dc6e997",
+    "bytes": 4410
+  }
+]

@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "harness": "mastra-code",
+  "label": "Mastra Code",
+  "generatedAt": "2026-10-23T20:13:58.546445+00:00",
+  "checkpoints": [
+    {
+      "id": "native-shell",
+      "status": "PASS",
+      "reason": "Real Electron renderer with window.ao preload, own checkout and isolated daemon; actual product API metadata captured."
+    },
+    {
+      "id": "account-action",
+      "status": "PASS",
+      "reason": "Unknown auth retains an available native Login/Setup action.",
+      "screenshot": "frozen-head-settings/01-account-login-action.png",
+      "sourceHead": "0772781da61fa446ee91c08d4989eba65a31c08d"
+    },
+    {
+      "id": "native-model-guidance",
+      "status": "PASS",
+      "reason": "Native freeform/direct model-entry guidance displayed; real catalog has zero listed models and no fabricated entries.",
+      "screenshot": "frozen-head-settings/02-native-model-entry-guidance.png",
+      "sourceHead": "0772781da61fa446ee91c08d4989eba65a31c08d"
+    },
+    {
+      "id": "native-login-chooser",
+      "status": "PASS",
+      "reason": "Mastra native OAuth and Add an API key chooser opened; no option selected.",
+      "screenshot": "03-native-login-terminal.png",
+      "sourceHead": "dcc2ce5a8012c6604e1869a813ef169da305eede"
+    },
+    {
+      "id": "direct-model-serialization",
+      "status": "PASS",
+      "reason": "Actual outgoing New Task payload contains the selected native model. Request aborted before daemon acceptance; no successful response mocked.",
+      "model": "zai/glm-5.2",
+      "screenshot": "07-direct-model-selected.png",
+      "evidence": "spawn-serialization.json"
+    },
+    {
+      "id": "connected-in-this-ui-profile",
+      "status": "BLOCKED",
+      "reason": "This UI proof deliberately used a fresh no-credential profile. No login was completed or key entered. Separate root-owned live provider checks do not change this UI run.",
+      "screenshot": "05-auth-missing-blocked.png"
+    },
+    {
+      "id": "practical-task-after-default-policy-fix",
+      "status": "PASS",
+      "reason": "Ordinary unmodified form omitted approvalMode; actual daemon persisted default, native setup/login gate reached, then owned session killed and app stopped. No provider inference.",
+      "sourceHead": "0772781da61fa446ee91c08d4989eba65a31c08d",
+      "nativeVersion": "0.45.0",
+      "evidence": "practical-policy.json",
+      "stopEvidence": "practical-stop.json",
+      "screenshot": "10-practical-native-gate.png"
+    }
+  ],
+  "runtimeEvidence": "runtime-proof.json",
+  "finalSourceEvidence": "final-source-capture.json",
+  "scope": "Login/setup and model UI proof. Does not qualify full harness lifecycle, restore, permission enforcement or authenticated UI execution.",
+  "finalPracticalSourceHead": "0772781da61fa446ee91c08d4989eba65a31c08d",
+  "finalPracticalNativeVersion": "0.45.0",
+  "productionIdentityHTTPAfterStop": 200
+}

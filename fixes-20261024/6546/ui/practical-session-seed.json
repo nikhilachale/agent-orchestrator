@@ -1,0 +1,15 @@
+{
+  "harness": "codebuddy",
+  "model": "MiniMax-M3",
+  "ownedSessionID": "standalone-2",
+  "previousSessionIDs": [
+    "standalone-1"
+  ],
+  "createRequest": {
+    "harness": "codebuddy",
+    "model": "MiniMax-M3",
+    "mode": "tui",
+    "approvalModePresent": false
+  },
+  "transportIntercepted": false
+}

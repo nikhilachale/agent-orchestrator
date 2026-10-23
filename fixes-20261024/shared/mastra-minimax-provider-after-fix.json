@@ -1,0 +1,19 @@
+{
+  "evidenceKind": "Bounded native Mastra auth-probe provider request",
+  "head": "765dc537384806741464ccc426d8205ffa4a41c4",
+  "authProbeSha256": "da86dc94beb16add34439a87be6c76178f4882ec3000deb14ff1f669cc4c58fe",
+  "provider": "minimax",
+  "model": "minimax/MiniMax-M3",
+  "status": "PASS",
+  "exit": 0,
+  "termination": "completed",
+  "seconds": 2.42,
+  "nativeProbe": {
+    "status": "authorized",
+    "code": "provider_accepted",
+    "provider": "minimax",
+    "httpStatus": 0
+  },
+  "credentialsRetained": false,
+  "profileRetained": false
+}

@@ -1,0 +1,57 @@
+General
+Harness
+Subscriptions
+Browser
+Mobile
+Shortcuts
+Updates
+Help
+daemon ready
+Back
+Harness
+Search harnesses
+Logging in…
+C
+CodeBuddy Code
+C
+CodeBuddy Code
+Account
+Models
+Health
+Installation
+Installed version
+Installed with npm
+v2.164.0
+v2.173.0 available
+
+AO has qualified CodeBuddy Code 2.164.0 only; update manually until a newer release is verified.
+
+Account
+Logging in…
+Set up
+
+Set up CodeBuddy Code
+
+Use native first-run login, or select Open setup after CodeBuddy finishes starting to open /login; configure third-party endpoints and keys in CodeBuddy
+
+Open setup
+╭───────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Do you trust the files in this folder?                                                                    │
+│                                                                                                           │
+│ $HOME/.ao/dev/c6546fix/data/auth-workspace/shellterm-ea8d1041f18ed4c2                           │
+│                                                                                                           │
+│ CodeBuddy Code may read, write, or execute files contained in this directory. This can pose security      │
+│ risks, so only use files and bash commands from trusted sources.                                          │
+│                                                                                                           │
+│ Learn more ( https://www.codebuddy.ai/docs/cli )                                                          │
+│                                                                                                           │
+│   > 1. Trust folder only (shellterm-ea8d1041f18ed4c2)                                                     │
+│     2. Trust parent folder (auth-workspace/**)                                                            │
+│     3. Trust folder and all subdirectories (shellterm-ea8d1041f18ed4c2/**)                                │
+│     4. No, exit (escape)                                                                                  │
+│                                                                                                           │
+│ Enter to confirm • Esc to exit                                                                            │
+│                                                                                                           │
+╰───────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ 
+Orchestrator.inc

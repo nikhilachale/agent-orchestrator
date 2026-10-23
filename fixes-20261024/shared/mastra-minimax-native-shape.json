@@ -1,0 +1,22 @@
+{
+  "status": "DIAGNOSTIC_ONLY",
+  "exit": 0,
+  "termination": "completed",
+  "seconds": 2.45,
+  "result": {
+    "status": "configured",
+    "code": "provider_unsupported",
+    "provider": "minimax",
+    "httpStatus": 0,
+    "shape": {
+      "textNonEmpty": true,
+      "modelIdPresent": true,
+      "finishReason": "unrecognized",
+      "usagePresent": true,
+      "outputTokensType": "object",
+      "outputTokens": null
+    }
+  },
+  "credentialsRetained": false,
+  "profileRetained": false
+}

@@ -1,0 +1,77 @@
+{
+  "sourceHead": "dcc2ce5a8012c6604e1869a813ef169da305eede",
+  "dataDir": "$HOME/.ao/dev/m6541fix/data",
+  "runFile": "$HOME/.ao/dev/m6541fix/running.json",
+  "electronProfile": "$HOME/.ao/dev/m6541fix/electron",
+  "nativeHome": "$HOME/.ao/dev/m6541fix/home",
+  "daemon": "http://127.0.0.1:31041",
+  "renderer": "http://localhost:5173/",
+  "cdp": "http://127.0.0.1:9222",
+  "electronPreload": "window.ao object",
+  "nativeCredentialsEntered": false,
+  "providerInferenceExecuted": false,
+  "readiness": {
+    "id": "mastra-code",
+    "label": "Mastra Code",
+    "installation": {
+      "state": "installed",
+      "freshness": "fresh",
+      "checkedAt": "2026-10-23T19:29:22.637817706Z",
+      "attemptedAt": "2026-10-23T19:29:22.637817706Z",
+      "reasonCode": "installed",
+      "reason": "Mastra Code is installed."
+    },
+    "authentication": {
+      "state": "unknown",
+      "freshness": "stale",
+      "checkedAt": null,
+      "attemptedAt": "2026-10-23T19:29:22.637901002Z",
+      "reasonCode": "auth_check_inconclusive",
+      "reason": "Authentication check was inconclusive.",
+      "diagnostics": [
+        {
+          "method": "Mastra native SDK provider check",
+          "code": "credential_missing",
+          "reason": "AO could not resolve a credential for this provider.",
+          "nextStep": "Check the harness login and credential environment on the selected host.",
+          "checkedAt": "2026-10-23T19:29:23.512988112Z",
+          "cached": false,
+          "durationMs": 875
+        }
+      ]
+    },
+    "effectiveReadiness": "unknown",
+    "usageCount": 0
+  },
+  "models": {
+    "agentId": "mastra-code",
+    "selectionMode": "text",
+    "models": [],
+    "customModelEntry": "direct",
+    "allowCustom": true,
+    "source": "manual"
+  },
+  "authPlan": {
+    "agentId": "mastra-code",
+    "action": "login",
+    "launchMode": "terminal",
+    "available": true,
+    "displayCommand": "mastracode login",
+    "guidance": "Choose an OAuth account or Add an API key in Mastra's native provider chooser. After adding a key, open Mastra Code in build mode and use /model or /setup in the same AO profile to select a build model.",
+    "documentationUrl": "https://github.com/mastra-ai/mastra/tree/8a0fd46222d8737e4c369291a3efa59e632aadbd/mastracode"
+  },
+  "productionPIDPresent": true,
+  "productionIdentityHTTP": 200,
+  "ownProcesses": [
+    {
+      "pid": 1658256,
+      "pgid": 1658098,
+      "command": "$AO_TEST_ROOT/mastra/frontend/node_modules/electron/dist/electron . --no-sandbox --disable-gpu --remote-debugging-port=9222"
+    },
+    {
+      "pid": 1658403,
+      "pgid": 1658403,
+      "command": "$AO_TEST_ROOT/mastra/frontend/daemon/ao daemon"
+    }
+  ]
+}

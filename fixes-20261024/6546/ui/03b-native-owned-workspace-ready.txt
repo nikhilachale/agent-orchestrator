@@ -1,0 +1,55 @@
+General
+Harness
+Subscriptions
+Browser
+Mobile
+Shortcuts
+Updates
+Help
+daemon ready
+Back
+Harness
+Search harnesses
+Logging in…
+C
+CodeBuddy Code
+C
+CodeBuddy Code
+Account
+Models
+Health
+Installation
+Installed version
+Installed with npm
+v2.164.0
+v2.173.0 available
+
+AO has qualified CodeBuddy Code 2.164.0 only; update manually until a newer release is verified.
+
+Account
+Logging in…
+Set up
+
+Set up CodeBuddy Code
+
+Use native first-run login, or select Open setup after CodeBuddy finishes starting to open /login; configure third-party endpoints and keys in CodeBuddy
+
+Open setup
+│         ████████████████          │ ───────────────────────────────────────────────────────────────────── │
+│       ████            ████        │ Recent activity                                                       │
+│       ████  ██    ██  ████        │ No recent activity                                                    │
+│       ████  ██    ██  ████        │ ───────────────────────────────────────────────────────────────────── │
+│       ████            ████        │ http://127.0.0.1:54097                                                │
+│         ████████████████          │ Auto                                                                  │
+│                                   │ …euser/.ao/dev/c6546fix/data/auth-workspace/shellterm-ea8d1041f18ed4c2│
+│                                   │                                                                       │
+│                                   │                                                                       │
+╰───────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ Select login method:
+ ❯ Log in via Chinese Site
+   Log in via International Site
+   Log in via Enterprise Domain
+   Log in via iOA (Tencent only)
+ (Use ↑↓ to select, Enter to login)
+ 
+Orchestrator.inc

@@ -1,0 +1,12 @@
+{
+  "source": "Real daemon API spawn + real native mux PTY decoded by existing xterm; no UI form claim",
+  "ownedSessionID": "standalone-3",
+  "permissionOverrideOmitted": true,
+  "terminalMuxReal": true,
+  "pinnedVersionBanner": true,
+  "loginMethodChooser": true,
+  "trustOnlyOwnedFolder": true,
+  "accountSelected": false,
+  "credentialsEntered": false,
+  "providerInferenceAttempted": false
+}

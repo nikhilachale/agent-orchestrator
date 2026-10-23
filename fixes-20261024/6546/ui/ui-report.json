@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "harness": "codebuddy",
+  "label": "CodeBuddy Code",
+  "generatedAt": "2026-10-23T20:18:44.900450+00:00",
+  "checkpoints": [
+    {
+      "id": "native-shell",
+      "status": "PASS",
+      "reason": "Real Electron renderer with window.ao preload, own checkout and isolated daemon; actual product API metadata captured."
+    },
+    {
+      "id": "account-action",
+      "status": "PASS",
+      "reason": "Unknown auth retains an available native Login/Setup action.",
+      "screenshot": "frozen-head-settings/01-account-login-action.png",
+      "sourceHead": "8a7252bfbb1eff54cda3e035305348efe0730eb3"
+    },
+    {
+      "id": "native-model-guidance",
+      "status": "PASS",
+      "reason": "Native freeform/direct model-entry guidance displayed; real catalog has zero listed models and no fabricated entries.",
+      "screenshot": "frozen-head-settings/02-native-model-entry-guidance.png",
+      "sourceHead": "8a7252bfbb1eff54cda3e035305348efe0730eb3"
+    },
+    {
+      "id": "native-login-chooser",
+      "status": "PASS",
+      "reason": "Native first-run CodeBuddy login-method chooser opened after trusting only its owned empty auth workspace; no site/account selected.",
+      "screenshot": "03b-native-owned-workspace-ready.png",
+      "sourceHead": "9a0060f5e684c5d605ea32813a6792382afd5a1e"
+    },
+    {
+      "id": "direct-model-serialization",
+      "status": "PASS",
+      "reason": "Actual outgoing New Task payload contains the selected native model. Request aborted before daemon acceptance; no successful response mocked.",
+      "model": "MiniMax-M3",
+      "screenshot": "07-direct-model-selected.png",
+      "evidence": "spawn-serialization.json"
+    },
+    {
+      "id": "connected-in-this-ui-profile",
+      "status": "BLOCKED",
+      "reason": "This UI proof deliberately used a fresh no-credential profile. No login was completed or key entered. Separate root-owned live provider checks do not change this UI run.",
+      "screenshot": "05-auth-missing-blocked.png"
+    },
+    {
+      "id": "practical-task-after-default-policy-fix",
+      "status": "PASS",
+      "reason": "Ordinary unmodified form omitted approvalMode; actual daemon persisted default, native setup/login gate reached, then owned session killed and app stopped. No provider inference.",
+      "sourceHead": "8a7252bfbb1eff54cda3e035305348efe0730eb3",
+      "nativeVersion": "2.173.0",
+      "evidence": "practical-policy.json",
+      "stopEvidence": "practical-stop.json",
+      "screenshot": "10b-practical-native-login.png",
+      "versionProvenance": "practical-version-provenance.json"
+    },
+    {
+      "id": "manual-login-reopen",
+      "status": "NOT_RUN",
+      "reason": "First-run chooser was already open; injecting /login plus Enter could select the default site."
+    },
+    {
+      "id": "pinned-native-api-launch",
+      "status": "PASS",
+      "reason": "Existing final-head daemon accepted ordinary noapprovalMode payload via API; owned standalone-3 persisted default. Actual pinned native2.164.0 process entry and real terminal mux viewport show login-method chooser. This retry is API evidence, not another UI form interaction.",
+      "sourceHead": "8a7252bfbb1eff54cda3e035305348efe0730eb3",
+      "evidence": "exact-native-api-retry/native-terminal-proof.json",
+      "policyEvidence": "exact-native-api-retry/practical-policy.json",
+      "stopEvidence": "exact-native-api-retry/practical-stop.json"
+    }
+  ],
+  "runtimeEvidence": "runtime-proof.json",
+  "finalSourceEvidence": null,
+  "scope": "Login/setup and model UI proof. Does not qualify full harness lifecycle, restore, permission enforcement or authenticated UI execution.",
+  "firstSubmitIncident": "first-submit-timing-incident/incident.json",
+  "finalPracticalSourceHead": "8a7252bfbb1eff54cda3e035305348efe0730eb3",
+  "finalPracticalNativeVersion": "2.173.0",
+  "productionIdentityHTTPAfterStop": 200,
+  "pinnedNativeApiRetryVersion": "2.164.0",
+  "pinnedNativeApiRetryEvidence": "exact-native-api-retry/native-terminal-proof.json",
+  "pathShadowIncidentEvidence": "native-2.173-path-shadow/practical-version-provenance.json"
+}

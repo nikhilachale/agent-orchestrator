@@ -1,0 +1,27 @@
+{
+  "archive": "$AO_TEST_ROOT/ci-environment-attempt-20261023T202217Z",
+  "sourceChanges": false,
+  "umaskForAllNewCIChildren": "0022",
+  "backendHome": {
+    "6541": "$HOME/.ao/dev/ci6541/gh",
+    "6546": "$HOME/.ao/dev/ci6546/gh"
+  },
+  "removedBackendOverridePrefixes": [
+    "AO_",
+    "CODEX_",
+    "OPENCODE_",
+    "XDG_"
+  ],
+  "observedInheritedNames": [
+    "XDG_RUNTIME_DIR",
+    "XDG_SESSION_CLASS",
+    "XDG_SESSION_ID",
+    "XDG_SESSION_TYPE"
+  ],
+  "goCaches": {
+    "GOCACHE": "$HOME/.cache/go-build",
+    "GOMODCACHE": "$HOME/go/pkg/mod",
+    "GOPATH": "$HOME/go"
+  },
+  "frontendOverridePolicy": "isolated AO child roots retained"
+}

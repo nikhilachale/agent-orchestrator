@@ -1,0 +1,16 @@
+{
+  "ownedSessionID": "standalone-2",
+  "killHTTP": 200,
+  "terminated": true,
+  "scopedProcessesTerminated": [
+    1680291,
+    1680375,
+    1680819,
+    1680826,
+    1680931,
+    1680937,
+    1680952
+  ],
+  "productionIdentityHTTP": 200,
+  "sourceHead": "8a7252bfbb1eff54cda3e035305348efe0730eb3"
+}

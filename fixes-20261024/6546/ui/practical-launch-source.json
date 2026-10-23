@@ -1,0 +1,12 @@
+{
+  "head": "8a7252bfbb1eff54cda3e035305348efe0730eb3",
+  "kind": "codebuddy",
+  "launcherPID": 1680062,
+  "dataDir": "$HOME/.ao/dev/c6546fix/data",
+  "runFile": "$HOME/.ao/dev/c6546fix/running.json",
+  "electronProfile": "$HOME/.ao/dev/c6546fix/electron",
+  "nativeHome": "$HOME/.ao/dev/c6546fix/home",
+  "daemonPort": "31046",
+  "cdpPort": "9223",
+  "nativeCredentialsInherited": false
+}

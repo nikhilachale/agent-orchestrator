@@ -1,0 +1,29 @@
+{
+  "utc": "2026-10-23T20:40:13.863986+00:00",
+  "main": "b13b9514126c936a06e2b3f692495d9a95ba420e",
+  "heads": {
+    "6541": {
+      "head": "010b5cf8c2171b93c7f6843268ae4a987e8fbce0",
+      "path": "$AO_TEST_ROOT/mastra",
+      "clean": true,
+      "integratedMain": "b13b9514126c936a06e2b3f692495d9a95ba420e",
+      "uiProofHead": "0772781da61fa446ee91c08d4989eba65a31c08d",
+      "runtimeProofEquivalent": true,
+      "runtimeProofEquivalence": "Only shared test-query typing and Mastra exported-method comment changed after real UI/native proof."
+    },
+    "6546": {
+      "head": "81ac43669ba88052c880b4f66e856a8e6174f441",
+      "path": "$AO_TEST_ROOT/codebuddy",
+      "clean": true,
+      "integratedMain": "b13b9514126c936a06e2b3f692495d9a95ba420e",
+      "uiProofHead": "8a7252bfbb1eff54cda3e035305348efe0730eb3",
+      "runtimeProofEquivalent": true,
+      "runtimeProofEquivalence": "Only shared test-query typing and Mastra exported-method comment changed after real UI/native proof."
+    }
+  },
+  "previousUIProofHeads": {
+    "6541": "0772781da61fa446ee91c08d4989eba65a31c08d",
+    "6546": "8a7252bfbb1eff54cda3e035305348efe0730eb3"
+  },
+  "postProofDelta": "Two supported query-option removals in tests, plus one Mastra method doc comment; runtime behavior unchanged."
+}

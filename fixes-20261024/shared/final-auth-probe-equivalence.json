@@ -1,0 +1,12 @@
+{
+  "finalHead": "010b5cf8c2171b93c7f6843268ae4a987e8fbce0",
+  "providerCheckHead": "765dc537384806741464ccc426d8205ffa4a41c4",
+  "authProbeSha256": "da86dc94beb16add34439a87be6c76178f4882ec3000deb14ff1f669cc4c58fe",
+  "sameProbeBytes": true,
+  "providerCheckResult": {
+    "status": "authorized",
+    "code": "provider_accepted",
+    "provider": "minimax",
+    "httpStatus": 0
+  }
+}

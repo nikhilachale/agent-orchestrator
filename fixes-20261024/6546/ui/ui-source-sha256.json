@@ -1,0 +1,6 @@
+{
+  "frontend/src/renderer/components/settings/harness/HarnessAccountTab.tsx": "87fa6e79cf4617cbe55656686e5699081d9b0a27006dc3ceb20a3081bdbd37bf",
+  "frontend/src/renderer/components/settings/harness/describe-harness.ts": "aa7b81cf36d37d915b7cd26cb4248ee931bbf8efc593e228b6f6f9043d4abf07",
+  "frontend/src/renderer/components/settings/harness/HarnessModelsPanel.tsx": "72f686d07b0e0e251b22ee43abed0bc5633e966df4d09926b8d0c97695ffa953",
+  "frontend/src/renderer/components/TaskComposer.tsx": "9e2431b80be048e6aed2331c8b6f6db17389d821eb69429fcb00ee3864713945"
+}

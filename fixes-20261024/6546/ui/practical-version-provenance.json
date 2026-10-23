@@ -1,0 +1,13 @@
+{
+  "observedNativeBanner": "2.173.0",
+  "privateExactNativeVersion": "2.164.0",
+  "nodeToolchainNativeVersion": "2.173.0",
+  "cause": "Private UI launcher PATH placed Node24 toolchain bin before B/native/node_modules/.bin. A CodeBuddy2.173.0 npm-global executable inside that private toolchain shadows pinned native2.164.0.",
+  "selectedExecutableCandidate": "$AO_TEST_ROOT/tools/node-v24.22.1-linux-x64/bin/codebuddy",
+  "selectedExecutableTarget": "$AO_TEST_ROOT/tools/node-v24.22.1-linux-x64/lib/node_modules/@tencent-ai/codebuddy-code/bin/codebuddy",
+  "publicVersionChecksOnly": true,
+  "accountOrCredentialFilesRead": false,
+  "proofScope": "Final practical screenshot and native gate observed2.173.0; earlier pinned2.164.0 native chooser retained separately.",
+  "privateExactNativePackageHash": "68e0ff61dfa12f526d40e6cc1de24ad7d7f06e93aa3f235753b61b0ddc5a11b8",
+  "privateExactNativeHeadlessHash": "f9affe2aed036a3a3ee8486b82e77b176a2a4b21f7bed721074c1c1e4a312e65"
+}

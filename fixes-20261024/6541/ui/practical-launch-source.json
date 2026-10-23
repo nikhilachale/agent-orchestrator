@@ -1,0 +1,12 @@
+{
+  "head": "0772781da61fa446ee91c08d4989eba65a31c08d",
+  "kind": "mastra",
+  "launcherPID": 1678747,
+  "dataDir": "$HOME/.ao/dev/m6541fix/data",
+  "runFile": "$HOME/.ao/dev/m6541fix/running.json",
+  "electronProfile": "$HOME/.ao/dev/m6541fix/electron",
+  "nativeHome": "$HOME/.ao/dev/m6541fix/home",
+  "daemonPort": "31041",
+  "cdpPort": "9222",
+  "nativeCredentialsInherited": false
+}

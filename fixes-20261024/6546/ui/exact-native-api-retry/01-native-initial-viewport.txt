@@ -1,0 +1,47 @@
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Do you trust the files in this folder?                                                                                                                       │
+│                                                                                                                                                              │
+│ $HOME/.ao/dev/c6546fix/data/worktrees/standalone/sessions/standalone-3                                                                             │
+│                                                                                                                                                              │
+│ CodeBuddy Code may read, write, or execute files contained in this directory. This can pose security risks, so only use files and bash commands from trusted │
+│  sources.                                                                                                                                                    │
+│                                                                                                                                                              │
+│ Execution allowed by:                                                                                                                                        │
+│                                                                                                                                                              │
+│   • .codebuddy/.gitignore                                                                                                                                    │
+│   • .codebuddy/settings.local.json                                                                                                                           │
+│                                                                                                                                                              │
+│ Learn more ( https://www.codebuddy.ai/docs/cli )                                                                                                             │
+│                                                                                                                                                              │
+│   > 1. Trust folder only (standalone-3)                                                                                                                      │
+│     2. Trust parent folder (sessions/**)                                                                                                                     │
+│     3. Trust folder and all subdirectories (standalone-3/**)                                                                                                 │
+│     4. No, exit (escape)                                                                                                                                     │
+│                                                                                                                                                              │
+│ Enter to confirm • Esc to exit                                                                                                                               │
+│                                                                                                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

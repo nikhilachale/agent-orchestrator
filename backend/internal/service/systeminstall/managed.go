@@ -100,16 +100,8 @@ func (s *Service) isManagedPath(path string) bool {
 	if s.managedRoot == "" || path == "" {
 		return false
 	}
-	root, err := filepath.EvalSymlinks(s.managedRoot)
-	if err != nil {
-		return false
-	}
-	resolved, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return false
-	}
-	rel, err := filepath.Rel(root, resolved)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
+	owned, err := pathWithin(s.managedRoot, path)
+	return err == nil && owned
 }
 
 // readManagedRecord returns target's managed install, if AO manages it.

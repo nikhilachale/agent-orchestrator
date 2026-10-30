@@ -52,6 +52,9 @@ func TestManagedLauncherUsesExecutableOwner(t *testing.T) {
 				return VerifyResult{ResolvedPath: launcher, Output: "codex-cli 0.163.0"}, nil
 			})
 			baseline, err := s.confirmInstalledOwner(context.Background(), TargetCodex, Plan{Target: TargetCodex, Method: tt.method, Package: "@openai/codex"})
+			if got, linkErr := os.Readlink(launcher); linkErr != nil || got != binary {
+				t.Fatalf("ownership check changed the launcher: target = %q, error = %v", got, linkErr)
+			}
 			if !tt.wantOwner {
 				if !errors.Is(err, ErrInstallOwner) {
 					t.Fatalf("ownership error = %v, want ErrInstallOwner", err)
@@ -98,9 +101,12 @@ func TestManagedUpdateAdoptsExternalLauncher(t *testing.T) {
 				if job, err := f.s.Status(context.Background(), TargetCodex); err != nil || job.Status != StatusSucceeded {
 					t.Fatalf("update to %s = %+v, error = %v", version, job, err)
 				}
-				if record, ok := f.s.readManagedRecord(TargetCodex); !ok || record.Method != method || record.Version != version {
+				record, ok := f.s.readManagedRecord(TargetCodex)
+				if !ok || record.Method != method || record.Version != version {
 					t.Fatalf("managed record = %+v, found = %t", record, ok)
 				}
+				// An explicit update adopts the launcher, not the external install.
+				assertResolvesInto(t, launcher, filepath.Join(f.root, string(TargetCodex), "versions", record.Dir))
 			}
 			if got := readFile(external); got != "1.0.0" {
 				t.Fatalf("external install was changed: %q", got)

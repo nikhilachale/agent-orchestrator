@@ -1089,6 +1089,34 @@ func TestOpenShellTerminalDefersStartWhenTheClientWillSizeIt(t *testing.T) {
 	}
 }
 
+func TestOpenShellTerminalStartsAtTheClientGridWhenGiven(t *testing.T) {
+	rt := newFakeShellRuntime()
+	projects := &fakeProjectRootLocator{roots: map[domain.ProjectID]string{"portfolio": "/repos/portfolio"}}
+	svc := newTestService(rt, &fakeShellTerminalStore{}, projects)
+
+	in := OpenShellTerminalInput{ProjectID: "portfolio", StartOnAttach: true, Cols: 146, Rows: 37}
+	if _, err := svc.OpenShellTerminal(context.Background(), in); err != nil {
+		t.Fatalf("OpenShellTerminal: %v", err)
+	}
+	if len(rt.created) != 1 || rt.created[0].InitialCols != 146 || rt.created[0].InitialRows != 37 {
+		t.Fatalf("runtime creates = %+v, want the client's 146x37 grid", rt.created)
+	}
+}
+
+func TestOpenShellTerminalIgnoresAnOutOfRangeGrid(t *testing.T) {
+	rt := newFakeShellRuntime()
+	projects := &fakeProjectRootLocator{roots: map[domain.ProjectID]string{"portfolio": "/repos/portfolio"}}
+	svc := newTestService(rt, &fakeShellTerminalStore{}, projects)
+
+	in := OpenShellTerminalInput{ProjectID: "portfolio", StartOnAttach: true, Cols: 1, Rows: 5000}
+	if _, err := svc.OpenShellTerminal(context.Background(), in); err != nil {
+		t.Fatalf("OpenShellTerminal: %v", err)
+	}
+	if len(rt.created) != 1 || rt.created[0].InitialCols != 0 || rt.created[0].InitialRows != 0 || !rt.created[0].StartOnAttach {
+		t.Fatalf("runtime creates = %+v, want no grid and start-on-attach kept", rt.created)
+	}
+}
+
 func TestOpenShellTerminalRejectsUnavailableWindowsShell(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("Windows shell selection only applies on Windows")
@@ -1928,6 +1956,88 @@ func TestCloseShellTerminalDestroysRuntimeAndDeletesRecord(t *testing.T) {
 	}
 }
 
+func TestGuidedAuthTerminalStaysOutOfNormalTerminalList(t *testing.T) {
+	rt := newFakeShellRuntime()
+	st := &fakeShellTerminalStore{}
+	svc := newTestService(rt, st, &fakeProjectRootLocator{})
+	svc.dataDir = t.TempDir()
+	hidden, err := svc.OpenCommandTerminal(t.Context(), OpenCommandTerminalInput{Argv: []string{"pi"}, Title: "Guided login", HideFromList: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	visible, err := svc.OpenCommandTerminal(t.Context(), OpenCommandTerminalInput{Argv: []string{"pi"}, Title: "Terminal fallback"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed, err := svc.ListShellTerminalsForCurrentAppRun(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 1 || listed[0].HandleID != visible.HandleID {
+		t.Fatalf("listed=%+v, hidden=%s", listed, hidden.HandleID)
+	}
+	delete(rt.aliveByHandle, hidden.HandleID) // Native login command exited.
+	listed, err = svc.ListShellTerminalsForCurrentAppRun(t.Context())
+	if err != nil || len(listed) != 1 || listed[0].HandleID != visible.HandleID {
+		t.Fatalf("list after native exit=%+v err=%v", listed, err)
+	}
+	if observed, err := svc.ObserveAuthTerminal(t.Context(), hidden.HandleID); err != nil || observed.Alive {
+		t.Fatalf("guided login lost exit observation: %+v, %v", observed, err)
+	}
+	if err := svc.CloseShellTerminal(t.Context(), hidden.HandleID); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := svc.hiddenAuthTerminals[hidden.HandleID]; ok {
+		t.Fatal("hidden handle retained after close")
+	}
+}
+
+func TestGuidedAuthTerminalObservationAndInputArePrivate(t *testing.T) {
+	rt := newFakeShellRuntime()
+	rt.output = "private terminal frame"
+	svc := newTestService(rt, &fakeShellTerminalStore{}, &fakeProjectRootLocator{})
+	svc.dataDir = t.TempDir()
+	term, err := svc.OpenCommandTerminal(t.Context(), OpenCommandTerminalInput{Argv: []string{"pi"}, Title: "Guided login", HideFromList: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := svc.ObserveAuthTerminal(t.Context(), term.HandleID)
+	if err != nil || got.Output != rt.output || !got.Alive {
+		t.Fatalf("observation=%+v err=%v", got, err)
+	}
+	if err := svc.SendAuthTerminalKey(t.Context(), term.HandleID, "next"); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case sent := <-rt.sentCh:
+		if sent.input != "\x1b[B" {
+			t.Fatalf("sent=%q", sent.input)
+		}
+	default:
+		t.Fatal("no menu key sent")
+	}
+	if err := svc.SendAuthTerminalKey(t.Context(), term.HandleID, "3"); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case sent := <-rt.sentCh:
+		if sent.input != "3" {
+			t.Fatalf("sent=%q", sent.input)
+		}
+	default:
+		t.Fatal("no digit sent")
+	}
+	if err := svc.SendAuthTerminalKey(t.Context(), term.HandleID, "arbitrary"); err == nil {
+		t.Fatal("accepted arbitrary PTY input")
+	}
+	if err := svc.SendAuthTerminalKey(t.Context(), term.HandleID, "0"); err == nil {
+		t.Fatal("accepted a digit outside the fixed action set")
+	}
+	if _, err := svc.ObserveAuthTerminal(t.Context(), "missing"); err == nil {
+		t.Fatal("observed unrelated PTY")
+	}
+}
+
 func TestCloseShellTerminalReturnsNotFoundForUnknownHandle(t *testing.T) {
 	svc := newTestService(newFakeShellRuntime(), &fakeShellTerminalStore{}, &fakeProjectRootLocator{})
 
@@ -2268,28 +2378,41 @@ func TestDesktopRelaunchPreservesUserShells(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			want := []ShellTerminal{side, standalone}
+			// A daemon restart within the same launch keeps every shell. A new
+			// launch reaps the session-less one: clients show shells only in a
+			// session's tab strip, so nothing could show or close it.
+			newLaunch := tc.nextRun != testAppRunID
+			want, wantReaped, wantNext := []ShellTerminal{side, standalone}, int64(0), "Terminal 3"
+			if newLaunch {
+				want, wantReaped, wantNext = []ShellTerminal{side}, 1, "Terminal 1"
+			}
 
 			// Recreate the service just as boot does. The runtime and durable rows
 			// belong to the shells, not to this service or desktop launch.
 			svc = NewService(rt, st, projects, sessions, "/data/dir", tc.nextRun, testLogger())
 			rt.aliveErr = tc.probeErr // The fake returns false alongside probe errors.
-			if n, err := svc.ReapShellTerminalsFromPreviousAppRuns(ctx); err != nil || n != 0 {
-				t.Fatalf("reap = %d, %v", n, err)
+			if n, err := svc.ReapShellTerminalsFromPreviousAppRuns(ctx); err != nil || n != wantReaped {
+				t.Fatalf("reap = %d, %v; want %d", n, err, wantReaped)
 			}
 			got, err := svc.ListShellTerminalsForCurrentAppRun(ctx)
 			if err != nil || !reflect.DeepEqual(got, want) {
 				t.Fatalf("restored = %+v, %v; want %+v", got, err, want)
 			}
-			if len(rt.destroyed) != 0 {
+			if newLaunch {
+				if !reflect.DeepEqual(rt.destroyed, []string{standalone.HandleID}) {
+					t.Fatalf("destroyed = %v, want only the session-less shell %s", rt.destroyed, standalone.HandleID)
+				}
+			} else if len(rt.destroyed) != 0 {
 				t.Fatalf("destroyed user shells: %v", rt.destroyed)
 			}
 			next, err := svc.OpenShellTerminal(ctx, OpenShellTerminalInput{SessionID: "session-1"})
-			if err != nil || next.Title != "Terminal 3" {
-				t.Fatalf("next terminal = %+v, %v; want Terminal 3", next, err)
+			if err != nil || next.Title != wantNext {
+				t.Fatalf("next terminal = %+v, %v; want %s", next, err, wantNext)
 			}
-			if err := svc.CloseShellTerminal(ctx, standalone.HandleID); err != nil {
-				t.Fatal(err)
+			if !newLaunch {
+				if err := svc.CloseShellTerminal(ctx, standalone.HandleID); err != nil {
+					t.Fatal(err)
+				}
 			}
 			release, err := svc.BeginSessionTeardown(ctx, "session-1")
 			if err != nil {
@@ -2396,7 +2519,7 @@ func TestShellReconciliationPreservesUncertainChildOrHost(t *testing.T) {
 			rt.destroyErr, rt.aliveErr = tc.destroyErr, tc.hostProbeErr
 			handleID := "ptyhost-v1:shell-exited"
 			rt.aliveByHandle[handleID] = true
-			st := &fakeShellTerminalStore{records: []ShellTerminalRecord{{HandleID: handleID, AppRunID: "previous"}}}
+			st := &fakeShellTerminalStore{records: []ShellTerminalRecord{{HandleID: handleID, SessionID: "session-1", AppRunID: "previous"}}}
 			svc := newTestService(rt, st, &fakeProjectRootLocator{})
 			if count, err := svc.ReapShellTerminalsFromPreviousAppRuns(context.Background()); err != nil || count != 0 {
 				t.Fatalf("reap = %d, %v; want preserved runtime", count, err)

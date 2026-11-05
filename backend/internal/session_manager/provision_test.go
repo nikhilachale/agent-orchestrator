@@ -15,6 +15,7 @@ import (
 
 	"github.com/aoagents/agent-orchestrator/backend/internal/domain"
 	"github.com/aoagents/agent-orchestrator/backend/internal/ports"
+	"github.com/aoagents/agent-orchestrator/backend/internal/providerkeys"
 )
 
 type fixedBrowserCapability string
@@ -75,6 +76,55 @@ func TestSpawnEnvWindowsRemovesCaseVariantsOfProtectedVariables(t *testing.T) {
 	}
 	if env[EnvSessionID] != "mer-1" || env["buildMode"] != "production" {
 		t.Fatalf("environment = %v, want protected ID and untouched project variable spelling", env)
+	}
+}
+
+func TestRuntimeEnvIncludesSavedProviderKeysAndProjectOverride(t *testing.T) {
+	dir := t.TempDir()
+	if err := providerkeys.Save(t.Context(), dir, "OPENAI_API_KEY", "device-secret"); err != nil {
+		t.Fatal(err)
+	}
+	manager := &Manager{
+		dataDir:    dir,
+		executable: func() (string, error) { return filepath.Join(dir, "ao"), nil },
+		logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	base := manager.runtimeEnv("session", "project", "", nil)
+	if base["OPENAI_API_KEY"] != "device-secret" {
+		t.Fatal("saved device provider key was not passed to the harness")
+	}
+	project := manager.runtimeEnv("session", "project", "", map[string]string{"OPENAI_API_KEY": "project-secret"})
+	if project["OPENAI_API_KEY"] != "project-secret" {
+		t.Fatal("project-specific provider key did not override the device default")
+	}
+}
+
+func TestRuntimeEnvKeepsAUserExportedKeyForAHarnessThatMustNotGetAOs(t *testing.T) {
+	dir := t.TempDir()
+	if err := providerkeys.Save(t.Context(), dir, "OPENAI_API_KEY", "ao-saved"); err != nil {
+		t.Fatal(err)
+	}
+	// The user exported their own key before starting AO; the daemon then
+	// exports AO's copy to itself for authentication probes.
+	t.Setenv("OPENAI_API_KEY", "user-exported")
+	t.Cleanup(func() { _ = providerkeys.RestoreInherited("OPENAI_API_KEY") })
+	if err := providerkeys.ExportForProbes("OPENAI_API_KEY", "ao-saved"); err != nil {
+		t.Fatal(err)
+	}
+	manager := &Manager{
+		dataDir:    dir,
+		executable: func() (string, error) { return filepath.Join(dir, "ao"), nil },
+		logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	// Codex never claimed AO's key, so it gets the user's own value back.
+	codex, err := manager.runtimeEnvChecked("session", "project", "", nil, "", "codex")
+	if err != nil || codex["OPENAI_API_KEY"] != "user-exported" {
+		t.Fatalf("codex OPENAI_API_KEY=%q err=%v", codex["OPENAI_API_KEY"], err)
+	}
+	// Other harnesses still receive AO's saved key.
+	goose, err := manager.runtimeEnvChecked("session", "project", "", nil, "", "goose")
+	if err != nil || goose["OPENAI_API_KEY"] != "ao-saved" {
+		t.Fatalf("goose OPENAI_API_KEY=%q err=%v", goose["OPENAI_API_KEY"], err)
 	}
 }
 
@@ -587,6 +637,64 @@ func TestResolveClaudeModelWithoutEffortRejectsUnknownAndStaleCatalogs(t *testin
 	}}
 	if _, err := m.resolveAgentConfig(context.Background(), cfg, domain.ProjectConfig{}); !errors.Is(err, ports.ErrModelCapabilitiesUnavailable) {
 		t.Fatalf("stale catalog error = %v, want ErrModelCapabilitiesUnavailable", err)
+	}
+}
+
+func TestResolveClaudeModelAllowsCatalogStaleFromExpiredLogin(t *testing.T) {
+	// Claude Code renews an expired stored login when it starts, so a catalog
+	// stale only for that reason must not block the launch that renews it.
+	expired := ports.AgentModelCatalog{
+		Models:      []ports.AgentModelInfo{{ID: "claude-sonnet-5-5", Efforts: []string{"low", "medium"}}},
+		Stale:       true,
+		WarningCode: ports.ModelCatalogWarningAuthExpired,
+	}
+	m := &Manager{modelCatalog: tuningCatalog{catalog: expired}}
+	spawn := func(model, effort string) (ports.AgentConfig, error) {
+		return m.resolveAgentConfig(context.Background(), ports.SpawnConfig{
+			ProjectID: "p", Kind: domain.KindWorker, Harness: domain.HarnessClaudeCode,
+			AgentConfig: ports.AgentConfig{Model: model, Effort: effort}, EffortOverride: true,
+		}, domain.ProjectConfig{})
+	}
+
+	resolved, err := spawn("claude-sonnet-5-5", "medium")
+	if err != nil || resolved.Model != "claude-sonnet-5-5" || resolved.Effort != "medium" {
+		t.Fatalf("listed model = %#v, %v; want launch with medium effort", resolved, err)
+	}
+	if _, err := spawn("claude-sonnet-5-5", "max"); !errors.Is(err, ports.ErrUnsupportedEffort) {
+		t.Fatalf("unsupported effort error = %v, want ErrUnsupportedEffort", err)
+	}
+	resolved, err = spawn("claude-opus-5-5", "high")
+	if err != nil || resolved.Model != "claude-opus-5-5" || resolved.Effort != "high" {
+		t.Fatalf("unlisted model = %#v, %v; want launch left to the CLI", resolved, err)
+	}
+	if _, err := spawn("claude-opus-5-5", "ultra"); !errors.Is(err, ports.ErrUnsupportedEffort) {
+		t.Fatalf("unknown effort on unlisted model error = %v, want ErrUnsupportedEffort", err)
+	}
+	resolved, err = spawn("claude-opus-5-5", "")
+	if err != nil || resolved.Model != "claude-opus-5-5" || resolved.Effort != "" {
+		t.Fatalf("unlisted model without effort = %#v, %v; want launch left to the CLI", resolved, err)
+	}
+
+	// Against the account's own last-known list, an unlisted ID is not passed
+	// through: it is more likely a typo than a newly released model.
+	succeeded := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	accountScoped := expired
+	accountScoped.LastSuccessAt = &succeeded
+	m.modelCatalog = tuningCatalog{catalog: accountScoped}
+	if _, err := spawn("claude-opus-5-5", "high"); !errors.Is(err, ErrUnsupportedModel) {
+		t.Fatalf("unlisted model on account-scoped catalog error = %v, want ErrUnsupportedModel", err)
+	}
+	if _, err := spawn("claude-opus-5-5", ""); !errors.Is(err, ErrUnsupportedModel) {
+		t.Fatalf("unlisted model without effort on account-scoped catalog error = %v, want ErrUnsupportedModel", err)
+	}
+	if resolved, err := spawn("claude-sonnet-5-5", "medium"); err != nil || resolved.Effort != "medium" {
+		t.Fatalf("listed model on account-scoped catalog = %#v, %v; want launch", resolved, err)
+	}
+
+	expired.WarningCode = ports.ModelCatalogWarningAuthRequired
+	m.modelCatalog = tuningCatalog{catalog: expired}
+	if _, err := spawn("claude-sonnet-5-5", ""); !errors.Is(err, ports.ErrModelCapabilitiesUnavailable) {
+		t.Fatalf("signed-out stale catalog error = %v, want ErrModelCapabilitiesUnavailable", err)
 	}
 }
 

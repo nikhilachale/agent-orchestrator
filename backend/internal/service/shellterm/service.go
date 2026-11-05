@@ -66,6 +66,8 @@ type Service struct {
 	previewCapabilities *browser.Authority
 	pendingPreviewMu    sync.Mutex
 	pendingPreview      map[domain.SessionID]string
+	hiddenAuthMu        sync.RWMutex
+	hiddenAuthTerminals map[string]struct{}
 
 	// now and newHandleID are injectable so tests can assert on exact ids and
 	// timestamps without a clock or entropy dependency.
@@ -198,6 +200,7 @@ func NewService(shellRuntime ShellRuntime, store Store, projects ProjectRootLoca
 		log:                 log,
 		previewCapabilities: browser.NewAuthority(),
 		pendingPreview:      make(map[domain.SessionID]string),
+		hiddenAuthTerminals: make(map[string]struct{}),
 		now:                 time.Now,
 		newHandleID:         newShellTerminalHandleID,
 		executable:          agentlaunch.Executable,
@@ -371,6 +374,8 @@ func (s *Service) OpenShellTerminal(ctx context.Context, in OpenShellTerminalInp
 		workingDir: workingDir, title: title,
 		previewVerifier: verifier,
 		startOnAttach:   in.StartOnAttach,
+		cols:            in.Cols,
+		rows:            in.Rows,
 	})
 }
 
@@ -381,6 +386,12 @@ const authWorkspaceDirectoryName = "auth-workspace"
 // coding agents start in a dedicated workspace so they cannot mistake the
 // daemon's database/config/runtime directory for a project.
 func (s *Service) OpenCommandTerminal(ctx context.Context, in OpenCommandTerminalInput) (ShellTerminal, error) {
+	if in.HideFromList {
+		// Serialize the persistent row and the in-memory hide marker against a
+		// concurrent terminal-list read. A list can see neither half alone.
+		s.hiddenAuthMu.Lock()
+		defer s.hiddenAuthMu.Unlock()
+	}
 	if err := validateOpenCommandTerminalInput(in); err != nil {
 		return ShellTerminal{}, err
 	}
@@ -414,6 +425,9 @@ func (s *Service) OpenCommandTerminal(ctx context.Context, in OpenCommandTermina
 	})
 	if err != nil {
 		return ShellTerminal{}, err
+	}
+	if in.HideFromList {
+		s.hiddenAuthTerminals[terminal.HandleID] = struct{}{}
 	}
 	if len(in.InitialInputReadyStates) > 0 {
 		go s.sendInitialInputWhenReady(context.WithoutCancel(ctx), ports.RuntimeHandle{ID: terminal.HandleID}, in.InitialInput, in.InitialInputReadyStates, in.SendInitialInputOnReadyTimeout)
@@ -656,6 +670,7 @@ type openTerminalConfig struct {
 	cleanupWorkingDirOnError bool
 	previewVerifier          string
 	startOnAttach            bool
+	cols, rows               int
 }
 
 // openTerminal creates and persists a terminal, rolling the runtime back on
@@ -686,6 +701,8 @@ func (s *Service) openTerminal(ctx context.Context, cfg openTerminalConfig) (She
 		// Durability across app launches is a separate persistence policy.
 		ExitOnCommandCompletion: true,
 		StartOnAttach:           cfg.startOnAttach,
+		InitialCols:             clampGridDimension(cfg.cols),
+		InitialRows:             clampGridDimension(cfg.rows),
 		// Only agent terminals are probed for their rendered screen.
 		LazyStyledOutput: true,
 	})
@@ -823,6 +840,9 @@ func (s *Service) CloseShellTerminal(ctx context.Context, handleID string) error
 		return fmt.Errorf("close shell terminal %s: %w", handleID, err)
 	}
 	if !found {
+		s.hiddenAuthMu.Lock()
+		delete(s.hiddenAuthTerminals, handleID)
+		s.hiddenAuthMu.Unlock()
 		return apierr.NotFound("SHELL_TERMINAL_NOT_FOUND", "No such shell terminal: "+handleID)
 	}
 
@@ -840,6 +860,9 @@ func (s *Service) CloseShellTerminal(ctx context.Context, handleID string) error
 		return apierr.Conflict("SHELL_TERMINAL_STILL_RUNNING",
 			"The shell process is still running; try closing it again in a moment", nil)
 	}
+	s.hiddenAuthMu.Lock()
+	delete(s.hiddenAuthTerminals, handleID)
+	s.hiddenAuthMu.Unlock()
 	return nil
 }
 
@@ -853,12 +876,25 @@ func (s *Service) CloseShellTerminal(ctx context.Context, handleID string) error
 // internal/terminal applies on attach — so a transient runtime hiccup cannot
 // silently delete a working terminal.
 func (s *Service) ListShellTerminalsForCurrentAppRun(ctx context.Context) ([]ShellTerminal, error) {
+	s.hiddenAuthMu.RLock()
 	recs, err := s.store.SelectRestorableShellTerminals(ctx, s.appRunID)
+	hidden := make(map[string]struct{}, len(s.hiddenAuthTerminals))
+	for id := range s.hiddenAuthTerminals {
+		hidden[id] = struct{}{}
+	}
+	s.hiddenAuthMu.RUnlock()
 	if err != nil {
 		return nil, fmt.Errorf("list shell terminals: %w", err)
 	}
 	out := make([]ShellTerminal, 0, len(recs))
 	for _, rec := range recs {
+		_, hide := hidden[rec.HandleID]
+		if hide {
+			// Guided login owns this terminal until its monitor observes the
+			// child exit and closes the host. Pruning it here can make that
+			// observation disappear before the login operation completes.
+			continue
+		}
 		alive, err := s.runtime.IsChildAlive(ctx, ports.RuntimeHandle{ID: rec.HandleID})
 		if err != nil {
 			s.log.Warn("shell terminal liveness probe failed; keeping row",
@@ -899,8 +935,10 @@ func (s *Service) ListCommandTerminalsForCurrentAppRun(ctx context.Context) ([]S
 }
 
 // ReapShellTerminalsFromPreviousAppRuns prunes confirmed-dead user shells and
-// destroys abandoned trusted auth terminals. Live or unknown user runtimes
-// are preserved with their original associations and attach handles.
+// destroys abandoned trusted auth terminals. Live or unknown session shells
+// are preserved with their original associations and attach handles. A user
+// shell with no session is destroyed even when alive: clients show shells
+// only in a session's tab strip, so nothing could show or close it.
 func (s *Service) ReapShellTerminalsFromPreviousAppRuns(ctx context.Context) (int64, error) {
 	orphans, err := s.store.SelectShellTerminalsFromPreviousAppRuns(ctx, s.appRunID)
 	if err != nil {
@@ -908,7 +946,7 @@ func (s *Service) ReapShellTerminalsFromPreviousAppRuns(ctx context.Context) (in
 	}
 	var cleared int64
 	for _, rec := range orphans {
-		if !rec.Transient {
+		if !rec.Transient && rec.SessionID != "" {
 			alive, probeErr := s.runtime.IsChildAlive(ctx, ports.RuntimeHandle{ID: rec.HandleID})
 			if probeErr != nil {
 				s.log.Warn("shell terminal liveness probe failed; keeping row", "handleId", rec.HandleID, "error", probeErr)
@@ -1124,4 +1162,13 @@ func shellTerminalFromRecord(rec ShellTerminalRecord) ShellTerminal {
 		Title:      rec.Title,
 		CreatedAt:  rec.CreatedAt,
 	}
+}
+
+// clampGridDimension bounds a client-supplied grid dimension to what a PTY
+// accepts; out-of-range values mean "no initial grid".
+func clampGridDimension(n int) uint16 {
+	if n < 2 || n > 1000 {
+		return 0
+	}
+	return uint16(n)
 }

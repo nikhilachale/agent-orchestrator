@@ -72,11 +72,11 @@ beforeEach(() => {
 	});
 });
 
-it("shows active-first account cards with correct remaining capacity", async () => {
+it("shows active-first account cards with correct used capacity", async () => {
 	renderSection();
 	expect(await screen.findByText("active@example.com")).toBeInTheDocument();
 	expect(screen.getByText("In use")).toBeInTheDocument();
-	expect(screen.getAllByText(/96% remaining/).length).toBeGreaterThan(0);
+	expect(screen.getAllByText(/4% used/).length).toBeGreaterThan(0);
 	expect(screen.queryByText(/The selected account is the device/)).not.toBeInTheDocument();
 	expect(screen.queryByText(/credential/i)).not.toBeInTheDocument();
 	expect(screen.queryByText(/billing/i)).not.toBeInTheDocument();
@@ -142,7 +142,7 @@ it("shows a simple empty state when Codex is signed out on the device", async ()
 	expect(screen.queryByRole("button", { name: "Switch account" })).not.toBeInTheDocument();
 	const firstRow = container.querySelector(`[data-account-id="${activeAccount.id}"]`) as HTMLElement;
 	const signedIn = within(firstRow).getByText("Signed in");
-	const subscription = within(firstRow).getByText("ChatGPT · Pro · 96% remaining");
+	const subscription = within(firstRow).getByText("ChatGPT · Pro · 4% used");
 	expect(signedIn.closest("p")).toBe(subscription.closest("p"));
 	const useButton = within(firstRow).getByRole("button", { name: "Use this account active@example.com" });
 	expect(useButton).toBeEnabled();
@@ -371,7 +371,7 @@ it("reports when a failed switch leaves the previous account unchanged", async (
 	expect(outcome).toBeVisible();
 });
 
-it("presents plan, general and model usage limits with remaining-capacity meters", async () => {
+it("presents plan, general and model usage limits with used-capacity meters", async () => {
 	const detailedAccount = {
 		...activeAccount,
 		capacity: {
@@ -409,7 +409,7 @@ it("presents plan, general and model usage limits with remaining-capacity meters
 		? Promise.resolve({ data: detailedResponse })
 		: Promise.resolve({ data: {} }));
 	const { container } = renderSection();
-	await screen.findAllByText(/81% remaining/);
+	await screen.findAllByText(/19% used/);
 	fireEvent.click(container.querySelector(`[data-account-id="${activeAccount.id}"] button`) as HTMLButtonElement);
 
 	expect(await screen.findByRole("region", { name: "Your plan" })).toBeInTheDocument();
@@ -419,8 +419,8 @@ it("presents plan, general and model usage limits with remaining-capacity meters
 	expect(screen.getAllByText("Weekly usage limit")).toHaveLength(2);
 	expect(screen.getByText("GPT-5.3-Codex-Spark usage limits")).toBeInTheDocument();
 	expect(screen.getByText("5-hour usage limit")).toBeInTheDocument();
-	const weeklyMeter = screen.getByRole("progressbar", { name: /Weekly usage limit, 81% left/ });
-	expect(weeklyMeter).toHaveAttribute("aria-valuenow", "81");
+	const weeklyMeter = screen.getByRole("progressbar", { name: /Weekly usage limit, 19% used/ });
+	expect(weeklyMeter).toHaveAttribute("aria-valuenow", "19");
 	expect(screen.queryByText("34.9M tokens")).not.toBeInTheDocument();
 	expect(screen.getByText("54.6B tokens")).toBeInTheDocument();
 	expect(screen.getByText("2B tokens")).toBeInTheDocument();
@@ -431,7 +431,7 @@ it("presents plan, general and model usage limits with remaining-capacity meters
 	expect(activityMetrics.children).toHaveLength(5);
 	expect(activityMetrics).toHaveStyle({ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" });
 	expect(activityMetrics.parentElement).not.toHaveClass("overflow-x-auto");
-	expect(screen.queryByText("19% used")).not.toBeInTheDocument();
+	expect(screen.getAllByText("19% used").length).toBeGreaterThan(0);
 	expect(screen.queryByText("54571452296")).not.toBeInTheDocument();
 });
 
@@ -528,7 +528,7 @@ it("uses safe fallback headings and preserves stale values without exposing raw 
 	expect(screen.queryByText("provider-secret-bucket-id")).not.toBeInTheDocument();
 	expect(screen.getByRole("status")).toHaveTextContent(/Last updated/);
 	expect(screen.getByRole("status")).not.toHaveTextContent("raw provider text");
-	expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "25");
+	expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "75");
 });
 
 it("shows a safe provider-unavailable reason when no previous usage limits exist", async () => {
@@ -960,7 +960,7 @@ const launchFailureResponse = {
 
 it("shows the active account's reauthentication state and CTA as soon as a failed launch publishes it", async () => {
 	const { container, queryClient } = renderSection();
-	expect(await screen.findByText("active@example.com · Pro · 96% remaining")).toBeInTheDocument();
+	expect(await screen.findByText("active@example.com · Pro · 4% used")).toBeInTheDocument();
 	fireEvent.click(container.querySelector(`[data-account-id="${activeAccount.id}"] button`) as HTMLButtonElement);
 	expect(await screen.findByRole("button", { name: "Log out" })).toBeInTheDocument();
 	const reads = getMock.mock.calls.length;
@@ -1001,5 +1001,5 @@ it("restores the signed-in state after a successful reauthentication", async () 
 	fireEvent.click(accountToggle);
 	expect(await within(activeRow).findByRole("button", { name: "Log out" })).toBeInTheDocument();
 	expect(screen.queryByRole("button", { name: "Sign in again" })).not.toBeInTheDocument();
-	expect(screen.getByText("active@example.com · Pro · 96% remaining")).toBeInTheDocument();
+	expect(screen.getByText("active@example.com · Pro · 4% used")).toBeInTheDocument();
 });

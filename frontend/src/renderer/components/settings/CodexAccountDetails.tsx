@@ -47,13 +47,14 @@ function CapacityBucketGroup({ bucket, title, locale }: { bucket: CapacityBucket
 
 function CapacityWindowRow({ window, label, reached, locale }: { window: CapacityWindowValue; label: string; reached: boolean; locale: string }) {
 	const { t } = useTranslation();
-	const remaining = Math.max(0, Math.min(100, 100 - window.usedPercent));
-	const percentage = formatPercentage(remaining, locale);
+	// The API reports consumed capacity; the meter fills as usage grows.
+	const used = clampPercent(window.usedPercent);
+	const percentage = formatPercentage(used, locale);
 	const reset = formatResetTime(window.resetsAt, locale);
-	const tone = reached || remaining <= 0 ? "exhausted" : remaining <= 25 ? "near" : "available";
+	const tone = reached || used >= 100 ? "exhausted" : used >= 75 ? "near" : "available";
 	const fillClass = tone === "exhausted" ? "bg-error" : tone === "near" ? "bg-warning" : "bg-foreground/80";
 	const valueClass = tone === "exhausted" ? "text-error" : tone === "near" ? "text-warning" : "text-muted-foreground";
-	return <div className="grid gap-2 px-3.5 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(8rem,11rem)_auto] sm:items-center sm:gap-4"><div className="min-w-0"><p className="font-medium text-foreground">{label}</p>{reset ? <p className="mt-0.5 text-muted-foreground" title={reset.full}>{t("settings.codexAccounts.capacityResets", { value: reset.visible })}</p> : null}</div><div role="progressbar" aria-label={t("settings.codexAccounts.remainingForLimit", { label, value: percentage })} aria-valuemin={0} aria-valuemax={100} aria-valuenow={remaining} className="h-1.5 w-full overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full transition-[width] ${fillClass}`} style={{ width: `${remaining}%` }} /></div><p className={`whitespace-nowrap text-right tabular-nums ${valueClass}`}>{t("settings.codexAccounts.percentLeft", { value: percentage })}</p></div>;
+	return <div className="grid gap-2 px-3.5 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(8rem,11rem)_auto] sm:items-center sm:gap-4"><div className="min-w-0"><p className="font-medium text-foreground">{label}</p>{reset ? <p className="mt-0.5 text-muted-foreground" title={reset.full}>{t("settings.codexAccounts.capacityResets", { value: reset.visible })}</p> : null}</div><div role="progressbar" aria-label={t("settings.codexAccounts.usedForLimit", { label, value: percentage })} aria-valuemin={0} aria-valuemax={100} aria-valuenow={used} className="h-1.5 w-full overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full transition-[width] ${fillClass}`} style={{ width: `${used}%` }} /></div><p className={`whitespace-nowrap text-right tabular-nums ${valueClass}`}>{t("settings.codexAccounts.percentUsed", { value: percentage })}</p></div>;
 }
 
 function PlanCard({ plan, resetCredits, resetEnabled, resetBusy, locale, onUseReset }: { plan: string | null; resetCredits: ResetCreditsValue | null | undefined; resetEnabled: boolean; resetBusy: boolean; locale: string; onUseReset: () => void }) {
@@ -112,6 +113,17 @@ function capacityWindowLabel(minutes: number | null | undefined, index: number, 
 export function formatAuthMethod(method: CodexAccount["authMethod"]): string | null { return method === "chatgpt" ? "ChatGPT" : method === "api_key" ? "API key" : method === "other" ? "Codex" : null; }
 export function formatPlanName(plan: string | null | undefined): string | null { const value = plan?.trim(); if (!value) return null; const known: Record<string, string> = { free: "Free", plus: "Plus", pro: "Pro", team: "Team", business: "Business", enterprise: "Enterprise" }; return known[value.toLowerCase()] ?? value; }
 function formatPlanLabel(plan: string | null | undefined, t: TFunction): string | null { const name = formatPlanName(plan); return name ? (/\bplan$/i.test(name) ? name : t("settings.codexAccounts.planLabel", { name })) : null; }
+function clampPercent(value: number): number { return Math.max(0, Math.min(100, value)); }
+/**
+ * Consumed share of the account's capacity, or null when unknown. Prefers the
+ * provider's `usedPercent`; providers that only report remaining capacity are
+ * converted (100 - remaining) so every surface shows usage the same way.
+ */
+export function consumedPercent(capacity: { usedPercent?: number | null; remainingPercent?: number | null }): number | null {
+	if (typeof capacity.usedPercent === "number" && Number.isFinite(capacity.usedPercent)) return clampPercent(capacity.usedPercent);
+	if (typeof capacity.remainingPercent === "number" && Number.isFinite(capacity.remainingPercent)) return clampPercent(100 - capacity.remainingPercent);
+	return null;
+}
 export function formatPercentage(value: number, locale?: string): string { return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value)}%`; }
 function formatResetTime(value: string | null | undefined, locale: string): { visible: string; full: string } | null { if (!value) return null; const date = new Date(value); if (Number.isNaN(date.getTime())) return null; const now = new Date(); const sameDay = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate(); return { visible: new Intl.DateTimeFormat(locale, sameDay ? { hour: "2-digit", minute: "2-digit" } : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(date), full: new Intl.DateTimeFormat(locale, { dateStyle: "full", timeStyle: "long" }).format(date) }; }
 function formatObservedTime(value: string, locale: string): string { const date = new Date(value); return Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(date); }

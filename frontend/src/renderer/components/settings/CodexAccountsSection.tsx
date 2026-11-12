@@ -10,7 +10,7 @@ import { Button } from "../ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { AgentProviderGroup } from "./AgentProviderGroup";
-import { formatAuthMethod, formatPercentage, formatPlanName } from "./CodexAccountDetails";
+import { consumedPercent, formatAuthMethod, formatPercentage, formatPlanName } from "./CodexAccountDetails";
 import { CodexAccountLoginTerminalPanel } from "./CodexAccountLoginTerminalPanel";
 import { CodexAccountRow } from "./CodexAccountRow";
 import { SettingsSection } from "./SettingsSection";
@@ -193,7 +193,7 @@ export function CodexAccountsSection({ titleHidden }: { titleHidden?: boolean })
 		// when the active account -- the one every Codex session launches with --
 		// needs reauthentication, however healthy the other accounts look.
 		if (activeAccount && activeAuthentication?.key !== "settings.codexAccounts.signedIn") return [activeAccount.label, t(activeAuthentication?.key ?? "settings.codexAccounts.authenticationCheckFailed")].join(" · ");
-		if (activeAccount) return [activeAccount.label, formatPlanName(activeAccount.capacity.plan), activeAccount.capacity.remainingPercent == null ? null : `${formatPercentage(activeAccount.capacity.remainingPercent)} ${t("settings.codexAccounts.remaining")}`].filter(Boolean).join(" · ");
+		if (activeAccount) return [activeAccount.label, formatPlanName(activeAccount.capacity.plan), consumedPercent(activeAccount.capacity) == null ? null : `${formatPercentage(consumedPercent(activeAccount.capacity) ?? 0)} ${t("settings.codexAccounts.used")}`].filter(Boolean).join(" · ");
 		if (deviceVerified && !data.activeAccountId) return data.accounts.length > 0
 			? t("settings.codexAccounts.chooseAccount")
 			: t("settings.codexAccounts.signInToUse");

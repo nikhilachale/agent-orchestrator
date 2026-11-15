@@ -47,6 +47,9 @@ type TriggerReviewResponse struct {
 	// Created is true when a new review pass was started (HTTP 201) and false
 	// when an existing run for the same commit was reused (HTTP 200).
 	Created bool `json:"created" description:"True when a new review pass was started; false when an existing run for the same commit was reused."`
+	// ReviewerFailures lists configured reviewers that failed to start while
+	// others did; their runs are recorded as failed, never approved.
+	ReviewerFailures []reviewcore.ReviewerFailure `json:"reviewerFailures,omitempty" description:"Configured reviewers that failed to start while at least one other reviewer started."`
 }
 
 // CancelReviewResponse is the body of cancel (200). reviews carries the
@@ -211,6 +214,7 @@ func (c *ReviewsController) trigger(w http.ResponseWriter, r *http.Request) {
 		Reviews:          reviews,
 		Runs:             runs,
 		Created:          res.Created,
+		ReviewerFailures: res.ReviewerFailures,
 	})
 }
 

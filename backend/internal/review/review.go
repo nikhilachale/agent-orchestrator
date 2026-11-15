@@ -253,10 +253,103 @@ func (e *Engine) TriggerWithSource(ctx stdctx.Context, workerID domain.SessionID
 		return TriggerResult{}, fmt.Errorf("%w: reviewer config: %w", ErrInvalid, err)
 	}
 
+	// A project with several configured reviewers (and no per-session or
+	// per-call reviewer choice) runs every reviewer independently against the
+	// same PR heads, sequentially. Each reviewer keeps its own review row,
+	// terminal and runs, so verdicts stay attributed per harness.
+	if override == "" && overrideConfig.IsZero() && worker.ReviewerHarness == "" && worker.ReviewerConfig.IsZero() {
+		selections, err := e.projectReviewerSelections(ctx, worker)
+		if err != nil {
+			return TriggerResult{}, err
+		}
+		if len(selections) > 1 {
+			return e.triggerConfiguredReviewers(ctx, worker, prs, selections, source)
+		}
+	}
+
 	harness, config, err := e.reviewerSelection(ctx, worker)
 	if err != nil {
 		return TriggerResult{}, err
 	}
+	return e.triggerReviewer(ctx, worker, prs, runs, harness, config, override, overrideConfig, source, nil)
+}
+
+// triggerConfiguredReviewers runs one trigger pass per configured reviewer.
+// A failure in one reviewer never blocks the others: its runs are recorded as
+// failed (never approved) and the joined error is returned alongside the
+// combined result of the reviewers that did start.
+func (e *Engine) triggerConfiguredReviewers(ctx stdctx.Context, worker domain.SessionRecord, prs []domain.PullRequest, selections []domain.ReviewerConfig, source domain.ReviewTriggerSource) (TriggerResult, error) {
+	configured := make(map[domain.ReviewerHarness]bool, len(selections))
+	for _, sel := range selections {
+		configured[sel.Harness] = true
+	}
+	var combined TriggerResult
+	var errs []error
+	skipReasons := map[string]bool{}
+	for _, sel := range selections {
+		runs, err := e.store.ListReviewRunsBySession(ctx, worker.ID)
+		if err != nil {
+			return TriggerResult{}, err
+		}
+		res, err := e.triggerReviewer(ctx, worker, prs, runs, sel.Harness, sel.AgentConfig, "", domain.AgentConfig{}, source, configured)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("reviewer %s: %w", sel.Harness, err))
+			continue
+		}
+		if res.SkipReason != "" {
+			skipReasons[res.SkipReason] = true
+		}
+		combined.CreatedRuns = append(combined.CreatedRuns, res.CreatedRuns...)
+		if res.Created && !combined.Created {
+			combined.Created = true
+			combined.Run = res.Run
+			combined.ReviewerHandleID = res.ReviewerHandleID
+		}
+		if combined.Run.ID == "" {
+			combined.Run = res.Run
+		}
+		if combined.ReviewerHandleID == "" {
+			combined.ReviewerHandleID = res.ReviewerHandleID
+		}
+	}
+	if !combined.Created && len(skipReasons) == 1 {
+		for reason := range skipReasons {
+			combined.SkipReason = reason
+		}
+	}
+	runs, err := e.store.ListReviewRunsBySession(ctx, worker.ID)
+	if err != nil {
+		errs = append(errs, err)
+	} else {
+		combined.Runs = runs
+		harnesses := make([]domain.ReviewerHarness, 0, len(selections))
+		for _, sel := range selections {
+			harnesses = append(harnesses, sel.Harness)
+		}
+		combined.Reviews = PlanReviewers(prs, runs, harnesses)
+	}
+	return combined, errors.Join(errs...)
+}
+
+// triggerReviewer runs one reviewer harness over the worker's PRs. configured
+// is non-nil only when several project reviewers run side by side: planning,
+// stale-run reconciliation and pane cleanup are then scoped to this harness
+// so one reviewer never cancels or destroys another configured reviewer.
+func (e *Engine) triggerReviewer(
+	ctx stdctx.Context,
+	worker domain.SessionRecord,
+	prs []domain.PullRequest,
+	runs []domain.ReviewRun,
+	harness domain.ReviewerHarness,
+	config domain.AgentConfig,
+	override domain.ReviewerHarness,
+	overrideConfig domain.AgentConfig,
+	source domain.ReviewTriggerSource,
+	configured map[domain.ReviewerHarness]bool,
+) (TriggerResult, error) {
+	workerID := worker.ID
+	multi := configured != nil
+	var err error
 	resolvedHarness := harness
 	resolvedConfig := config
 	hasHarnessOverride := override != ""
@@ -279,6 +372,15 @@ func (e *Engine) TriggerWithSource(ctx stdctx.Context, workerID domain.SessionID
 	if err != nil {
 		return TriggerResult{}, err
 	}
+	if multi {
+		kept := reviewRows[:0:0]
+		for _, row := range reviewRows {
+			if !configured[row.Harness] {
+				kept = append(kept, row)
+			}
+		}
+		reviewRows = kept
+	}
 	if err := e.destroyOtherReviewerHandles(ctx, workerID, harness, reviewRows); err != nil {
 		return TriggerResult{}, err
 	}
@@ -286,7 +388,16 @@ func (e *Engine) TriggerWithSource(ctx stdctx.Context, workerID domain.SessionID
 	if err != nil {
 		return TriggerResult{}, err
 	}
-	if stale, err := e.cancelStaleRunningRuns(ctx, workerID, reviewRow, hasReview, runs); err != nil {
+	if multi {
+		if stale, err := e.cancelStaleRunningRunsForHarness(ctx, workerID, harness, reviewRow, hasReview, runs); err != nil {
+			return TriggerResult{}, err
+		} else if stale {
+			runs, err = e.store.ListReviewRunsBySession(ctx, workerID)
+			if err != nil {
+				return TriggerResult{}, err
+			}
+		}
+	} else if stale, err := e.cancelStaleRunningRuns(ctx, workerID, reviewRow, hasReview, runs); err != nil {
 		return TriggerResult{}, err
 	} else if stale {
 		runs, err = e.store.ListReviewRunsBySession(ctx, workerID)
@@ -296,6 +407,11 @@ func (e *Engine) TriggerWithSource(ctx stdctx.Context, workerID domain.SessionID
 	}
 	hadRunningReviewer := reviewRunsContainRunningForHarness(runs, harness)
 	reviews := Plan(prs, runs)
+	if multi {
+		// Each configured reviewer judges every head on its own; another
+		// reviewer's verdict must not make this one's pass look up to date.
+		reviews = Plan(prs, reviewRunsForHarness(runs, harness))
+	}
 	if source == domain.ReviewTriggerAuto {
 		reviews = Plan(prs, reviewRunsForHarness(runs, harness))
 		// Automatic sweeps may discover another eligible PR while this harness is
@@ -831,6 +947,27 @@ func (e *Engine) cancelStaleRunningRuns(ctx stdctx.Context, workerID domain.Sess
 	return true, nil
 }
 
+// cancelStaleRunningRunsForHarness is cancelStaleRunningRuns scoped to one
+// harness, used when several configured reviewers share a worker session.
+func (e *Engine) cancelStaleRunningRunsForHarness(ctx stdctx.Context, workerID domain.SessionID, harness domain.ReviewerHarness, reviewRow domain.Review, hasReview bool, runs []domain.ReviewRun) (bool, error) {
+	if !reviewRunsContainRunningForHarness(reviewRunsForHarness(runs, harness), harness) {
+		return false, nil
+	}
+	if hasReview && reviewRow.ReviewerHandleID != "" {
+		alive, err := e.launcher.Alive(ctx, reviewRow.ReviewerHandleID)
+		if err != nil {
+			return false, err
+		}
+		if alive {
+			return false, nil
+		}
+	}
+	if _, err := e.store.CancelRunningReviewRunsBySessionAndHarness(ctx, workerID, harness, "cancelled because reviewer terminal is unavailable"); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func reviewLaunchSpec(
 	worker domain.SessionRecord,
 	harness domain.ReviewerHarness,
@@ -942,7 +1079,22 @@ func (e *Engine) List(ctx stdctx.Context, workerID domain.SessionID) (SessionRev
 	if err != nil {
 		return SessionReviews{}, err
 	}
-	return e.listLocked(ctx, workerID, selectedHarness)
+	res, err := e.listLocked(ctx, workerID, selectedHarness)
+	if err != nil {
+		return SessionReviews{}, err
+	}
+	harnesses, err := e.multiReviewerHarnesses(ctx, worker)
+	if err != nil {
+		return SessionReviews{}, err
+	}
+	if len(harnesses) > 1 {
+		prs, err := e.prs.ListPRsBySession(ctx, workerID)
+		if err != nil {
+			return SessionReviews{}, err
+		}
+		res.Reviews = PlanReviewers(prs, res.Runs, harnesses)
+	}
+	return res, nil
 }
 
 func (e *Engine) listLocked(ctx stdctx.Context, workerID domain.SessionID, selectedHarness domain.ReviewerHarness) (SessionReviews, error) {
@@ -1000,6 +1152,10 @@ func (e *Engine) Cancel(ctx stdctx.Context, workerID domain.SessionID) (CancelRe
 	if err != nil {
 		return CancelResult{}, err
 	}
+	multiHarnesses, err := e.multiReviewerHarnesses(ctx, worker)
+	if err != nil {
+		return CancelResult{}, err
+	}
 	running, err := e.store.ListRunningReviewRunsBySession(ctx, workerID)
 	if err != nil {
 		return CancelResult{}, err
@@ -1021,7 +1177,7 @@ func (e *Engine) Cancel(ctx stdctx.Context, workerID domain.SessionID) (CancelRe
 		if err != nil {
 			return CancelResult{}, err
 		}
-		return CancelResult{ReviewerHandleID: handle, Reviews: Plan(prs, runs)}, nil
+		return CancelResult{ReviewerHandleID: handle, Reviews: PlanReviewers(prs, runs, multiHarnesses)}, nil
 	}
 	review, ok, err := e.currentReviewForCancel(ctx, workerID, harness, running)
 	if err != nil {
@@ -1061,7 +1217,7 @@ func (e *Engine) Cancel(ctx stdctx.Context, workerID domain.SessionID) (CancelRe
 	if err != nil {
 		return CancelResult{}, err
 	}
-	return CancelResult{ReviewerHandleID: review.ReviewerHandleID, Reviews: Plan(prs, runs), CancelledRuns: cancelled}, nil
+	return CancelResult{ReviewerHandleID: review.ReviewerHandleID, Reviews: PlanReviewers(prs, runs, multiHarnesses), CancelledRuns: cancelled}, nil
 }
 
 func (e *Engine) currentReviewForCancel(ctx stdctx.Context, workerID domain.SessionID, selected domain.ReviewerHarness, running []domain.ReviewRun) (domain.Review, bool, error) {
@@ -1198,18 +1354,60 @@ func (e *Engine) projectReviewerSelection(
 	ctx stdctx.Context,
 	worker domain.SessionRecord,
 ) (domain.ReviewerHarness, domain.AgentConfig, error) {
+	selections, err := e.projectReviewerSelections(ctx, worker)
+	if err != nil {
+		return "", domain.AgentConfig{}, err
+	}
+	return selections[0].Harness, selections[0].AgentConfig, nil
+}
+
+// multiReviewerHarnesses returns the configured reviewer harnesses when the
+// worker runs several reviewers side by side, or nil when a single reviewer
+// applies (one configured, or a session-level reviewer preference).
+func (e *Engine) multiReviewerHarnesses(ctx stdctx.Context, worker domain.SessionRecord) ([]domain.ReviewerHarness, error) {
+	if worker.ReviewerHarness != "" || !worker.ReviewerConfig.IsZero() {
+		return nil, nil
+	}
+	selections, err := e.projectReviewerSelections(ctx, worker)
+	if err != nil || len(selections) < 2 {
+		return nil, err
+	}
+	out := make([]domain.ReviewerHarness, 0, len(selections))
+	for _, sel := range selections {
+		out = append(out, sel.Harness)
+	}
+	return out, nil
+}
+
+// projectReviewerSelections returns every reviewer the project configures, in
+// order, with duplicate harnesses collapsed to their first entry (a harness
+// owns exactly one review row per session). With no configured reviewer it
+// returns the single inherited default. The result is never empty.
+func (e *Engine) projectReviewerSelections(
+	ctx stdctx.Context,
+	worker domain.SessionRecord,
+) ([]domain.ReviewerConfig, error) {
 	var cfg domain.ProjectConfig
 	if e.projects != nil {
 		if proj, ok, err := e.projects.GetProject(ctx, string(worker.ProjectID)); err != nil {
-			return "", domain.AgentConfig{}, err
+			return nil, err
 		} else if ok {
 			cfg = proj.Config
 		}
 	}
-	if len(cfg.Reviewers) > 0 {
-		return cfg.Reviewers[0].Harness, cfg.Reviewers[0].AgentConfig, nil
+	if len(cfg.Reviewers) == 0 {
+		return []domain.ReviewerConfig{{Harness: cfg.ResolveReviewerHarness(worker.Harness)}}, nil
 	}
-	return cfg.ResolveReviewerHarness(worker.Harness), domain.AgentConfig{}, nil
+	seen := make(map[domain.ReviewerHarness]bool, len(cfg.Reviewers))
+	out := make([]domain.ReviewerConfig, 0, len(cfg.Reviewers))
+	for _, rv := range cfg.Reviewers {
+		if seen[rv.Harness] {
+			continue
+		}
+		seen[rv.Harness] = true
+		out = append(out, domain.ReviewerConfig{Harness: rv.Harness, AgentConfig: rv.AgentConfig})
+	}
+	return out, nil
 }
 
 func (e *Engine) upsertReview(ctx stdctx.Context, worker domain.SessionRecord, harness domain.ReviewerHarness, handleID, agentSessionID, reviewerLaunchID string, activityState domain.ActivityState, now time.Time) (domain.Review, error) {

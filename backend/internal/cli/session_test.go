@@ -100,6 +100,9 @@ func sessionCommandServer(t *testing.T) (*httptest.Server, *sessionRequestLog) {
 				return
 			}
 			_, _ = io.WriteString(w, `{"ok":true,"sessionId":"demo-1","displayName":`+jsonQuote(req.DisplayName)+`}`)
+		case r.Method == http.MethodPatch && r.URL.Path == "/api/v1/sessions/demo-2":
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = io.WriteString(w, `{"error":"bad_request","code":"ORCHESTRATOR_RENAME_UNSUPPORTED","message":"The project orchestrator cannot be renamed"}`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -219,6 +222,10 @@ func TestSessionList_JSONOutputDecodes(t *testing.T) {
 	if got.Data[0].ID != "demo-1" || got.Data[0].ProjectID != "demo" || got.Data[0].Role != "worker" {
 		t.Fatalf("unexpected JSON entry: %#v", got.Data[0])
 	}
+	// `session get --json` already carries the display name; `ls --json` must too so scripts can tell sessions apart.
+	if got.Data[0].DisplayName != "Current Name" {
+		t.Fatalf("displayName = %q, want %q", got.Data[0].DisplayName, "Current Name")
+	}
 }
 
 func TestSessionList_EnrichesPRColumnsAndKeepsFallbackFacts(t *testing.T) {
@@ -263,7 +270,7 @@ func TestSessionList_EnrichesPRColumnsAndKeepsFallbackFacts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("session ls failed: %v\nstderr=%s", err, errOut)
 	}
-	for _, want := range []string{"SESSION", "BRANCH", "THREADS", "demo-1", "feat/INT-1327", "#3", "passing", "approved", "2", "working", "5m ago", "demo-2", "#2", "failing", "changes_requested"} {
+	for _, want := range []string{"SESSION", "ROLE", "BRANCH", "THREADS", "demo-1", "worker", "feat/INT-1327", "#3", "passing", "approved", "2", "working", "5m ago", "demo-2", "#2", "failing", "changes_requested"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("output missing %q:\n%s", want, out)
 		}
@@ -373,6 +380,10 @@ func TestSessionList_AllIncludesOrchestratorsWithoutHiddenHint(t *testing.T) {
 	if !strings.Contains(out, "demo-1") || !strings.Contains(out, "demo-2") {
 		t.Fatalf("output missing worker or orchestrator session:\n%s", out)
 	}
+	fields := strings.Join(strings.Fields(out), " ")
+	if !strings.Contains(fields, "demo-1 worker") || !strings.Contains(fields, "demo-2 orchestrator") {
+		t.Fatalf("output does not distinguish worker and orchestrator roles:\n%s", out)
+	}
 	if strings.Contains(out, "orchestrator session hidden") {
 		t.Fatalf("output reports hidden orchestrators with --all:\n%s", out)
 	}
@@ -415,6 +426,42 @@ func TestSessionGet_JSONOutputDecodes(t *testing.T) {
 	}
 	if got.Session.ID != "demo-1" || got.Session.ProjectID != "demo" || got.Session.Status != "working" {
 		t.Fatalf("unexpected session JSON: %#v", got.Session)
+	}
+}
+
+func TestSessionGet_PrintsArtifactsWithPublicLinks(t *testing.T) {
+	cfg := setConfigEnv(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/sessions/demo-1" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"session":{"id":"demo-1","projectId":"demo","kind":"worker","status":"working","prs":[],"artifactFiles":[`+
+			`{"path":"explainer.html","kind":"html","shareUrl":"https://share.test/abc"},{"path":"notes.md","kind":"markdown"}]}}`)
+	}))
+	t.Cleanup(srv.Close)
+	writeRunFileFor(t, cfg, srv)
+	deps := Deps{ProcessAlive: func(int) bool { return true }}
+
+	out, errOut, err := executeCLI(t, deps, "session", "get", "demo-1")
+	if err != nil {
+		t.Fatalf("session get failed: %v\nstderr=%s", err, errOut)
+	}
+	if !strings.Contains(out, "artifacts:\n  explainer.html (public link: https://share.test/abc)\n  notes.md\n") {
+		t.Fatalf("artifacts not listed with their links:\n%s", out)
+	}
+
+	out, errOut, err = executeCLI(t, deps, "session", "get", "demo-1", "--json")
+	if err != nil {
+		t.Fatalf("session get --json failed: %v\nstderr=%s", err, errOut)
+	}
+	var got sessionResponse
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatal(err)
+	}
+	if want := []sessionArtifactDTO{{Path: "explainer.html", Kind: "html", ShareURL: "https://share.test/abc"}, {Path: "notes.md", Kind: "markdown"}}; !reflect.DeepEqual(got.Session.ArtifactFiles, want) {
+		t.Fatalf("artifactFiles = %#v, want %#v", got.Session.ArtifactFiles, want)
 	}
 }
 
@@ -464,10 +511,46 @@ func TestSessionKill_PreservedWorkspaceNote(t *testing.T) {
 		t.Fatalf("unexpected kill output:\n%s", out)
 	}
 }
+func TestSessionKill_PendingCleanupNote(t *testing.T) {
+	cfg := setConfigEnv(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions/demo-1/kill" {
+			_, _ = io.WriteString(w, `{"ok":true,"sessionId":"demo-1","freed":false,"cleanupPending":true}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	writeRunFileFor(t, cfg, srv)
+
+	out, errOut, err := executeCLI(t, Deps{
+		ProcessAlive: func(int) bool { return true },
+	}, "session", "kill", "demo-1")
+	if err != nil {
+		t.Fatalf("session kill failed: %v\nstderr=%s", err, errOut)
+	}
+	if !strings.Contains(out, "session demo-1 killed (workspace cleanup pending)") {
+		t.Fatalf("unexpected kill output:\n%s", out)
+	}
+}
 
 func TestSessionRestore_SuccessWithProjectScope(t *testing.T) {
 	cfg := setConfigEnv(t)
-	srv, log := sessionCommandServer(t)
+	log := &sessionRequestLog{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.append(r)
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/sessions/demo-1":
+			_, _ = io.WriteString(w, `{"session":`+sessionJSON("demo-1", "demo", "worker", "terminated", true)+`}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions/demo-1/restore":
+			_, _ = io.WriteString(w, `{"ok":true,"sessionId":"demo-1","session":`+sessionJSON("demo-1", "demo", "worker", "idle", false)+`}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
 	writeRunFileFor(t, cfg, srv)
 
 	out, errOut, err := executeCLI(t, Deps{
@@ -480,6 +563,42 @@ func TestSessionRestore_SuccessWithProjectScope(t *testing.T) {
 		t.Fatalf("unexpected restore output:\n%s", out)
 	}
 	want := []string{"GET /api/v1/sessions/demo-1", "POST /api/v1/sessions/demo-1/restore"}
+	if got := log.all(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("requests = %#v, want %#v", got, want)
+	}
+}
+
+func TestSessionRestore_ExitedOrchestratorResumesAgentInPlace(t *testing.T) {
+	cfg := setConfigEnv(t)
+	log := &sessionRequestLog{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.append(r)
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/sessions/demo-orch":
+			_, _ = io.WriteString(w, `{"session":{"id":"demo-orch","projectId":"demo","kind":"orchestrator","harness":"codex","activity":{"state":"exited","lastActivityAt":"2026-06-02T12:00:00Z"},"isTerminated":false,"status":"exited"}}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions/demo-orch/resume-agent":
+			_, _ = io.WriteString(w, `{"ok":true,"sessionId":"demo-orch","resumeMode":"native","session":{"id":"demo-orch","projectId":"demo","kind":"orchestrator","activity":{"state":"idle"},"isTerminated":false,"status":"idle"}}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	writeRunFileFor(t, cfg, srv)
+
+	out, errOut, err := executeCLI(t, Deps{
+		ProcessAlive: func(int) bool { return true },
+	}, "session", "restore", "demo-orch", "--project", "demo")
+	if err != nil {
+		t.Fatalf("session restore failed: %v\nstderr=%s", err, errOut)
+	}
+	if !strings.Contains(out, "agent resumed for session demo-orch") || !strings.Contains(out, "mode: native") {
+		t.Fatalf("unexpected restore output:\n%s", out)
+	}
+	want := []string{
+		"GET /api/v1/sessions/demo-orch",
+		"POST /api/v1/sessions/demo-orch/resume-agent",
+	}
 	if got := log.all(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("requests = %#v, want %#v", got, want)
 	}
@@ -637,7 +756,7 @@ func TestSessionCleanup_ReportsSkippedWorkspaces(t *testing.T) {
 				sessionJSON("demo-old", "demo", "worker", "terminated", true)+`,`+
 				sessionJSON("demo-orch", "demo", "orchestrator", "terminated", true)+`]}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions/cleanup":
-			_, _ = io.WriteString(w, `{"ok":true,"cleaned":["demo-old"],"skipped":[{"sessionId":"demo-orch","reason":"workspace has uncommitted changes"}]}`)
+			_, _ = io.WriteString(w, `{"ok":true,"cleaned":["demo-old"],"skipped":[{"sessionId":"demo-orch","code":"dirty","reason":"workspace has uncommitted changes"}]}`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -653,7 +772,7 @@ func TestSessionCleanup_ReportsSkippedWorkspaces(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Cleaned: demo-old",
-		"Skipped: demo-orch (workspace has uncommitted changes)",
+		"Skipped: demo-orch (workspace has uncommitted changes) [dirty]\n",
 		"Cleanup complete. 1 session cleaned, 1 skipped.",
 	} {
 		if !strings.Contains(out, want) {
@@ -703,6 +822,22 @@ func TestSessionRename_SuccessWithProjectScope(t *testing.T) {
 	want := []string{"GET /api/v1/sessions/demo-1", "PATCH /api/v1/sessions/demo-1"}
 	if got := log.all(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("requests = %#v, want %#v", got, want)
+	}
+}
+
+func TestSessionRename_OrchestratorRefusalIsRuntimeError(t *testing.T) {
+	cfg := setConfigEnv(t)
+	srv, _ := sessionCommandServer(t)
+	writeRunFileFor(t, cfg, srv)
+
+	out, _, err := executeCLI(t, Deps{
+		ProcessAlive: func(int) bool { return true },
+	}, "session", "rename", "demo-2", "New Name")
+	if err == nil || ExitCode(err) != 1 || !strings.Contains(err.Error(), "ORCHESTRATOR_RENAME_UNSUPPORTED") {
+		t.Fatalf("err=%v exit=%d, want orchestrator rename refusal runtime error", err, ExitCode(err))
+	}
+	if strings.Contains(out, "renamed") {
+		t.Fatalf("refused rename reported success:\n%s", out)
 	}
 }
 
@@ -1005,5 +1140,87 @@ func TestSessionClaimPR_GHFallbackWhenProjectRepoMissing(t *testing.T) {
 	}
 	if ghDir != "/repo/demo" || !strings.Contains(out, "claimed PR #142") {
 		t.Fatalf("ghDir=%q out=%s", ghDir, out)
+	}
+}
+
+// A spawn and a restore run the project's Setup, which the daemon bounds by
+// the Setup steps' own limits; a client timeout would cut a long Setup short.
+func TestSetupCallsHaveNoClientTimeout(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		call string
+		args []string
+	}{
+		{"spawn", "POST /api/v1/sessions", []string{"spawn", "--project", "demo", "--agent", "codex", "--name", "worker"}},
+		{"restore", "POST /api/v1/sessions/demo-1/restore", []string{"session", "restore", "demo-1", "-p", "demo"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := setConfigEnv(t)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch {
+				case r.Method == http.MethodGet && r.URL.Path == "/api/v1/projects/demo":
+					_, _ = io.WriteString(w, `{"status":"ok","project":{"id":"demo","name":"Demo","path":"/repo/demo","defaultBranch":"main"}}`)
+				case r.Method == http.MethodPost && r.URL.Path == "/api/v1/agents/readiness/ensure":
+					_, _ = io.WriteString(w, authorizedAgentsJSON("codex"))
+				case r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions":
+					_, _ = io.WriteString(w, `{"session":{"id":"demo-9","status":"idle"}}`)
+				case r.Method == http.MethodGet && r.URL.Path == "/api/v1/sessions/demo-1":
+					_, _ = io.WriteString(w, `{"session":`+sessionJSON("demo-1", "demo", "worker", "terminated", true)+`}`)
+				case r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions/demo-1/restore":
+					_, _ = io.WriteString(w, `{"ok":true,"sessionId":"demo-1","session":`+sessionJSON("demo-1", "demo", "worker", "idle", false)+`}`)
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			t.Cleanup(srv.Close)
+			writeRunFileFor(t, cfg, srv)
+			var seen bool
+			var deadline time.Time
+			var hasDeadline bool
+			client := &http.Client{Timeout: 2 * time.Second, Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				if req.Method+" "+req.URL.Path == tc.call {
+					seen = true
+					deadline, hasDeadline = req.Context().Deadline()
+				}
+				return http.DefaultTransport.RoundTrip(req)
+			})}
+			_, errOut, err := executeCLI(t, Deps{HTTPClient: client, ProcessAlive: func(int) bool { return true }}, tc.args...)
+			if err != nil {
+				t.Fatalf("%s failed: %v\nstderr=%s", tc.name, err, errOut)
+			}
+			if !seen {
+				t.Fatalf("%s never called %s", tc.name, tc.call)
+			}
+			if hasDeadline {
+				t.Fatalf("%s request deadline in %s, want no client timeout", tc.call, time.Until(deadline).Round(time.Minute))
+			}
+		})
+	}
+}
+
+// The session that spawned the killed one shows the termination only when it
+// ran the kill, so the CLI names the AO session it runs in.
+func TestSessionKill_SendsCallerSession(t *testing.T) {
+	cfg := setConfigEnv(t)
+	t.Setenv("AO_SESSION_ID", "orchestrator-1")
+	var body map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions/demo-1/kill" {
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			_, _ = io.WriteString(w, `{"ok":true,"sessionId":"demo-1","freed":true}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	writeRunFileFor(t, cfg, srv)
+
+	if _, errOut, err := executeCLI(t, Deps{ProcessAlive: func(int) bool { return true }}, "session", "kill", "demo-1"); err != nil {
+		t.Fatalf("session kill failed: %v\nstderr=%s", err, errOut)
+	}
+	if body["callerSessionId"] != "orchestrator-1" {
+		t.Fatalf("kill body = %v, want callerSessionId orchestrator-1", body)
 	}
 }

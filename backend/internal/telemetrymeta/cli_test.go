@@ -8,6 +8,18 @@ func TestNormalizeCommandPath(t *testing.T) {
 	}
 }
 
+func TestCLIActorTypeReviewAutoInject(t *testing.T) {
+	for _, actor := range []string{"", "user", "agent"} {
+		want := actor
+		if want == "" {
+			want = "user"
+		}
+		if got := CLIActorType(actor, "ao review auto-inject"); got != want {
+			t.Fatalf("actor %q classified as %q, want %q", actor, got, want)
+		}
+	}
+}
+
 func TestIsRoutineInternalCLICommandNormalizesLegacyShapes(t *testing.T) {
 	for _, commandPath := range []string{
 		"ao hooks",
@@ -15,10 +27,9 @@ func TestIsRoutineInternalCLICommandNormalizesLegacyShapes(t *testing.T) {
 		"AO HOOKS",
 		"ao hooks claude-code post-tool-use",
 		"ao session get sess-123",
-		"ao session agent-switch ls sess-123",
-		"ao session handoff submit --switch switch-1",
 		"ao project ls",
 		"ao pty-host session-1",
+		"ao unreal-provider /tmp/config.json",
 	} {
 		if !IsRoutineInternalCLICommand(commandPath) {
 			t.Errorf("IsRoutineInternalCLICommand(%q) = false, want true", commandPath)
@@ -30,9 +41,7 @@ func TestCLIActorTypeKeepsKnownLegacyUserCommands(t *testing.T) {
 	for _, commandPath := range []string{
 		"ao agent ls",
 		"ao session claim-pr",
-		"ao session switch-agent",
-		"ao session agent-switch",
-		"ao session agent-switch ls",
+		"ao session interrupt",
 		"ao dev import-projects",
 		"ao project orchestration get",
 		"ao project orchestration set",

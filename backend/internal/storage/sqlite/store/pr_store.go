@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -49,6 +50,84 @@ func (s *Store) WriteSCMObservation(ctx context.Context, pr domain.PullRequest, 
 	return s.writePR(ctx, pr, checks, reviews, threads, comments, reviewMode, false)
 }
 
+// MarkPRMerged records the authoritative success returned by the provider's
+// merge endpoint without replacing concurrently refreshed CI or review facts.
+// The pr_cdc_update trigger emits the corresponding pr_updated event.
+func (s *Store) MarkPRMerged(ctx context.Context, prURL, mergeCommitSHA string, mergedAt time.Time) error {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	rows, err := s.qr.MarkPRMerged(ctx, gen.MarkPRMergedParams{
+		MergeCommitSha: mergeCommitSHA,
+		StateChangedAt: sql.NullTime{Time: mergedAt, Valid: true},
+		UpdatedAt:      mergedAt,
+		ObservedAt:     sql.NullTime{Time: mergedAt, Valid: true},
+		URL:            prURL,
+	})
+	if err != nil {
+		return fmt.Errorf("mark pr merged %s: %w", prURL, err)
+	}
+	if rows != 1 {
+		return fmt.Errorf("mark pr merged %s: updated %d rows", prURL, rows)
+	}
+	if err := s.qw.RecordWorkerPRUsage(ctx, gen.RecordWorkerPRUsageParams{PRURL: prURL, ExportAllowed: s.usageAllowed()}); err != nil {
+		slog.Warn("record merged pr usage failed", "error", err)
+	}
+	return nil
+}
+
+// MarkPRState records the authoritative result of a provider close, reopen,
+// ready-for-review, or convert-to-draft mutation without replacing
+// concurrently refreshed CI or review facts. A merged PR is never rewritten.
+// The pr_cdc_update trigger emits the corresponding pr_updated event.
+func (s *Store) MarkPRState(ctx context.Context, prURL string, state domain.PRState, changedAt time.Time) error {
+	switch state {
+	case domain.PRStateOpen, domain.PRStateDraft, domain.PRStateClosed:
+	default:
+		return fmt.Errorf("mark pr state %s: unsupported state %q", prURL, state)
+	}
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	// Closing keeps a draft a draft, as the providers do, so reopening it brings
+	// back a draft; the other states say outright whether the PR is one.
+	draft := state == domain.PRStateDraft
+	if state == domain.PRStateClosed {
+		current, err := s.qw.GetPR(ctx, prURL)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("mark pr state %s: updated 0 rows", prURL)
+		}
+		if err != nil {
+			return fmt.Errorf("mark pr state %s: %w", prURL, err)
+		}
+		draft = current.IsDraft != 0
+	}
+	rows, err := s.qw.MarkPRState(ctx, gen.MarkPRStateParams{
+		PRState:        state,
+		IsDraft:        boolInt(draft),
+		IsClosed:       boolInt(state == domain.PRStateClosed),
+		StateChangedAt: sql.NullTime{Time: changedAt, Valid: true},
+		UpdatedAt:      changedAt,
+		URL:            prURL,
+	})
+	if err != nil {
+		return fmt.Errorf("mark pr state %s: %w", prURL, err)
+	}
+	if rows != 1 {
+		return fmt.Errorf("mark pr state %s: updated %d rows", prURL, rows)
+	}
+	return nil
+}
+
+// UpsertPRReviewComment stores one just-posted review-thread reply so the view
+// shows it before the next review observation, which reconciles it.
+func (s *Store) UpsertPRReviewComment(ctx context.Context, prURL string, comment domain.PullRequestComment) error {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	if err := s.qw.UpsertPRComment(ctx, genCommentParams(prURL, comment)); err != nil {
+		return fmt.Errorf("upsert pr review comment %s/%s: %w", prURL, comment.ID, err)
+	}
+	return nil
+}
+
 // ClaimPR moves (or creates) a PR row to pr.SessionID and applies the live SCM
 // observation in the same transaction. The session_id update is what fires the
 // pr_session_changed CDC trigger added in migration 0005.
@@ -73,6 +152,8 @@ func (s *Store) ClaimPR(ctx context.Context, pr domain.PullRequest, checks []dom
 				return err
 			}
 			if owner.SessionID == pr.SessionID {
+				// A review through a renamed URL must not disown an existing PR.
+				pr.ReviewOnly = candidate.ReviewOnly
 				continue
 			}
 			if outcome.PreviousOwner != "" && outcome.PreviousOwner != owner.SessionID {
@@ -91,7 +172,7 @@ func (s *Store) ClaimPR(ctx context.Context, pr domain.PullRequest, checks []dom
 		}); err != nil {
 			return err
 		}
-		return writePRRows(ctx, q, pr, checks, reviews, threads, comments, reviewMode, false, false)
+		return writePRRows(ctx, q, pr, checks, reviews, threads, comments, reviewMode, false, false, s.usageAllowed())
 	})
 	return outcome, err
 }
@@ -100,11 +181,11 @@ func (s *Store) writePR(ctx context.Context, pr domain.PullRequest, checks []dom
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 	return s.inTx(ctx, "write pr observation", func(q *gen.Queries) error {
-		return writePRRows(ctx, q, pr, checks, reviews, threads, comments, reviewMode, replaceLegacyComments, true)
+		return writePRRows(ctx, q, pr, checks, reviews, threads, comments, reviewMode, replaceLegacyComments, true, s.usageAllowed())
 	})
 }
 
-func writePRRows(ctx context.Context, q *gen.Queries, pr domain.PullRequest, checks []domain.PullRequestCheck, reviews []domain.PullRequestReview, threads []domain.PullRequestReviewThread, comments []domain.PullRequestComment, reviewMode ports.ReviewWriteMode, replaceLegacyComments, rejectReassignment bool) error {
+func writePRRows(ctx context.Context, q *gen.Queries, pr domain.PullRequest, checks []domain.PullRequestCheck, reviews []domain.PullRequestReview, threads []domain.PullRequestReviewThread, comments []domain.PullRequestComment, reviewMode ports.ReviewWriteMode, replaceLegacyComments, rejectReassignment, exportAllowed bool) error {
 	pr = normalizedPRIdentity(pr)
 	var err error
 	pr, err = resolveWeakPRAlias(ctx, q, pr)
@@ -128,6 +209,15 @@ func writePRRows(ctx context.Context, q *gen.Queries, pr domain.PullRequest, che
 		if err := upsertPRWithIdentity(ctx, q, pr, rejectReassignment); err != nil {
 			return err
 		}
+	}
+	if err := writePRDetails(ctx, q, pr.URL, pr.UpdatedAtProvider, pr.Details); err != nil {
+		return err
+	}
+	if err := q.UpgradeWorkerPRUsageIdentity(ctx, pr.URL); err != nil {
+		slog.Warn("upgrade worker pr usage identity failed", "error", err)
+	}
+	if err := q.RecordWorkerPRUsage(ctx, gen.RecordWorkerPRUsageParams{PRURL: pr.URL, ExportAllowed: exportAllowed}); err != nil {
+		slog.Warn("record worker pr usage failed", "error", err)
 	}
 	for _, c := range checks {
 		if err := q.UpsertPRCheck(ctx, genCheckParams(pr.URL, c)); err != nil {
@@ -287,6 +377,9 @@ func upsertPRWithIdentity(ctx context.Context, q *gen.Queries, pr domain.PullReq
 		return err
 	}
 	for _, existing := range candidates {
+		if existing.SessionID == pr.SessionID && existing.ReviewOnly {
+			pr.ReviewOnly = true
+		}
 		if rejectReassignment && existing.SessionID != pr.SessionID {
 			return fmt.Errorf("pr %s already belongs to session %s", existing.URL, existing.SessionID)
 		}
@@ -419,7 +512,7 @@ func reviewThreadIDs(threads []domain.PullRequestReviewThread, comments []domain
 
 // GetPRLastNudgeSignature returns the persisted nudge-dedup JSON payload for a
 // PR (empty string when the PR has no row or no signatures yet). The payload is
-// opaque to storage; lifecycle.Manager owns its shape.
+// written by lifecycle.Manager; Kanban queries read its review-delivery entries.
 func (s *Store) GetPRLastNudgeSignature(ctx context.Context, url string) (string, error) {
 	sig, err := s.qr.GetPRLastNudgeSignature(ctx, url)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -440,6 +533,30 @@ func (s *Store) UpdatePRLastNudgeSignature(ctx context.Context, url, payload str
 		return fmt.Errorf("update pr nudge signature %s: %w", url, err)
 	}
 	return nil
+}
+
+// RecordRepositoryRename stores the provider's current name for a renamed or
+// transferred repository.
+func (s *Store) RecordRepositoryRename(ctx context.Context, r domain.RepositoryRename) error {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	if err := s.qw.UpsertRepositoryRename(ctx, gen.UpsertRepositoryRenameParams(r)); err != nil {
+		return fmt.Errorf("record repository rename %s/%s: %w", r.Host, r.OldName, err)
+	}
+	return nil
+}
+
+// ListRepositoryRenames returns every known repository rename.
+func (s *Store) ListRepositoryRenames(ctx context.Context) ([]domain.RepositoryRename, error) {
+	rows, err := s.qr.ListRepositoryRenames(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list repository renames: %w", err)
+	}
+	out := make([]domain.RepositoryRename, len(rows))
+	for i, row := range rows {
+		out[i] = domain.RepositoryRename(row)
+	}
+	return out, nil
 }
 
 // GetPR returns the PR facts for a URL, or ok=false if absent.
@@ -523,17 +640,6 @@ func (s *Store) ListPRComments(ctx context.Context, prURL string) ([]domain.Pull
 	return out, nil
 }
 
-// MarkPRCommentResolved records a provider-resolved review comment locally.
-func (s *Store) MarkPRCommentResolved(ctx context.Context, prURL, commentID string) (bool, error) {
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
-	affected, err := s.qw.MarkPRCommentResolved(ctx, gen.MarkPRCommentResolvedParams{PRURL: prURL, CommentID: commentID})
-	if err != nil {
-		return false, fmt.Errorf("mark pr comment resolved %s/%s: %w", prURL, commentID, err)
-	}
-	return affected > 0, nil
-}
-
 // MarkPRReviewThreadResolved records a provider-resolved review thread and
 // all of its comments locally. The two updates share the writer lock so a
 // concurrent observation cannot interleave with the targeted state change.
@@ -595,6 +701,7 @@ func prState(r domain.PullRequest) domain.PRState {
 
 func genPRParams(r domain.PullRequest) gen.UpsertPRParams {
 	return gen.UpsertPRParams{
+		ReviewOnly:               r.ReviewOnly,
 		URL:                      r.URL,
 		SessionID:                r.SessionID,
 		Number:                   int64(r.Number),
@@ -610,6 +717,8 @@ func genPRParams(r domain.PullRequest) gen.UpsertPRParams {
 		ProviderID:               r.ProviderID,
 		SourceBranch:             r.SourceBranch,
 		TargetBranch:             r.TargetBranch,
+		HeadFromFork:             r.HeadFromFork,
+		HeadIsDefaultBranch:      r.HeadIsDefaultBranch,
 		HeadSha:                  r.HeadSHA,
 		Title:                    r.Title,
 		Additions:                int64(r.Additions),
@@ -717,6 +826,8 @@ func prRowFromGen(p gen.PR) domain.PullRequest {
 		ProviderID:               p.ProviderID,
 		SourceBranch:             p.SourceBranch,
 		TargetBranch:             p.TargetBranch,
+		HeadFromFork:             p.HeadFromFork,
+		HeadIsDefaultBranch:      p.HeadIsDefaultBranch,
 		HeadSHA:                  p.HeadSha,
 		Title:                    p.Title,
 		Additions:                int(p.Additions),
@@ -742,6 +853,7 @@ func prRowFromGen(p gen.PR) domain.PullRequest {
 		ReviewObservedAt:         timeFromNull(p.ReviewObservedAt),
 		ReviewPartial:            p.ReviewPartial,
 		AutoInjectCI:             p.AutoInjectCI,
+		ReviewOnly:               p.ReviewOnly,
 	}
 }
 
@@ -852,4 +964,46 @@ func timeFromNull(t sql.NullTime) time.Time {
 		return time.Time{}
 	}
 	return t.Time
+}
+
+// SetPRReviewOnly marks or clears prURL as a review-only attachment of
+// sessionID. It reports false when the PR does not belong to that session.
+func (s *Store) SetPRReviewOnly(ctx context.Context, prURL string, sessionID domain.SessionID, reviewOnly bool) (bool, error) {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	n, err := s.qw.SetPRReviewOnly(ctx, gen.SetPRReviewOnlyParams{ReviewOnly: reviewOnly, URL: prURL, SessionID: sessionID})
+	if err != nil {
+		return false, fmt.Errorf("set review-only for pr %s: %w", prURL, err)
+	}
+	return n > 0, nil
+}
+
+// NoInjectAOReviewPRURLs returns every URL the store knows pr under: its own,
+// the row a weak alias of it points to, and the rows its provider identity
+// matches. A --no-inject lookup made before the write that moves review runs
+// to pr.URL (a repo rename or transfer) still finds them (#6810).
+func (s *Store) NoInjectAOReviewPRURLs(ctx context.Context, pr domain.PullRequest) ([]string, error) {
+	pr = normalizedPRIdentity(pr)
+	urls := []string{}
+	seen := map[string]bool{}
+	add := func(url string) {
+		if url != "" && !seen[url] {
+			seen[url] = true
+			urls = append(urls, url)
+		}
+	}
+	add(pr.URL)
+	resolved, err := resolveWeakPRAlias(ctx, s.qr, pr)
+	if err != nil {
+		return nil, fmt.Errorf("resolve pr identity for %s: %w", pr.URL, err)
+	}
+	add(resolved.URL)
+	candidates, err := findPRIdentityCandidates(ctx, s.qr, resolved)
+	if err != nil {
+		return nil, fmt.Errorf("resolve pr identity for %s: %w", pr.URL, err)
+	}
+	for url := range candidates {
+		add(url)
+	}
+	return urls, nil
 }

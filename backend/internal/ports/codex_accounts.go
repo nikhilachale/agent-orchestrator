@@ -40,6 +40,12 @@ type CodexCapacityObservation struct {
 	ResetCredits      *domain.CodexResetCreditsSummary
 	ObservedAt        time.Time
 	Partial           bool
+	// AutoResumeResetsAt retains a safe rolling deadline before display
+	// normalization discards quota-kind and completeness information.
+	AutoResumeResetsAt *time.Time `json:"-"`
+	// DroppedBucket is set when a reported bucket failed normalization or
+	// disagreed with the overall bucket that has the same limit id.
+	DroppedBucket bool `json:"-"`
 }
 
 // CodexUsageObservation is the deliberately small, display-safe subset of

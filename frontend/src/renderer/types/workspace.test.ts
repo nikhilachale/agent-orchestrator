@@ -1,23 +1,31 @@
 import { describe, expect, it } from "vitest";
 import { AGENT_OPTIONS } from "@aoagents/product-ui";
 import {
+	sessionWorkspaceReady,
 	attentionZone,
+	canArchiveWorkerSession,
 	canonicalTrackerIssueId,
 	findProjectOrchestrator,
 	newestActiveOrchestrator,
+	orchestratorAgentSettingChanged,
 	orchestratorHealth,
+	sessionAgentExited,
+	sessionCueTargetAvailable,
 	sessionIsActive,
 	sessionNeedsAttention,
+	sortedWorkerSessions,
 	toAgentProvider,
 	toSessionActivity,
 	toSessionStatus,
 	openPRs,
 	mergedPRCount,
 	primaryPR,
+	sessionArtifacts,
 	sortedPRs,
 	type AttentionZone,
 	type PRState,
 	type PullRequestFacts,
+	type SessionArtifact,
 	type SessionStatus,
 	type WorkspaceSession,
 	type WorkspaceSummary,
@@ -95,6 +103,19 @@ describe("toSessionActivity", () => {
 	});
 });
 
+describe("sortedWorkerSessions", () => {
+	it("orders imports not opened yet by the source chat's last activity, not the import time", () => {
+		const imported = (id: string, lastActivityAt: string, createdAt: string) =>
+			sessionWith({ id, needsResume: true, createdAt, activity: { state: "exited", lastActivityAt } });
+		const sessions = [
+			imported("oldest", "2026-10-15T04:11:25Z", "2026-11-09T16:13:54.159Z"),
+			imported("newest", "2026-10-26T06:06:05Z", "2026-11-09T16:13:54.137Z"),
+			sessionWith({ id: "native", createdAt: "2026-10-20T00:00:00Z", lastInteractionAt: "2026-10-20T00:00:00Z" }),
+		];
+		expect(sortedWorkerSessions(sessions).map((s) => s.id)).toEqual(["newest", "native", "oldest"]);
+	});
+});
+
 describe("sessionIsActive", () => {
 	it("keeps a merged session active until its runtime is terminated", () => {
 		expect(sessionIsActive(sessionWith({ status: "merged", isTerminated: false }))).toBe(true);
@@ -109,6 +130,53 @@ describe("sessionIsActive", () => {
 		expect(sessionIsActive(sessionWith({ status: "working" }))).toBe(true);
 		expect(sessionIsActive(sessionWith({ status: "pr_open" }))).toBe(true);
 		expect(sessionIsActive(sessionWith({ status: "exited" }))).toBe(true);
+	});
+});
+
+describe("canArchiveWorkerSession", () => {
+	it("lets a live local, remote, or Cloud worker be archived from its own session", () => {
+		expect(canArchiveWorkerSession(sessionWith({ status: "working" }))).toBe(true);
+		expect(canArchiveWorkerSession(sessionWith({ status: "working", hostId: "host-1" }))).toBe(true);
+		expect(canArchiveWorkerSession(sessionWith({ status: "working", cloud: { orgId: "org-1" } }))).toBe(true);
+	});
+
+	it("leaves orchestrators, ended sessions, and sessions shared from another organization alone", () => {
+		expect(canArchiveWorkerSession(sessionWith({ kind: "orchestrator" }))).toBe(false);
+		expect(canArchiveWorkerSession(sessionWith({ isTerminated: true }))).toBe(false);
+		expect(canArchiveWorkerSession(sessionWith({ status: "working", cloud: { orgId: "org-1", shared: true } }))).toBe(false);
+	});
+});
+
+describe("sessionAgentExited", () => {
+	it.each([undefined, false])(
+		"rejects a terminated status when isTerminated is %s",
+		(isTerminated) => {
+			expect(
+				sessionAgentExited(
+					sessionWith({
+						status: "terminated",
+						isTerminated,
+						activity: { state: "exited", lastActivityAt: "2026-09-21T00:00:00Z" },
+					}),
+				),
+			).toBe(false);
+		},
+	);
+});
+
+describe("sessionCueTargetAvailable", () => {
+	it("accepts an active session even when activity has not been observed", () => {
+		expect(sessionCueTargetAvailable(sessionWith({}))).toBe(true);
+	});
+
+	it.each(["exited", "blocked"] as const)("rejects %s activity", (state) => {
+		expect(sessionCueTargetAvailable(sessionWith({ activity: { state, lastActivityAt: "2026-09-25T00:00:00Z" } }))).toBe(false);
+	});
+
+	it("rejects both terminated facts", () => {
+		expect(sessionCueTargetAvailable(sessionWith({ isTerminated: true }))).toBe(false);
+		expect(sessionCueTargetAvailable(sessionWith({ status: "terminated" }))).toBe(false);
+		expect(sessionCueTargetAvailable(undefined)).toBe(false);
 	});
 });
 
@@ -213,47 +281,70 @@ describe("sessionNeedsAttention", () => {
 });
 
 describe("orchestratorHealth", () => {
-	it("reports restart_needed when the configured orchestrator agent differs from the newest active orchestrator", () => {
-		const older = sessionWith({
-			id: "skills-1",
+	const orchestratorWith = (overrides: Partial<WorkspaceSession>) =>
+		sessionWith({
+			id: "skills-orchestrator",
 			kind: "orchestrator",
-			provider: "codex",
-			status: "working",
-			createdAt: "2026-01-01T00:00:00Z",
-			updatedAt: "2026-01-01T00:00:00Z",
-		});
-		const newest = sessionWith({
-			id: "skills-2",
-			kind: "orchestrator",
-			provider: "claude-code",
 			status: "working",
 			createdAt: "2026-01-02T00:00:00Z",
 			updatedAt: "2026-01-02T00:00:00Z",
+			...overrides,
 		});
+	const project = (sessions: WorkspaceSession[], orchestratorAgent: WorkspaceSummary["orchestratorAgent"] = "codex"): WorkspaceSummary => ({
+		id: "skills",
+		name: "skills",
+		path: "/tmp/skills",
+		orchestratorAgent,
+		sessions,
+	});
 
-		expect(
-			orchestratorHealth({
-				id: "skills",
-				name: "skills",
-				path: "/tmp/skills",
-				orchestratorAgent: "codex",
-				sessions: [older, newest],
-			}),
-		).toEqual({
+	it("reports duplicates before anything else", () => {
+		const older = orchestratorWith({ id: "skills-1", provider: "codex", createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" });
+		const newest = orchestratorWith({ id: "skills-2", provider: "claude-code", roleAgent: "codex" });
+		expect(orchestratorHealth(project([older, newest]))).toEqual({
 			state: "duplicates",
 			message:
 				"Multiple orchestrators are active. The newest one is used; stale ones will be cleaned up on daemon reconcile.",
 		});
+	});
 
-		expect(
-			orchestratorHealth({
-				id: "skills",
-				name: "skills",
-				path: "/tmp/skills",
-				orchestratorAgent: "codex",
-				sessions: [newest],
-			}).state,
-		).toBe("restart_needed");
+	it("is ok after the orchestrator was switched to another agent", () => {
+		// The project still names Codex; the user switched its orchestrator to Claude Code.
+		expect(orchestratorHealth(project([orchestratorWith({ provider: "claude-code", roleAgent: "codex" })]))).toEqual({ state: "ok" });
+	});
+
+	it("is ok for an orchestrator from before the daemon recorded its role agent", () => {
+		expect(orchestratorHealth(project([orchestratorWith({ provider: "claude-code" })]))).toEqual({ state: "ok" });
+	});
+
+	it("is ok when the setting changed to the agent the orchestrator already runs", () => {
+		expect(orchestratorHealth(project([orchestratorWith({ provider: "claude-code", roleAgent: "codex" })], "claude-code"))).toEqual({ state: "ok" });
+	});
+
+	it("reports a setting changed after the orchestrator's agent was chosen, without pressing for a restart", () => {
+		const health = orchestratorHealth(project([orchestratorWith({ provider: "codex", roleAgent: "codex" })], "claude-code"));
+		expect(health).toEqual({
+			state: "agent_setting_changed",
+			message:
+				"This project's orchestrator agent is now Claude Code. The running orchestrator stays on Codex; a restart starts a new one on Claude Code.",
+		});
+	});
+});
+
+describe("orchestratorAgentSettingChanged", () => {
+	it("never reads the running agent alone as drift", () => {
+		expect(orchestratorAgentSettingChanged({ orchestratorAgent: "codex" }, { provider: "claude-code" })).toBe(false);
+		expect(orchestratorAgentSettingChanged({ orchestratorAgent: "codex" }, { provider: "claude-code", roleAgent: "codex" })).toBe(false);
+	});
+
+	it("reads a later change to the setting as drift until the orchestrator runs that agent", () => {
+		expect(orchestratorAgentSettingChanged({ orchestratorAgent: "goose" }, { provider: "claude-code", roleAgent: "codex" })).toBe(true);
+		expect(orchestratorAgentSettingChanged({ orchestratorAgent: "goose" }, { provider: "goose", roleAgent: "codex" })).toBe(false);
+	});
+
+	it("reports nothing without a configured agent or an orchestrator", () => {
+		expect(orchestratorAgentSettingChanged({}, { provider: "claude-code", roleAgent: "codex" })).toBe(false);
+		expect(orchestratorAgentSettingChanged({ orchestratorAgent: "codex" }, undefined)).toBe(false);
 	});
 });
 
@@ -310,6 +401,56 @@ describe("PR helpers", () => {
 	});
 });
 
+describe("sessionArtifacts", () => {
+	const artifact = (overrides: Partial<SessionArtifact> & { path: string }): SessionArtifact => ({
+		kind: "file",
+		name: overrides.path,
+		size: 0,
+		updatedAt: "2026-01-01T00:00:00Z",
+		...overrides,
+	});
+
+	it("returns the artifact files when outputType is artifact", () => {
+		const session = sessionWith({
+			outputType: "artifact",
+			artifactFiles: [artifact({ path: "report.md", kind: "markdown" })],
+		});
+		expect(sessionArtifacts(session)).toEqual([artifact({ path: "report.md", kind: "markdown" })]);
+	});
+
+	it("is empty when outputType is pr, even if artifactFiles is populated", () => {
+		const session = sessionWith({
+			outputType: "pr",
+			artifactFiles: [artifact({ path: "report.md" })],
+		});
+		expect(sessionArtifacts(session)).toEqual([]);
+	});
+
+	it("returns the artifact files when outputType is pr_artifact (a session with both)", () => {
+		const session = sessionWith({
+			outputType: "pr_artifact",
+			artifactFiles: [artifact({ path: "report.md", kind: "markdown" })],
+		});
+		expect(sessionArtifacts(session)).toEqual([artifact({ path: "report.md", kind: "markdown" })]);
+	});
+
+	it("lists the newest artifact first, not alphabetically", () => {
+		const session = sessionWith({
+			outputType: "artifact",
+			artifactFiles: [
+				artifact({ path: "a-old.md", updatedAt: "2026-01-01T00:00:00Z" }),
+				artifact({ path: "z-new.md", updatedAt: "2026-01-03T00:00:00Z" }),
+				artifact({ path: "m-mid.md", updatedAt: "2026-01-02T00:00:00Z" }),
+			],
+		});
+		expect(sessionArtifacts(session).map((file) => file.path)).toEqual(["z-new.md", "m-mid.md", "a-old.md"]);
+	});
+
+	it("is empty when outputType is artifact but artifactFiles is absent", () => {
+		expect(sessionArtifacts(sessionWith({ outputType: "artifact" }))).toEqual([]);
+	});
+});
+
 describe("attentionZone", () => {
 	const cases: Array<[SessionStatus, AttentionZone]> = [
 		["mergeable", "merge"],
@@ -336,5 +477,14 @@ describe("attentionZone", () => {
 	it("prioritizes merge as the highest-ROI zone", () => {
 		// merge is checked before action/pending so an approved PR always surfaces.
 		expect(attentionZone(sessionWith({ status: "approved" }))).toBe("merge");
+	});
+});
+
+describe("sessionWorkspaceReady", () => {
+	it("follows the daemon's published workspace, not the start state", () => {
+		expect(sessionWorkspaceReady({ workspacePublished: false })).toBe(false);
+		expect(sessionWorkspaceReady({ workspacePublished: true })).toBe(true);
+		// An older daemon that does not report it.
+		expect(sessionWorkspaceReady({})).toBe(true);
 	});
 });

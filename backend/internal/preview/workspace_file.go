@@ -2,11 +2,51 @@ package preview
 
 import (
 	"io/fs"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
+
+// ResolvedPathHeader names, on an artifact file's response, the file's path
+// beneath the artifacts folder once its symlinks are followed (see
+// ResolvedPath), each segment URL-escaped. The desktop includes a shared
+// page's files only from the page's own folder, which the requested path
+// alone cannot tell when it goes through a symlink.
+const ResolvedPathHeader = "X-AO-Artifact-Path"
+
+// ResolvedPath returns the slash-separated path beneath rootPath of the open
+// file f, read from f's own handle, with each segment URL-escaped: the file
+// whose bytes f reads, whatever symlinks its path went through or were
+// repointed since. It is false when that is not beneath rootPath or the
+// platform cannot read an open file's path.
+func ResolvedPath(rootPath string, f *os.File) (string, bool) {
+	// The root's path is read the same way, so the two compare as one form.
+	root, err := os.Open(rootPath)
+	if err != nil {
+		return "", false
+	}
+	defer func() { _ = root.Close() }()
+	realRoot, ok := openedPath(root)
+	if !ok {
+		return "", false
+	}
+	target, ok := openedPath(f)
+	if !ok {
+		return "", false
+	}
+	rel, err := filepath.Rel(realRoot, target)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return "", false
+	}
+	segments := strings.Split(filepath.ToSlash(rel), "/")
+	for index, segment := range segments {
+		segments[index] = url.PathEscape(segment)
+	}
+	return strings.Join(segments, "/"), true
+}
 
 // CleanWorkspacePath normalizes a browser/workspace path without discarding
 // meaningful whitespace from valid Unix filenames. The leading slash used by
@@ -29,7 +69,7 @@ func CleanWorkspacePath(raw string) (string, bool) {
 // OpenWorkspaceFile opens a regular file beneath workspacePath using os.Root.
 // os.Root follows symlinks that remain inside the workspace and rejects links
 // that escape it, so callers can safely serve the returned handle without a
-// second path lookup.
+// second path lookup. Anything but a regular file is fs.ErrNotExist.
 func OpenWorkspaceFile(workspacePath, assetPath string) (*os.File, fs.FileInfo, string, error) {
 	clean, ok := CleanWorkspacePath(assetPath)
 	if !ok {
@@ -41,7 +81,10 @@ func OpenWorkspaceFile(workspacePath, assetPath string) (*os.File, fs.FileInfo, 
 	}
 	defer func() { _ = root.Close() }()
 
-	file, err := root.Open(filepath.FromSlash(clean))
+	// O_NONBLOCK: opening a FIFO would otherwise block until a writer appears,
+	// and the path can be swapped for one at any time. A regular file's reads
+	// ignore it. What was opened is checked on the open file.
+	file, err := root.OpenFile(filepath.FromSlash(clean), os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return nil, nil, "", err
 	}

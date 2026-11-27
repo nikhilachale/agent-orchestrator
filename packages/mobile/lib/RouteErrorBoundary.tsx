@@ -3,7 +3,10 @@ import { useEffect, useLayoutEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { haptics } from "./haptics";
 import { captureMobileException } from "./sentry";
+import { reportErrorShown } from "./telemetry/uiUsageRegistry";
 import { Button, EmptyState } from "./ui";
+import { space } from "./tokens";
+import { backOr } from "./backNavigation";
 
 /**
  * What a route shows when it throws while rendering, instead of the app
@@ -27,7 +30,7 @@ import { Button, EmptyState } from "./ui";
 export function RouteErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 	const router = useRouter();
 	const navigation = useNavigation();
-	useReportOnShow(error);
+	useReportOnShow(error, "screen");
 	// Header options belong to the navigator, so a header button the route set
 	// outlives it and would act on a screen that is no longer there. A successful
 	// retry remounts the route, which sets its own again.
@@ -35,7 +38,7 @@ export function RouteErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 		navigation.setOptions({ headerRight: undefined });
 	}, [navigation]);
 	// Onboarding is entered with `router.replace` and has no header, so there is
-	// nothing to go back to; the same rule as MinimalBackButton.
+	// nothing to go back to; the same rule as `backOr`.
 	const canGoBack = router.canGoBack();
 
 	return (
@@ -46,8 +49,8 @@ export function RouteErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 				message={canGoBack ? "Try again, or go back and open it again." : "Try again, or go to the board."}
 				action={
 					<View style={styles.actions}>
-						<Button title="Try again" icon="refresh-cw" variant="ghost" onPress={() => void retry()} />
-						{canGoBack ? null : <Button title="Go to board" icon="activity" onPress={() => router.replace("/")} />}
+						<Button title="Try again" icon="refresh-cw" variant="secondary" onPress={() => void retry()} />
+						{canGoBack ? null : <Button title="Go to board" icon="workers" variant="primary" onPress={() => router.replace("/")} />}
 					</View>
 				}
 			/>
@@ -65,14 +68,14 @@ export function RouteErrorBoundary({ error, retry }: ErrorBoundaryProps) {
  */
 export function SheetErrorBoundary({ error }: ErrorBoundaryProps) {
 	const router = useRouter();
-	useReportOnShow(error);
+	useReportOnShow(error, "sheet");
 	return (
 		<View style={styles.center}>
 			<EmptyState
 				icon="alert-triangle"
 				title="This sheet hit an unexpected error"
 				message="Close it and open it again."
-				action={<Button title="Close" icon="x" variant="ghost" onPress={() => router.back()} />}
+				action={<Button title="Close" icon="x" variant="secondary" onPress={() => backOr(router)} />}
 			/>
 		</View>
 	);
@@ -81,16 +84,17 @@ export function SheetErrorBoundary({ error }: ErrorBoundaryProps) {
 // Runs on every show, including after a Try again that threw again, so that tap
 // is never a silent no-op. Reported with the category and operation the desktop's
 // boundary ends up with (`telemetry.ts` maps its source to `render_crash`).
-function useReportOnShow(error: Error) {
+function useReportOnShow(error: Error, presentation: "screen" | "sheet") {
 	useEffect(() => {
 		haptics.error();
 		captureMobileException(error, { category: "render_crash", operation: "react_render" });
-	}, [error]);
+		reportErrorShown(presentation, "render_crash");
+	}, [error, presentation]);
 }
 
 // No background: the route's own contentStyle shows through, so a sheet keeps its
 // surface colour and a pushed screen keeps the base one.
 const styles = StyleSheet.create({
 	center: { flex: 1, alignItems: "center", justifyContent: "center" },
-	actions: { flexDirection: "row", gap: 10, alignItems: "center" },
+	actions: { flexDirection: "row", gap: space.sm, alignItems: "center" },
 });

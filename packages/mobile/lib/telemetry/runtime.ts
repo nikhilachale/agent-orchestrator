@@ -1,11 +1,15 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
+import * as Updates from "expo-updates";
 import { Platform } from "react-native";
 import PostHog from "posthog-react-native";
-import type { SessionMode } from "../api";
+import { getTelemetryIdentity, type SessionMode } from "../api";
+import type { ServerConfig } from "../config";
+import { cachedInstallId } from "../installId";
+import { setMobileDaemonVersions, setMobileSentryConsent, setMobileSentryPairedInstallId } from "../sentry";
 import { buildMobileContext } from "./context";
-import { type ActiveStorage } from "./dailyActive";
+import { ACTIVE_STORAGE_KEY, type ActiveStorage } from "./dailyActive";
 import {
 	MOBILE_DISABLED_EVENTS,
 	MOBILE_POSTHOG_HOST,
@@ -14,13 +18,29 @@ import {
 } from "./config";
 import { MOBILE_EVENTS } from "./events";
 import { checkRateLimit, mergeRateState, type RateLimitState } from "./rateLimit";
+import { createDesktopIdentitySync } from "./identitySync";
 import { createMobileTelemetry, type MobileTelemetry } from "./telemetry";
+import { launchKind, launchProperties, LAUNCH_TIMEOUT_MS, type LaunchOutcome, type StartupMarks } from "./launchTiming";
+import { createUiUsageTracker, type PersistedUiUsage, type UiUsageTracker } from "./uiUsage";
+import { setUiUsageTracker } from "./uiUsageRegistry";
 
 // The one file that touches the SDK and the native runtime. Everything else in
 // telemetry/ is pure and unit-tested; this wires the real PostHog client and is
 // verified on a device via an EAS build, not in unit tests.
 
 let telemetry: MobileTelemetry | null = null;
+let connectedConfigs: ServerConfig[] = [];
+let uiUsageTracker: UiUsageTracker | null = null;
+// Bumped on every opt-out change, so a saved window read across one is not restored.
+let consentGeneration = 0;
+
+const UI_USAGE_STORAGE_KEY = "ao.telemetry.uiUsage";
+const LAST_LAUNCH_STORAGE_KEY = "ao.telemetry.lastLaunch";
+
+// Resolved once loadMobileOptOut() has applied the saved preference; the launch
+// event waits on it rather than being dropped by the facade's preference gate.
+let preferenceLoaded!: () => void;
+const preferenceReady = new Promise<void>((resolve) => { preferenceLoaded = resolve; });
 
 /**
  * Builds the PostHog client once and returns the capture facade.
@@ -75,10 +95,8 @@ export function initMobileTelemetry(): MobileTelemetry | null {
 		host: MOBILE_POSTHOG_HOST,
 		enableSessionReplay: false,
 		captureAppLifecycleEvents: false,
-		// Anonymous ingestion rate. Identified events bill ~3.3x, and nothing here
-		// calls identify(), so a person profile would only ever cost more for no
-		// signal.
-		personProfiles: "never",
+		// Keep the phone's own anonymous SDK identity across desktop pairings.
+		personProfiles: "identified_only",
 	});
 
 	const version =
@@ -91,14 +109,96 @@ export function initMobileTelemetry(): MobileTelemetry | null {
 		isPhysicalDevice: Device.isDevice === true,
 		dev: __DEV__,
 		appVersion: version,
+		update: Updates.isEnabled
+			? { id: Updates.updateId, embedded: Updates.isEmbeddedLaunch, channel: Updates.channel }
+			: undefined,
 	});
 
 	loadRateState();
 	telemetry = createMobileTelemetry(client, context, {
 		disabledEvents: MOBILE_DISABLED_EVENTS,
+		phoneInstallId: cachedInstallId,
+		awaitIdentityMigration: true,
 		allow: allowEvent,
+		// Nothing is captured until loadMobileOptOut() has read the saved preference.
+		awaitPreference: true,
+		onOptOutChange: (optedOut) => {
+			setMobileSentryConsent(!optedOut);
+			uiUsageTracker?.setEnabled(!optedOut);
+			consentGeneration += 1;
+			if (!optedOut && connectedConfigs.length) void syncDesktopTelemetryIdentity(connectedConfigs).catch(() => {});
+			void (optedOut
+				? AsyncStorage.setItem(OPT_OUT_STORAGE_KEY, "1")
+				: AsyncStorage.removeItem(OPT_OUT_STORAGE_KEY)
+			).catch(() => {});
+		},
 	});
+	// Read before the daily heartbeat can write the active marker this launch.
+	launchHistory = Promise.all([
+		AsyncStorage.getItem(LAST_LAUNCH_STORAGE_KEY),
+		AsyncStorage.getItem(ACTIVE_STORAGE_KEY),
+	]).then(([previous, active]) => ({ previous, everActive: active !== null }), () => ({ previous: null, everActive: true }));
+	// Kept on the phone only, to tell a new version or OTA update from a plain relaunch.
+	launchIdentity = `${version}|${Updates.isEnabled && !Updates.isEmbeddedLaunch ? Updates.updateId ?? "embedded" : "embedded"}`;
+	const live = telemetry;
+	uiUsageTracker = createUiUsageTracker({
+		now: Date.now,
+		capture: (event, properties) => live.capture(event, properties),
+		save: (state) => void AsyncStorage.setItem(UI_USAGE_STORAGE_KEY, JSON.stringify(state)).catch(() => {}),
+		clear: () => void AsyncStorage.removeItem(UI_USAGE_STORAGE_KEY).catch(() => {}),
+	});
+	setUiUsageTracker(uiUsageTracker);
+	launchTimer = setTimeout(() => void sendLaunch("timeout"), LAUNCH_TIMEOUT_MS);
 	return telemetry;
+}
+
+// The desktop's opt-out is sticky on the phone: it survives unpairing and only a
+// paired desktop that is opted in lifts it.
+const OPT_OUT_STORAGE_KEY = "ao.telemetry.optedOut";
+const PHONE_IDENTITY_MIGRATION_KEY = "ao.telemetry.phoneIdentity.v2";
+
+/** Restores the persisted opt-out and releases capture. Awaited before the first heartbeat. */
+export async function loadMobileOptOut(): Promise<void> {
+	if (telemetry) {
+		let reset = false;
+		try {
+			if ((await AsyncStorage.getItem(PHONE_IDENTITY_MIGRATION_KEY)) !== "1") {
+				telemetry.resetPhoneIdentity();
+				reset = true;
+				await AsyncStorage.setItem(PHONE_IDENTITY_MIGRATION_KEY, "1");
+			} else {
+				telemetry.releasePhoneIdentity();
+			}
+		} catch {
+			// If the marker is unreadable, reset again on the next launch.
+			if (!reset) telemetry.resetPhoneIdentity();
+		}
+	}
+	let stored = false;
+	try {
+		stored = (await AsyncStorage.getItem(OPT_OUT_STORAGE_KEY)) === "1";
+	} catch {
+		/* unreadable storage: stay opted in rather than guess */
+	}
+	telemetry?.restoreOptOut(stored);
+	// After the preference, so an opted-out phone never sends a saved window.
+	await restoreUiUsage();
+	preferenceLoaded();
+}
+
+/** Adopts the identity and opt-out of the connected desktops (see identitySync.ts). */
+const desktopIdentitySync = createDesktopIdentitySync(
+	getTelemetryIdentity,
+	(identity) => {
+		telemetry?.adoptDesktopIdentity(identity);
+		setMobileSentryPairedInstallId(identity && !identity.optedOut ? identity.installId ?? null : null);
+	},
+	setMobileDaemonVersions,
+);
+
+export function syncDesktopTelemetryIdentity(configs: ServerConfig[]): Promise<void> {
+	connectedConfigs = configs;
+	return desktopIdentitySync(configs);
 }
 
 /** The capture facade, or null before init. Call sites no-op when null. */
@@ -138,4 +238,80 @@ export async function trackFeature<T>(
 		telemetry?.capture(MOBILE_EVENTS.featureUsed, { feature, outcome: "failed", ...context });
 		throw error;
 	}
+}
+
+// ---- Launch timing ----------------------------------------------------------
+
+let launchHistory: Promise<{ previous: string | null; everActive: boolean }> | null = null;
+let launchIdentity = "";
+let launchTimer: ReturnType<typeof setTimeout> | null = null;
+let launchSent = false;
+let launchVisibleAt: number | undefined;
+let launchUsableAt: number | undefined;
+
+function performanceNow(): number | undefined {
+	const perf = globalThis.performance as (Performance & { rnStartupTiming?: StartupMarks }) | undefined;
+	return typeof perf?.now === "function" ? perf.now() : undefined;
+}
+
+/** The app's first frame. */
+export function markLaunchVisible(): void {
+	launchVisibleAt ??= performanceNow();
+}
+
+/** The first frame showing a machine's live data. */
+export function markLaunchUsable(): void {
+	if (launchUsableAt !== undefined) return;
+	launchUsableAt = performanceNow();
+	void sendLaunch("usable");
+}
+
+let launchHasMachine = true;
+
+/** Whether the phone has anywhere to load from: a paired machine or Orchestrator Cloud. */
+export function setLaunchHasMachine(has: boolean): void {
+	launchHasMachine = has;
+}
+
+/** The app went to the background; a launch not yet usable is sent without its times. */
+export function markLaunchBackgrounded(): void {
+	if (launchUsableAt === undefined) void sendLaunch("backgrounded");
+}
+
+async function sendLaunch(outcome: LaunchOutcome): Promise<void> {
+	if (launchSent || !telemetry || !launchHistory) return;
+	launchSent = true;
+	// A phone with nowhere to load from times out by definition; kept apart so the
+	// timeout rate measures slow machines, not unpaired phones.
+	if (outcome === "timeout" && !launchHasMachine) outcome = "no_machine";
+	if (launchTimer) clearTimeout(launchTimer);
+	// Before the waits below, so navigating meanwhile does not change it.
+	const landingSurface = uiUsageTracker?.current() ?? undefined;
+	await preferenceReady;
+	const { previous, everActive } = await launchHistory;
+	void AsyncStorage.setItem(LAST_LAUNCH_STORAGE_KEY, launchIdentity).catch(() => {});
+	const marks = (globalThis.performance as { rnStartupTiming?: StartupMarks } | undefined)?.rnStartupTiming;
+	telemetry.capture(MOBILE_EVENTS.launchTimed, launchProperties({
+		kind: launchKind(previous, launchIdentity, everActive),
+		outcome,
+		marks,
+		visibleAt: launchVisibleAt,
+		usableAt: launchUsableAt,
+		landingSurface,
+	}));
+}
+
+async function restoreUiUsage(): Promise<void> {
+	if (!uiUsageTracker) return;
+	const generation = consentGeneration;
+	let saved: PersistedUiUsage | null = null;
+	try {
+		const raw = await AsyncStorage.getItem(UI_USAGE_STORAGE_KEY);
+		saved = raw ? JSON.parse(raw) as PersistedUiUsage : null;
+	} catch {
+		/* unreadable: start a fresh window */
+	}
+	// An opt-out (even one undone) during the read discarded what was saved.
+	if (generation !== consentGeneration) return;
+	uiUsageTracker.restore(saved);
 }

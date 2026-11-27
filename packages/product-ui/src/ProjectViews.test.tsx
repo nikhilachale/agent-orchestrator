@@ -51,17 +51,73 @@ describe("project models", () => {
 				intakeAssignee: "",
 			}),
 		).toBe("intake_assignee_required");
-	});
-
-	it("gates project setup on agents and intake eligibility", () => {
-		expect(canSubmitProjectSetup({ workerAgent: "codex", orchestratorAgent: "claude-code" })).toBe(true);
 		expect(
-			canSubmitProjectSetup({
+			validateProjectSettings({
+				displayName: "a".repeat(101),
 				workerAgent: "codex",
 				orchestratorAgent: "claude-code",
-				intakeEnabled: true,
+				intakeEnabled: false,
+				intakeAssignee: "",
 			}),
-		).toBe(false);
+		).toBe("name_too_long");
+		expect(
+			validateProjectSettings({
+				displayName: "yandex-direct-mcp-plugin",
+				workerAgent: "codex",
+				orchestratorAgent: "claude-code",
+				intakeEnabled: false,
+				intakeAssignee: "",
+			}),
+		).toBeNull();
+		// 100 astral symbols (e.g. emoji) have UTF-16 length 200, but 100 Unicode code points (runes)
+		expect(
+			validateProjectSettings({
+				displayName: "🚀".repeat(100),
+				workerAgent: "codex",
+				orchestratorAgent: "claude-code",
+				intakeEnabled: false,
+				intakeAssignee: "",
+			}),
+		).toBeNull();
+		expect(
+			validateProjectSettings({
+				displayName: "🚀".repeat(101),
+				workerAgent: "codex",
+				orchestratorAgent: "claude-code",
+				intakeEnabled: false,
+				intakeAssignee: "",
+			}),
+		).toBe("name_too_long");
+		expect(
+			validateProjectSettings(
+				{
+					displayName: "l".repeat(110),
+					workerAgent: "codex",
+					orchestratorAgent: "claude-code",
+					intakeEnabled: false,
+					intakeAssignee: "",
+				},
+				{ originalDisplayName: "l".repeat(110) },
+			),
+		).toBeNull();
+		expect(
+			validateProjectSettings(
+				{
+					displayName: "l".repeat(110),
+					workerAgent: "codex",
+					orchestratorAgent: "claude-code",
+					intakeEnabled: false,
+					intakeAssignee: "",
+				},
+				{ originalDisplayName: "original-name" },
+			),
+		).toBe("name_too_long");
+	});
+
+	it("gates project setup on intake eligibility only", () => {
+		expect(canSubmitProjectSetup({})).toBe(true);
+		expect(canSubmitProjectSetup({ intakeEnabled: true })).toBe(false);
+		expect(canSubmitProjectSetup({ intakeEnabled: true, intakeAssignee: "octocat" })).toBe(true);
 	});
 
 });
@@ -82,20 +138,11 @@ describe("project presentation", () => {
 		const onSubmit = vi.fn();
 		render(
 			<ProjectSetupFormView
-				agentControls={{ worker: <span>Worker control</span>, orchestrator: <span>Orchestrator control</span> }}
-				agents={{
-					cacheMessage: "Cached",
-					loading: false,
-					loadingMessage: "Loading",
-				}}
 				canSubmit
 				intakeControl={<span>Intake control</span>}
-				isBusy={false}
-				onCancel={vi.fn()}
 				onSubmit={onSubmit}
 				setupNotice={{ message: "Git setup required", warning: "Nested repository" }}
-				submitLabel="Create and start"
-				cancelLabel="Cancel"
+				actions={<button type="submit">Create and start</button>}
 			/>,
 		);
 
@@ -103,35 +150,6 @@ describe("project presentation", () => {
 		expect(onSubmit).toHaveBeenCalledOnce();
 		expect(screen.getByText("Nested repository")).toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: "Refresh" })).not.toBeInTheDocument();
-	});
-
-	it("can hide the normal refresh action while keeping an error retry", () => {
-		const onRetry = vi.fn();
-		render(
-			<ProjectSetupFormView
-				agentControls={{ worker: <span>Worker control</span>, orchestrator: <span>Orchestrator control</span> }}
-				agents={{
-					cacheMessage: "Cached",
-					error: "Could not load agents",
-					loading: false,
-					loadingMessage: "Loading",
-					onRetry,
-					retrying: false,
-					retryLabel: "Retry",
-				}}
-				canSubmit={false}
-				intakeControl={<span>Intake control</span>}
-				isBusy={false}
-				onCancel={vi.fn()}
-				onSubmit={vi.fn()}
-				submitLabel="Create and start"
-				cancelLabel="Cancel"
-			/>,
-		);
-
-		expect(screen.queryByRole("button", { name: "Refresh" })).not.toBeInTheDocument();
-		fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-		expect(onRetry).toHaveBeenCalledOnce();
 	});
 
 	it("renders project identity and workspace repository summaries", () => {
@@ -164,7 +182,8 @@ describe("project presentation", () => {
 		);
 
 		fireEvent.click(screen.getByRole("button", { name: "Edit Project name" }));
-		expect(screen.getByLabelText("Project name")).toHaveValue("Workspace");
+		const input = screen.getByLabelText("Project name");
+		expect(input).toHaveValue("Workspace");
 		expect(screen.getByRole("link", { name: "/repo" })).toHaveAttribute("title", "/repo");
 		expect(screen.getByRole("link", { name: "https://github.com/acme/workspace" })).toHaveAttribute(
 			"title",

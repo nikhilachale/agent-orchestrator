@@ -3,8 +3,10 @@ package cli
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -14,6 +16,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/aoagents/agent-orchestrator/backend/internal/approval"
 )
 
 type browserStatusDTO struct {
@@ -21,6 +25,16 @@ type browserStatusDTO struct {
 	Connected   bool      `json:"connected"`
 	ConnectedAt time.Time `json:"connectedAt,omitempty"`
 	Transport   string    `json:"transport"`
+	Target      string    `json:"target,omitempty"`
+	// Profile is the browser profile this session's browser uses; nil when the
+	// desktop app could not report it.
+	Profile *browserProfileDTO `json:"profile,omitempty"`
+}
+
+type browserProfileDTO struct {
+	ProfileID   *string `json:"profileId"`
+	ProfileName string  `json:"profileName"`
+	Persistent  bool    `json:"persistent"`
 }
 
 type browserCommandRequestDTO struct {
@@ -37,10 +51,14 @@ type browserCommandResponseDTO struct {
 }
 
 type browserScreenshotFileResult struct {
-	Path   string `json:"path"`
-	Size   int64  `json:"size"`
-	Width  int    `json:"width"`
-	Height int    `json:"height"`
+	Path        string `json:"path"`
+	Size        int64  `json:"size"`
+	Width       int    `json:"width"`
+	Height      int    `json:"height"`
+	Annotations []any  `json:"annotations,omitempty"`
+	// True when --annotate was requested but the browser returned no usable
+	// annotations, so the image may carry no labels.
+	AnnotationsUnavailable bool `json:"annotationsUnavailable,omitempty"`
 }
 
 const browserCapabilityHeader = "X-AO-Browser-Capability"
@@ -54,8 +72,9 @@ func newBrowserCommand(ctx *commandContext) *cobra.Command {
 	var jsonOutput bool
 	cmd := &cobra.Command{
 		Use:   "browser",
-		Short: "Inspect and control this AO session's shared desktop browser",
-		Long: "Inspect and control the target-isolated browser owned by the current AO session.\n\n" +
+		Short: "Inspect and control this Orchestrator-managed session's shared desktop browser",
+		Long: "Inspect and control the target-isolated browser owned by the current\n" +
+			"Orchestrator-managed session.\n\n" +
 			"The desktop app must be open. Commands operate the same live page the user sees,\n" +
 			"including while the Browser panel is hidden.",
 		Args: noArgs,
@@ -64,12 +83,15 @@ func newBrowserCommand(ctx *commandContext) *cobra.Command {
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "status",
-		Short: "Show whether the desktop browser runtime is connected",
+		Short: "Show whether the desktop browser runtime is connected and which profile it uses",
 		Args:  noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			status, err := ctx.browserStatus(cmd.Context())
 			if err != nil {
 				return err
+			}
+			if status.Connected {
+				status.Profile = ctx.browserProfile(cmd.Context())
 			}
 			if jsonOutput {
 				return writeJSON(cmd.OutOrStdout(), status)
@@ -78,7 +100,14 @@ func newBrowserCommand(ctx *commandContext) *cobra.Command {
 			if status.Connected {
 				state = "connected"
 			}
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Browser runtime: %s (%s)\n", state, status.Transport)
+			target := ""
+			if status.Target == "chrome" {
+				target = ", target: your Chrome"
+			}
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Browser runtime: %s (%s%s)\n", state, status.Transport, target)
+			if err == nil && status.Profile != nil {
+				_, err = fmt.Fprintln(cmd.OutOrStdout(), browserProfileLine(*status.Profile))
+			}
 			return err
 		},
 	})
@@ -92,21 +121,38 @@ func newBrowserCommand(ctx *commandContext) *cobra.Command {
 		},
 	})
 
-	var interactiveOnly bool
+	var interactiveOnly, snapshotDelta, snapshotFull bool
 	snapshot := &cobra.Command{
 		Use:   "snapshot",
 		Short: "Print a compact accessibility snapshot with actionable element refs",
-		Args:  noArgs,
+		Long: "Print a compact accessibility snapshot with actionable element refs.\n\n" +
+			"With --delta, the first call returns the full tree and later calls return only\n" +
+			"\"unchanged\" or the changes since the snapshot you last received. Use --delta --full\n" +
+			"to get the full tree again.",
+		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return ctx.runBrowserAction(cmd, "snapshot", map[string]any{"interactive": interactiveOnly}, jsonOutput)
+			if snapshotFull && !snapshotDelta {
+				return usageError{errors.New("--full requires --delta")}
+			}
+			args := map[string]any{"interactive": interactiveOnly}
+			if snapshotDelta {
+				args["delta"] = true
+			}
+			if snapshotFull {
+				args["full"] = true
+			}
+			return ctx.runBrowserAction(cmd, "snapshot", args, jsonOutput)
 		},
 	}
 	snapshot.Flags().BoolVar(&interactiveOnly, "interactive", false, "include only actionable elements")
+	snapshot.Flags().BoolVar(&snapshotDelta, "delta", false, "return the full tree once, then only unchanged or the changes since your last snapshot")
+	snapshot.Flags().BoolVar(&snapshotFull, "full", false, "with --delta, return the full tree and reset the delta baseline")
 	cmd.AddCommand(snapshot)
 
-	var actVerb, actValue string
+	var actVerb, actValue, actExpectURL, actExpectText string
 	var actNth int
-	var actNthSet bool
+	var actNthSet, actExpectDialog, actExpectNavigation, actExpectDOMChange bool
+	var actPostconditionTimeout int
 	act := &cobra.Command{
 		Use:   "act <instruction>",
 		Short: "Resolve an element by description and act on it, snapshotting and retrying automatically",
@@ -124,26 +170,68 @@ func newBrowserCommand(ctx *commandContext) *cobra.Command {
 			if actNthSet {
 				actArgs["nth"] = actNth
 			}
+			var postcondition map[string]any
+			switch {
+			case actExpectURL != "":
+				postcondition = map[string]any{"kind": "url", "value": actExpectURL}
+			case actExpectText != "":
+				postcondition = map[string]any{"kind": "text", "value": actExpectText}
+			case actExpectDialog:
+				postcondition = map[string]any{"kind": "dialog"}
+			case actExpectNavigation:
+				postcondition = map[string]any{"kind": "navigation"}
+			case actExpectDOMChange:
+				postcondition = map[string]any{"kind": "dom-change"}
+			}
+			if postcondition != nil {
+				postcondition["timeoutMs"] = actPostconditionTimeout
+				actArgs["postcondition"] = postcondition
+			}
 			return ctx.runBrowserAction(cmd, "act", actArgs, jsonOutput)
 		},
 	}
 	act.Flags().StringVar(&actVerb, "action", "click", "verb to perform on the matched element (click, dblclick, focus, hover, fill, type, check, uncheck)")
 	act.Flags().StringVar(&actValue, "value", "", "text to fill/type; required when --action is fill or type")
 	act.Flags().IntVar(&actNth, "nth", 0, "0-based index to disambiguate when multiple candidates match equally")
+	act.Flags().StringVar(&actExpectURL, "expect-url", "", "wait for a URL containing this value after dispatch")
+	act.Flags().StringVar(&actExpectText, "expect-text", "", "wait for this page text after dispatch")
+	act.Flags().BoolVar(&actExpectDialog, "expect-dialog", false, "wait for a pending confirm or prompt dialog after dispatch")
+	act.Flags().BoolVar(&actExpectNavigation, "expect-navigation", false, "wait for a main-frame or in-page navigation after dispatch")
+	act.Flags().BoolVar(&actExpectDOMChange, "expect-dom-change", false, "wait for the accessibility snapshot to change after dispatch")
+	act.Flags().IntVar(&actPostconditionTimeout, "postcondition-timeout", 10_000, "postcondition timeout in milliseconds")
 	act.PreRunE = func(cmd *cobra.Command, _ []string) error {
 		actNthSet = cmd.Flags().Changed("nth")
+		selected := 0
+		for _, active := range []bool{actExpectURL != "", actExpectText != "", actExpectDialog, actExpectNavigation, actExpectDOMChange} {
+			if active {
+				selected++
+			}
+		}
+		if selected > 1 {
+			return usageError{errors.New("choose at most one action postcondition")}
+		}
+		if actPostconditionTimeout < 1 || actPostconditionTimeout > maxBrowserWaitMillis {
+			return usageError{fmt.Errorf("--postcondition-timeout must be between 1 and %d milliseconds", maxBrowserWaitMillis)}
+		}
 		return nil
 	}
 	cmd.AddCommand(act)
 
-	cmd.AddCommand(&cobra.Command{
+	var clickHuman bool
+	click := &cobra.Command{
 		Use:   "click <ref>",
 		Short: "Click an element reference from the latest snapshot",
 		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return ctx.runBrowserAction(cmd, "click", map[string]any{"ref": args[0]}, jsonOutput)
+			clickArgs := map[string]any{"ref": args[0]}
+			if clickHuman {
+				clickArgs["human"] = true
+			}
+			return ctx.runBrowserAction(cmd, "click", clickArgs, jsonOutput)
 		},
-	})
+	}
+	click.Flags().BoolVar(&clickHuman, "human", false, "approach the element along a curved, human-like pointer path")
+	cmd.AddCommand(click)
 
 	for _, action := range []struct {
 		name  string
@@ -163,14 +251,21 @@ func newBrowserCommand(ctx *commandContext) *cobra.Command {
 		})
 	}
 
-	cmd.AddCommand(&cobra.Command{
+	var dragHuman bool
+	drag := &cobra.Command{
 		Use:   "drag <source-ref> <target-ref>",
 		Short: "Drag one element onto another",
 		Args:  exactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return ctx.runBrowserAction(cmd, "drag", map[string]any{"ref": args[0], "targetRef": args[1]}, jsonOutput)
+			dragArgs := map[string]any{"ref": args[0], "targetRef": args[1]}
+			if dragHuman {
+				dragArgs["human"] = true
+			}
+			return ctx.runBrowserAction(cmd, "drag", dragArgs, jsonOutput)
 		},
-	})
+	}
+	drag.Flags().BoolVar(&dragHuman, "human", false, "move along a curved, human-like pointer path")
+	cmd.AddCommand(drag)
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "fill <ref> <text>",
@@ -180,6 +275,63 @@ func newBrowserCommand(ctx *commandContext) *cobra.Command {
 			return ctx.runBrowserAction(cmd, "fill", map[string]any{"ref": args[0], "text": args[1]}, jsonOutput)
 		},
 	})
+
+	var secretItem, secretField string
+	var secretTOTP bool
+	fillSecret := &cobra.Command{
+		Use:   "fill-secret <ref>",
+		Short: "Type a saved credential into a field without revealing it",
+		Long: "Type a saved credential's username, password, or current TOTP code into\n" +
+			"the field at <ref>. Orchestrator types it into the page itself after checking\n" +
+			"the page origin; you only ever see ••••. The user approves the first use per site.",
+		Args: exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if strings.TrimSpace(secretItem) == "" {
+				return usageError{errors.New("--item is required; run `ao browser login` to list matching credentials")}
+			}
+			field := strings.ToLower(strings.TrimSpace(secretField))
+			if secretTOTP {
+				if cmd.Flags().Changed("field") && field != "totp" {
+					return usageError{errors.New("--totp cannot be combined with --field " + field)}
+				}
+				field = "totp"
+			}
+			if field != "username" && field != "password" && field != "totp" {
+				return usageError{errors.New("--field must be username, password, or totp")}
+			}
+			return ctx.runBrowserAction(cmd, "fill-secret", map[string]any{
+				"ref": args[0], "itemId": strings.TrimSpace(secretItem), "field": field,
+			}, jsonOutput)
+		},
+	}
+	fillSecret.Flags().StringVar(&secretItem, "item", "", "saved credential id")
+	fillSecret.Flags().StringVar(&secretField, "field", "password", "username, password, or totp")
+	fillSecret.Flags().BoolVar(&secretTOTP, "totp", false, "type the current TOTP code (same as --field totp)")
+	cmd.AddCommand(fillSecret)
+
+	var loginItem string
+	login := &cobra.Command{
+		Use:   "login [origin]",
+		Short: "Sign in to the current page with a saved credential",
+		Long: "Find the sign-in fields on the current page and type the saved credential\n" +
+			"for its exact origin: username and password, or the TOTP code on a\n" +
+			"second-factor page. Secrets never reach the agent. Submit the form yourself.\n\n" +
+			"With [origin], refuse unless the page is exactly on it (a redirect to another\n" +
+			"site is refused). The first use per site waits for the user's approval.",
+		Args: rangeArgs(0, 1),
+		RunE: func(cmd *cobra.Command, positional []string) error {
+			args := map[string]any{}
+			if len(positional) == 1 {
+				args["origin"] = strings.TrimSpace(positional[0])
+			}
+			if item := strings.TrimSpace(loginItem); item != "" {
+				args["itemId"] = item
+			}
+			return ctx.runBrowserAction(cmd, "login", args, jsonOutput)
+		},
+	}
+	login.Flags().StringVar(&loginItem, "item", "", "saved credential id when several match")
+	cmd.AddCommand(login)
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "type <ref> <text>",
@@ -431,12 +583,14 @@ func newBrowserCommand(ctx *commandContext) *cobra.Command {
 	waitCmd.Flags().IntVar(&timeoutMS, "timeout", 10_000, "condition timeout in milliseconds")
 	cmd.AddCommand(waitCmd)
 
-	var screenshotBase64 bool
+	var screenshotBase64, screenshotAnnotate bool
 	screenshot := &cobra.Command{
 		Use:   "screenshot [path]",
 		Short: "Capture the current page to a PNG file",
 		Long: "Capture the current page to a PNG file. JSON output writes the file and returns compact metadata.\n" +
-			"To return inline base64 image data instead, omit the path and use --base64 with --json.",
+			"To return inline base64 image data instead, omit the path and use --base64 with --json.\n" +
+			"With --annotate, interactive elements are numbered in the image and the matching\n" +
+			"snapshot refs are listed alongside it.",
 		Args: atMostOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if screenshotBase64 && !jsonOutput {
@@ -445,7 +599,11 @@ func newBrowserCommand(ctx *commandContext) *cobra.Command {
 			if screenshotBase64 && len(args) != 0 {
 				return usageError{errors.New("--base64 cannot be combined with a screenshot path")}
 			}
-			resp, err := ctx.browserAction(cmd.Context(), "screenshot", nil)
+			var actionArgs map[string]any
+			if screenshotAnnotate {
+				actionArgs = map[string]any{"annotate": true}
+			}
+			resp, err := ctx.browserAction(cmd.Context(), "screenshot", actionArgs)
 			if err != nil {
 				return err
 			}
@@ -456,10 +614,11 @@ func newBrowserCommand(ctx *commandContext) *cobra.Command {
 			if len(args) == 1 {
 				path = args[0]
 			}
-			return writeBrowserScreenshot(cmd, resp.Result, path, jsonOutput)
+			return writeBrowserScreenshot(cmd, resp.Result, path, jsonOutput, screenshotAnnotate)
 		},
 	}
 	screenshot.Flags().BoolVar(&screenshotBase64, "base64", false, "include inline base64 image data in JSON output (cannot be used with a path)")
+	screenshot.Flags().BoolVar(&screenshotAnnotate, "annotate", false, "number interactive elements in the image and list their snapshot refs")
 	cmd.AddCommand(screenshot)
 
 	var networkDuration int
@@ -540,6 +699,9 @@ func newBrowserCommand(ctx *commandContext) *cobra.Command {
 	}
 	cmd.AddCommand(dialogCmd)
 
+	cmd.AddCommand(newBrowserTargetCommand(ctx, &jsonOutput))
+	cmd.AddCommand(newBrowserChromeCommand(ctx, &jsonOutput))
+
 	for _, action := range []string{"console", "errors"} {
 		cmd.AddCommand(&cobra.Command{
 			Use:   action,
@@ -574,7 +736,7 @@ func rangeArgs(minimum, maximum int) cobra.PositionalArgs {
 func currentBrowserIdentity() (string, string, error) {
 	sessionID := strings.TrimSpace(os.Getenv("AO_SESSION_ID"))
 	if sessionID == "" {
-		return "", "", usageError{errors.New("ao browser must run inside an AO session (AO_SESSION_ID is not set)")}
+		return "", "", usageError{errors.New("ao browser must run inside an Orchestrator-managed session (AO_SESSION_ID is not set)")}
 	}
 	capability := strings.TrimSpace(os.Getenv("AO_BROWSER_CAPABILITY"))
 	if capability == "" {
@@ -600,25 +762,96 @@ func (c *commandContext) browserStatus(ctx context.Context) (browserStatusDTO, e
 	return out, err
 }
 
+// browserProfile asks the browser which profile it uses. Older desktop apps do
+// not answer, so a failure leaves the profile unreported instead of failing status.
+func (c *commandContext) browserProfile(ctx context.Context) *browserProfileDTO {
+	resp, err := c.browserAction(ctx, "profile", nil)
+	if err != nil {
+		return nil
+	}
+	name, _ := resp.Result["profileName"].(string)
+	if name == "" {
+		return nil
+	}
+	persistent, _ := resp.Result["persistent"].(bool)
+	profile := &browserProfileDTO{ProfileName: name, Persistent: persistent}
+	if id, ok := resp.Result["profileId"].(string); ok && id != "" {
+		profile.ProfileID = &id
+	}
+	return profile
+}
+
+func browserProfileLine(profile browserProfileDTO) string {
+	if profile.Persistent {
+		return "Browser profile: " + profile.ProfileName + " (persistent: sign-ins carry over to other sessions)"
+	}
+	return "Browser profile: " + profile.ProfileName + " (not persistent: signed out, cleared when this session ends)"
+}
+
 func (c *commandContext) browserAction(ctx context.Context, action string, args map[string]any) (browserCommandResponseDTO, error) {
 	sessionID, capability, err := currentBrowserIdentity()
 	if err != nil {
 		return browserCommandResponseDTO{}, err
 	}
 	var out browserCommandResponseDTO
-	err = c.doJSONPathWithHeaders(
+	err = c.doJSONPathWithHeadersAndTimeout(
 		ctx,
 		http.MethodPost,
 		"/api/v1/browser/commands",
 		browserCommandRequestDTO{SessionID: sessionID, Action: action, Args: args},
 		&out,
 		map[string]string{browserCapabilityHeader: capability},
+		browserCommandTimeout,
 	)
 	return out, err
 }
 
+// browserCommandTimeout outlasts the daemon's budget for a browser command,
+// which includes waiting for the user to approve a risky action, so a slow
+// decision reaches the agent as a clean deny, never as a CLI timeout.
+const browserCommandTimeout = approval.BrowserCommandBudget + 10*time.Second
+
+// approvalHintDelay is how long a possibly-gated command runs before the CLI
+// says it may be waiting for the user.
+var approvalHintDelay = 3 * time.Second
+
+// mayWaitForApproval reports actions the daemon can hold for the user's
+// approval, by the same rule its preflight uses.
+func mayWaitForApproval(action string, args map[string]any) bool {
+	return approval.MayNeedApproval(action, args)
+}
+
+// withApprovalHint runs a command that may wait for the user's approval and,
+// if it is still running after approvalHintDelay, says why on stderr. The
+// hint never writes after the command's own output.
+func withApprovalHint(stderr io.Writer, run func() error) error {
+	done, finished := make(chan struct{}), make(chan struct{})
+	go func() {
+		defer close(finished)
+		select {
+		case <-time.After(approvalHintDelay):
+			_, _ = fmt.Fprintln(stderr, "ao browser: still waiting. If this action pays, sends, posts, or deletes, it is waiting for the user's approval in Orchestrator (up to "+approval.BrowserWaitTimeout.String()+"; no answer means deny).")
+		case <-done:
+		}
+	}()
+	err := run()
+	close(done)
+	<-finished
+	return err
+}
+
 func (c *commandContext) runBrowserAction(cmd *cobra.Command, action string, args map[string]any, jsonOutput bool) error {
-	resp, err := c.browserAction(cmd.Context(), action, args)
+	var resp browserCommandResponseDTO
+	call := func() (err error) {
+		resp, err = c.browserAction(cmd.Context(), action, args)
+		return err
+	}
+	var err error
+	if mayWaitForApproval(action, args) {
+		err = withApprovalHint(cmd.ErrOrStderr(), call)
+	} else {
+		err = call()
+	}
 	if err != nil {
 		return err
 	}
@@ -629,10 +862,16 @@ func (c *commandContext) runBrowserAction(cmd *cobra.Command, action string, arg
 }
 
 func writeBrowserResult(cmd *cobra.Command, action string, result map[string]any) error {
+	if action == "fill-secret" || action == "login" {
+		return writeBrowserCredentialResult(cmd, action, result)
+	}
 	if action == "act" {
 		return writeBrowserActResult(cmd, result)
 	}
 	if action == "snapshot" {
+		if kind, ok := result["kind"].(string); ok {
+			return writeBrowserSnapshotDelta(cmd, kind, result)
+		}
 		if text, ok := result["text"].(string); ok {
 			_, err := fmt.Fprintln(cmd.OutOrStdout(), browserUntrustedText(text))
 			return err
@@ -711,6 +950,62 @@ func browserUntrustedText(value string) string {
 	return browserUntrustedBegin + "\n" + value + "\n" + browserUntrustedEnd
 }
 
+func writeBrowserSnapshotDelta(cmd *cobra.Command, kind string, result map[string]any) error {
+	revision := numberInt(result["revision"])
+	baseRevision := numberInt(result["baseRevision"])
+	out := cmd.OutOrStdout()
+	switch kind {
+	case "full":
+		text, _ := result["text"].(string)
+		_, err := fmt.Fprintf(out, "Snapshot revision %d (full):\n%s\n", revision, browserUntrustedText(text))
+		return err
+	case "unchanged":
+		_, err := fmt.Fprintf(out, "Snapshot unchanged since revision %d (now revision %d).\n", baseRevision, revision)
+		return err
+	case "delta":
+		var body []string
+		changes, _ := result["changes"].([]any)
+		for _, raw := range changes {
+			change, _ := raw.(map[string]any)
+			op, _ := change["op"].(string)
+			ref, _ := change["ref"].(string)
+			line := op + " " + ref
+			if node, ok := change["node"].(map[string]any); ok {
+				role, _ := node["role"].(string)
+				name, _ := node["name"].(string)
+				line += fmt.Sprintf(" %s %q", role, name)
+			}
+			body = append(body, line)
+		}
+		if tree, ok := result["treeChange"].(map[string]any); ok {
+			lines, _ := tree["lines"].([]any)
+			body = append(body, fmt.Sprintf("replace %d line(s) starting at 0-based line %d with %d line(s):",
+				numberInt(tree["deleteCount"]), numberInt(tree["startLine"]), len(lines)))
+			for _, line := range lines {
+				text, _ := line.(string)
+				body = append(body, text)
+			}
+		}
+		if len(body) == 0 {
+			_, err := fmt.Fprintf(out,
+				"Snapshot delta from revision %d to %d reported no element changes (rerun with --delta --full for the whole tree).\n",
+				baseRevision, revision)
+			return err
+		}
+		_, err := fmt.Fprintf(out,
+			"Snapshot delta from revision %d to %d (apply to the revision %d tree, or rerun with --delta --full):\n%s\n",
+			baseRevision, revision, baseRevision, browserUntrustedText(strings.Join(body, "\n")))
+		return err
+	default:
+		encoded, err := json.Marshal(result)
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintln(out, browserUntrustedText(string(encoded)))
+		return err
+	}
+}
+
 func writeBrowserActResult(cmd *cobra.Command, result map[string]any) error {
 	outcome, _ := result["outcome"].(string)
 	switch outcome {
@@ -724,7 +1019,29 @@ func writeBrowserActResult(cmd *cobra.Command, result map[string]any) error {
 		if retried {
 			suffix = " (after retrying a stale reference)"
 		}
-		_, err := fmt.Fprintf(cmd.OutOrStdout(), "Acted on: %s [ref=%s]%s\n%s\n", role, ref, suffix, browserUntrustedText(name))
+		if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Element matched; input dispatched: %s [ref=%s]%s\n%s\n", role, ref, suffix, browserUntrustedText(name)); err != nil {
+			return err
+		}
+		if postcondition, ok := result["postcondition"].(map[string]any); ok {
+			status, _ := postcondition["status"].(string)
+			kind, _ := postcondition["kind"].(string)
+			reason, _ := postcondition["reason"].(string)
+			if reason != "" {
+				_, err := fmt.Fprintf(cmd.OutOrStdout(), "Postcondition %s: %s (%s)\n", kind, status, reason)
+				return err
+			}
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "Postcondition %s: %s\n", kind, status)
+			return err
+		}
+		if navigation, ok := result["navigation"].(map[string]any); ok {
+			status, _ := navigation["status"].(string)
+			reason, _ := navigation["reason"].(string)
+			if status == "cancelled" {
+				_, err := fmt.Fprintf(cmd.OutOrStdout(), "Navigation: cancelled (%s)\n", reason)
+				return err
+			}
+		}
+		_, err := fmt.Fprintln(cmd.OutOrStdout(), "No application postcondition requested; element matching is not proof of application success.")
 		return err
 	case "ambiguous":
 		candidates, _ := result["candidates"].([]any)
@@ -828,7 +1145,7 @@ func writeBrowserNetworkResult(cmd *cobra.Command, action string, result map[str
 	return err
 }
 
-func writeBrowserScreenshot(cmd *cobra.Command, result map[string]any, target string, jsonOutput bool) error {
+func writeBrowserScreenshot(cmd *cobra.Command, result map[string]any, target string, jsonOutput, annotate bool) error {
 	encoded, _ := result["data"].(string)
 	if encoded == "" {
 		return errors.New("browser returned an empty screenshot")
@@ -859,18 +1176,56 @@ func writeBrowserScreenshot(cmd *cobra.Command, result map[string]any, target st
 	width := numberInt(result["width"])
 	height := numberInt(result["height"])
 	if jsonOutput {
+		annotations, _ := result["annotations"].([]any)
+		unavailable := annotationsMissing(result, annotate)
 		return writeJSON(cmd.OutOrStdout(), browserScreenshotFileResult{
-			Path:   abs,
-			Size:   int64(written),
-			Width:  width,
-			Height: height,
+			Path:                   abs,
+			Size:                   int64(written),
+			Width:                  width,
+			Height:                 height,
+			Annotations:            annotations,
+			AnnotationsUnavailable: unavailable,
 		})
 	}
 	size := ""
 	if width > 0 && height > 0 {
 		size = fmt.Sprintf(" (%dx%d)", width, height)
 	}
-	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Saved %s%s\n", abs, size)
+	if _, err = fmt.Fprintf(cmd.OutOrStdout(), "Saved %s%s\n", abs, size); err != nil {
+		return err
+	}
+	return writeBrowserAnnotations(cmd, result, annotate)
+}
+
+// An older desktop host ignores an argument it does not know, so a capture that
+// came back without annotations is reported rather than passed off as annotated.
+func annotationsMissing(result map[string]any, annotate bool) bool {
+	if unavailable, _ := result["annotationsUnavailable"].(bool); unavailable {
+		return true
+	}
+	annotations, _ := result["annotations"].([]any)
+	return annotate && len(annotations) == 0
+}
+
+func writeBrowserAnnotations(cmd *cobra.Command, result map[string]any, annotate bool) error {
+	if annotationsMissing(result, annotate) {
+		_, err := fmt.Fprintln(cmd.OutOrStdout(),
+			"The browser returned no annotations for this capture, so the image may carry no labels.")
+		return err
+	}
+	annotations, _ := result["annotations"].([]any)
+	if len(annotations) == 0 {
+		return nil
+	}
+	lines := make([]string, 0, len(annotations))
+	for _, raw := range annotations {
+		annotation, _ := raw.(map[string]any)
+		role, _ := annotation["role"].(string)
+		name, _ := annotation["name"].(string)
+		ref, _ := annotation["ref"].(string)
+		lines = append(lines, fmt.Sprintf("[%d] %s %q (ref=%s)", numberInt(annotation["number"]), role, name, ref))
+	}
+	_, err := fmt.Fprintf(cmd.OutOrStdout(), "Annotated elements:\n%s\n", browserUntrustedText(strings.Join(lines, "\n")))
 	return err
 }
 
@@ -894,4 +1249,46 @@ func numberString(v any) string {
 	default:
 		return ""
 	}
+}
+
+// writeBrowserCredentialResult never prints a value: the daemon only ever
+// returns a mask, and this writer prints field names and origins.
+func writeBrowserCredentialResult(cmd *cobra.Command, action string, result map[string]any) error {
+	origin, _ := result["origin"].(string)
+	if candidates, ok := result["candidates"].([]any); ok && len(candidates) > 0 {
+		var output strings.Builder
+		fmt.Fprintf(&output, "Several saved credentials match %s:\n", origin)
+		for _, raw := range candidates {
+			candidate, _ := raw.(map[string]any)
+			id, _ := candidate["id"].(string)
+			label, _ := candidate["label"].(string)
+			username, _ := candidate["username"].(string)
+			fmt.Fprintf(&output, "  %s\t%s\t%s\n", id, label, username)
+		}
+		output.WriteString("Run `ao browser login --item <id>`.")
+		_, err := fmt.Fprintln(cmd.OutOrStdout(), browserUntrustedText(output.String()))
+		return err
+	}
+	if action == "fill-secret" {
+		field, _ := result["field"].(string)
+		ref := ""
+		if args := cmd.Flags().Args(); len(args) > 0 {
+			ref = args[0]
+		}
+		_, err := fmt.Fprintf(cmd.OutOrStdout(), "Filled %s into %s (••••).\n", field, ref)
+		return err
+	}
+	var fields []string
+	for _, raw := range anySlice(result["filled"]) {
+		if field, ok := raw.(string); ok {
+			fields = append(fields, field)
+		}
+	}
+	_, err := fmt.Fprintf(cmd.OutOrStdout(), "Signed in fields %s on %s (••••). Submit the form to continue.\n", strings.Join(fields, ", "), origin)
+	return err
+}
+
+func anySlice(value any) []any {
+	items, _ := value.([]any)
+	return items
 }

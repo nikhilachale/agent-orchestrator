@@ -48,6 +48,11 @@ func TestPollSpawnsWorkerForEligibleIssue(t *testing.T) {
 	if call.IssueID != "github:acme/demo#12" {
 		t.Fatalf("IssueID = %q, want canonical github id", call.IssueID)
 	}
+	// Intake spawns have no parent and no schedule, so only an explicit
+	// creator keeps telemetry from counting them as user-started.
+	if call.CreatedBy != domain.SessionCreatedByAutomation {
+		t.Fatalf("CreatedBy = %q, want automation", call.CreatedBy)
+	}
 	if !strings.Contains(call.Prompt, "Fix login") || !strings.Contains(call.Prompt, "The login form submits twice.") {
 		t.Fatalf("prompt missing issue context:\n%s", call.Prompt)
 	}
@@ -670,5 +675,24 @@ func TestCanonicalIssueIDGitLabHostDisambiguates(t *testing.T) {
 	internal := CanonicalIssueID(domain.TrackerID{Provider: domain.TrackerProviderGitLab, Native: "group/repo#7", Host: "gitlab.internal"})
 	if dotCom == internal {
 		t.Fatalf("gitlab.com and self-managed with same native produced identical IssueID %q", dotCom)
+	}
+}
+
+// A chat runs a skill that a message starts with, so an issue someone else wrote
+// must never be what an intake prompt starts with.
+func TestBuildIssuePromptNeverStartsWithTheIssue(t *testing.T) {
+	prompt := BuildIssuePrompt(domain.Issue{Title: "/deploy", Body: "/deploy"})
+	if !strings.HasPrefix(prompt, "Work on tracker issue") {
+		t.Fatalf("prompt = %q", prompt)
+	}
+}
+
+func TestSeenIssueIDsKeepsAMovedSessionsIssue(t *testing.T) {
+	sessions := []domain.SessionRecord{{
+		ID: "demo-1", IssueID: "github:acme/demo#12", IsTerminated: true,
+		MovedTo: &domain.SessionMove{OrgID: "org-1", SessionID: "demo-9"},
+	}}
+	if !seenIssueIDs(sessions)["github:acme/demo#12"] {
+		t.Fatal("a moved session still works on its issue elsewhere; intake must not respawn it")
 	}
 }

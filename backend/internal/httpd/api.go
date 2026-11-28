@@ -1,18 +1,24 @@
 package httpd
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/aoagents/agent-orchestrator/backend/internal/approval"
 	"github.com/aoagents/agent-orchestrator/backend/internal/attachmentstore"
 	"github.com/aoagents/agent-orchestrator/backend/internal/cdc"
+	"github.com/aoagents/agent-orchestrator/backend/internal/clienttz"
 	"github.com/aoagents/agent-orchestrator/backend/internal/config"
 	"github.com/aoagents/agent-orchestrator/backend/internal/httpd/apispec"
 	"github.com/aoagents/agent-orchestrator/backend/internal/httpd/controllers"
 	"github.com/aoagents/agent-orchestrator/backend/internal/httpd/envelope"
+	"github.com/aoagents/agent-orchestrator/backend/internal/mobilebridge"
 	"github.com/aoagents/agent-orchestrator/backend/internal/ports"
 	"github.com/aoagents/agent-orchestrator/backend/internal/presence"
 	prsvc "github.com/aoagents/agent-orchestrator/backend/internal/service/pr"
@@ -22,56 +28,115 @@ import (
 
 // APIDeps bundles every service the API layer's controllers depend on.
 type APIDeps struct {
+	// SessionForks serves the experimental fork routes. Nil refuses them.
+	SessionForks       controllers.SessionForkService
+	UsageFlush         func(context.Context)
+	Awake              controllers.AwakeService
 	Agents             controllers.AgentCatalog
 	CodexAccounts      controllers.CodexAccountService
+	AgentAccounts      controllers.AgentAccountService
 	Projects           projectsvc.Manager
 	Sessions           controllers.SessionService
+	SessionMoves       controllers.SessionMover
+	ArtifactVersions   controllers.ArtifactVersionService
+	Automations        controllers.AutomationService
 	DesktopWorkspaces  controllers.DesktopWorkspaceService
 	Activity           controllers.ActivityRecorder
+	PRRefresh          controllers.PRRefresher
+	NativeSessions     ports.AgentNativeSessionResolver
+	TerminalReplies    ports.AgentResolver // Stop replies from native history; nil disables
 	UsageHooks         controllers.UsageHookRecorder
 	UsageSummary       controllers.UsageSummaryService
+	UsageReport        controllers.UsageReportService
+	UsageLimitHistory  controllers.UsageLimitHistoryService
+	UsageLimitSetting  controllers.UsageLimitHistorySetting
+	UsagePrices        controllers.UsagePriceService
+	SessionMemory      controllers.SessionMemoryService
+	SessionSteps       controllers.SessionStepsReader
 	PRs                prsvc.ActionManager
 	Reviews            reviewsvc.Manager
 	Notifications      controllers.NotificationService
+	Reports            controllers.ReportService
 	NotificationStream controllers.NotificationStream
 	Push               controllers.PushRegistry
 	Import             controllers.ImportService
+	SessionImport      controllers.SessionImportService
+	Directories        controllers.DirectoryBrowserService
 	ShellTerminals     controllers.ShellTerminalService
+	Cues               controllers.CueService
 	// Conversations is nil until a Chat driver is wired; the controller then
 	// answers 501 rather than panicking, matching the other optional surfaces.
 	Conversations controllers.ConversationService
+	// ConversationSearch is the chat full-text index; nil answers 501.
+	ConversationSearch controllers.ConversationSearch
 	// Settings is the daemon-owned preference surface.
-	Settings            controllers.SettingsService
-	DevImport           controllers.DevImportService
-	CDC                 cdc.Source
-	Events              cdcSubscriber
-	Telemetry           ports.EventSink
-	Mobile              *controllers.MobileController
-	Browser             controllers.BrowserService
-	PreviewServer       controllers.ManagedPreviewServer
-	SessionCapabilities controllers.SessionCapabilityValidator
-	SystemChecks        controllers.SystemChecker
+	Settings  controllers.SettingsService
+	DevImport controllers.DevImportService
+	CDC       cdc.Source
+	Events    cdcSubscriber
+	Telemetry ports.EventSink
+	// TelemetryIdentity is the live telemetry identity, served to the phone by
+	// GET /api/v1/telemetry/identity and updated by the desktop over loopback.
+	TelemetryIdentity ports.TelemetryIdentityStore
+	LifetimeSessions  func(context.Context) (int64, error)
+	// LifetimeWork counts worker and standalone sessions ever started.
+	LifetimeWork func(context.Context) (int64, error)
+	// DaemonVersion is this daemon's release, reported to a paired phone.
+	DaemonVersion string
+	Mobile        *controllers.MobileController
+	BrowserLive   *BrowserLiveHub
+	Browser       controllers.BrowserService
+	BrowserChrome controllers.BrowserChromeService
+	// Approvals is the gate that holds consequential agent actions for the user.
+	Approvals controllers.ApprovalService
+	// Panes relays split-pane requests from agents to the desktop window.
+	Panes controllers.PaneService
+	// PaneTerminals lets an agent type into and read its session's shell terminals.
+	PaneTerminals controllers.PaneTerminalService
+	// Devices serves simulators and emulators to sessions; nil answers 501.
+	Devices                  controllers.DeviceService
+	PreviewServer            controllers.ManagedPreviewServer
+	SessionCapabilities      controllers.SessionCapabilityValidator
+	ShellPreviewCapabilities controllers.ShellPreviewCapabilityValidator
+	SystemChecks             controllers.SystemChecker
 	// HostID is this machine's stable, machine-bound identity, served by the
 	// unauthenticated GET /api/v1/identity probe so a phone can confirm which
 	// machine answered before presenting a credential.
 	HostID string
 	// Endpoints reports how this daemon can currently be reached, for the
 	// phone's endpoint-refresh route.
-	Endpoints         controllers.EndpointSource
-	Installer         controllers.Installer
-	AgentAuth         controllers.AgentAuthService
-	AgentSwitchPolicy AgentSwitchPolicyControl
+	Endpoints  controllers.EndpointSource
+	HostUpdate controllers.HostUpdater
+	Installer  controllers.Installer
+	// ComputerUse is the Cua Driver integration behind Settings and the computer-use tools.
+	ComputerUse controllers.ComputerUse
+	AgentAuth   controllers.AgentAuthService
+	// GitHub is the local GitHub PAT + repos surface.
+	GitHub controllers.GitHubPATService
 	// LinkPreview unfurls external URLs for the renderer's hover cards; nil
 	// leaves the route answering 501.
 	LinkPreview controllers.LinkPreviewService
+	// PRPreview reads any GitHub pull request a chat links to; nil leaves
+	// the route answering 501.
+	PRPreview controllers.PRPreviewService
+	// SessionSearch answers the ranked search over past sessions. Nil leaves
+	// the route answering 501; the index itself is built by the daemon.
+	SessionSearch controllers.SessionSearchService
 
 	// Presence tracks which mobile devices are currently running the app.
 	// Nil disables presence tracking (the roster then reports every device offline).
 	Presence *presence.Tracker
+	// ClientTimeZone records the time zone the desktop app reports, which
+	// agent prompts prefer over this daemon's own. Nil disables recording.
+	ClientTimeZone *clienttz.Recorder
 
 	// DeviceRoster and DeviceLive back the desktop-only mobile device roster.
 	DeviceRoster controllers.DeviceRoster
 	DeviceLive   controllers.LiveSet
+	// DeviceAccess adds device tokens and the account to the device list. Nil skips them.
+	DeviceAccess controllers.DeviceAccess
+	// AccessDevices links push registrations to device tokens.
+	AccessDevices *mobilebridge.AccessDevices
 }
 
 // normalizeAPIDeps closes the Presence/DeviceLive duplication trap structurally.
@@ -108,26 +173,43 @@ type API struct {
 	deps          APIDeps
 	agents        *controllers.AgentsController
 	codexAccounts *controllers.CodexAccountsController
+	agentAccounts *controllers.AgentAccountsController
 	projects      *controllers.ProjectsController
 	sessions      *controllers.SessionsController
+	sessionForks  *controllers.SessionForksController
+	automations   *controllers.AutomationsController
 	desktop       *controllers.DesktopWorkspaceController
 	usage         *controllers.UsageController
 	prs           *controllers.PRsController
 	reviews       *controllers.ReviewsController
 	notifications *controllers.NotificationsController
+	reports       *controllers.ReportsController
 	push          *controllers.PushController
 	imports       *controllers.ImportController
+	sessionImport *controllers.SessionImportController
+	sessionMoves  *controllers.SessionMovesController
+	fs            *controllers.FSController
 	shellTerms    *controllers.ShellTerminalsController
+	cues          *controllers.CuesController
 	conversations *controllers.ConversationsController
 	settings      *controllers.SettingsController
 	dev           *controllers.DevController
+	devices       *controllers.DevicesController
 	browser       *controllers.BrowserController
+	panes         *controllers.PanesController
 	system        *controllers.SystemController
 	identity      *controllers.IdentityController
 	endpoints     *controllers.EndpointsController
+	hostUpdate    *controllers.HostUpdateController
+	telemetryID   *controllers.TelemetryIdentityController
 	systemInstall *controllers.SystemInstallController
+	computerUse   *controllers.ComputerUseController
+	approvals     *controllers.ApprovalsController
 	agentAuth     *controllers.AgentAuthController
 	linkPreview   *controllers.LinkPreviewController
+	prPreview     *controllers.PRPreviewController
+	sessionSearch *controllers.SessionSearchController
+	github        *controllers.GitHubController
 	events        *EventsController
 }
 
@@ -135,43 +217,131 @@ type API struct {
 // per-request timeout so the REST group can apply it without re-reading the
 // environment.
 func NewAPI(cfg config.Config, deps APIDeps) *API {
+	return newAPIWithLogger(cfg, deps, loggerOrDefault(nil))
+}
+
+// newAPIWithLogger carries the daemon logger to controllers that emit service
+// errors, so their logs use the same configured handler as the rest of HTTP.
+func newAPIWithLogger(cfg config.Config, deps APIDeps, log *slog.Logger) *API {
 	return &API{
 		cfg:  cfg,
 		deps: deps,
 		agents: &controllers.AgentsController{
-			Catalog: deps.Agents,
+			Catalog:  deps.Agents,
+			Projects: deps.Projects,
 		},
 		codexAccounts: &controllers.CodexAccountsController{Svc: deps.CodexAccounts},
+		agentAccounts: newAgentAccountsController(deps),
 		projects: &controllers.ProjectsController{
 			Mgr: deps.Projects,
 		},
+		sessionForks: &controllers.SessionForksController{Svc: deps.SessionForks},
 		sessions: &controllers.SessionsController{
-			Svc:           deps.Sessions,
-			Activity:      deps.Activity,
-			Usage:         deps.UsageHooks,
-			Attachments:   attachmentstore.New(cfg.DataDir),
-			PreviewServer: deps.PreviewServer,
-			Capabilities:  deps.SessionCapabilities,
+			Svc:                      deps.Sessions,
+			Projects:                 deps.Projects,
+			Activity:                 deps.Activity,
+			PRRefresh:                deps.PRRefresh,
+			NativeSessions:           deps.NativeSessions,
+			TerminalReplies:          deps.TerminalReplies,
+			DataDir:                  cfg.DataDir,
+			Usage:                    deps.UsageHooks,
+			Attachments:              attachmentstore.New(cfg.DataDir),
+			PreviewServer:            deps.PreviewServer,
+			Capabilities:             deps.SessionCapabilities,
+			ArtifactVersions:         deps.ArtifactVersions,
+			ShellPreviewCapabilities: deps.ShellPreviewCapabilities,
+			AgentBrowser:             agentBrowserURL(cfg.AgentBrowserURL),
+			AgentBrowserToken:        cfg.AgentBrowserToken,
 		},
+		automations:   &controllers.AutomationsController{Svc: deps.Automations},
 		desktop:       &controllers.DesktopWorkspaceController{Svc: deps.DesktopWorkspaces},
-		usage:         &controllers.UsageController{Svc: deps.UsageSummary},
+		usage:         &controllers.UsageController{Svc: deps.UsageSummary, Log: loggerOrDefault(log), Memory: deps.SessionMemory, Steps: deps.SessionSteps, Pressure: memoryPressure(deps.SessionMemory), Report: deps.UsageReport, LimitHistory: deps.UsageLimitHistory, LimitHistorySetting: deps.UsageLimitSetting, Prices: deps.UsagePrices},
 		prs:           &controllers.PRsController{Svc: deps.PRs},
 		reviews:       &controllers.ReviewsController{Svc: deps.Reviews},
 		notifications: &controllers.NotificationsController{Svc: deps.Notifications, Stream: deps.NotificationStream},
-		push:          &controllers.PushController{Registry: deps.Push},
+		reports:       &controllers.ReportsController{Svc: deps.Reports},
+		push:          &controllers.PushController{Registry: deps.Push, Devices: deps.AccessDevices},
 		imports:       &controllers.ImportController{Svc: deps.Import},
+		sessionImport: &controllers.SessionImportController{Svc: deps.SessionImport},
+		sessionMoves:  &controllers.SessionMovesController{Svc: deps.SessionMoves},
+		fs:            &controllers.FSController{Svc: deps.Directories},
 		shellTerms:    &controllers.ShellTerminalsController{Svc: deps.ShellTerminals},
-		conversations: &controllers.ConversationsController{Svc: deps.Conversations},
+		cues:          &controllers.CuesController{Svc: deps.Cues},
+		conversations: &controllers.ConversationsController{Svc: deps.Conversations, Renders: attachmentstore.New(cfg.DataDir), Search: deps.ConversationSearch, UserMessages: userMessageRecorder(deps.Sessions), Models: deps.Agents},
 		settings:      &controllers.SettingsController{Svc: deps.Settings},
 		dev:           &controllers.DevController{Import: deps.DevImport},
-		browser:       &controllers.BrowserController{Svc: deps.Browser},
+		browser:       &controllers.BrowserController{Svc: deps.Browser, Chrome: deps.BrowserChrome},
+		devices:       &controllers.DevicesController{Svc: deps.Devices, Sessions: deps.Sessions, Capabilities: deps.SessionCapabilities},
+		panes:         &controllers.PanesController{Svc: deps.Panes, Terminals: deps.PaneTerminals, Sessions: deps.Sessions, Capabilities: deps.SessionCapabilities},
 		system:        &controllers.SystemController{Checks: deps.SystemChecks},
 		identity:      &controllers.IdentityController{HostID: deps.HostID},
 		endpoints:     &controllers.EndpointsController{Source: deps.Endpoints},
+		hostUpdate:    &controllers.HostUpdateController{Updater: deps.HostUpdate},
+		telemetryID:   &controllers.TelemetryIdentityController{Source: deps.TelemetryIdentity, LifetimeSessions: deps.LifetimeSessions, LifetimeWork: deps.LifetimeWork, DaemonVersion: deps.DaemonVersion},
 		systemInstall: &controllers.SystemInstallController{Installer: deps.Installer},
+		computerUse:   &controllers.ComputerUseController{Svc: deps.ComputerUse},
+		approvals:     &controllers.ApprovalsController{Svc: deps.Approvals},
 		agentAuth:     &controllers.AgentAuthController{Svc: deps.AgentAuth},
 		linkPreview:   &controllers.LinkPreviewController{Svc: deps.LinkPreview},
+		prPreview:     &controllers.PRPreviewController{Svc: deps.PRPreview},
+		sessionSearch: &controllers.SessionSearchController{Svc: deps.SessionSearch},
+		github:        &controllers.GitHubController{Svc: deps.GitHub},
 		events:        &EventsController{Source: deps.CDC, Live: deps.Events},
+	}
+}
+
+const attachmentUploadHeader = "X-AO-Attachment-Upload"
+
+// browserCommandBudget covers a command's own run plus the time it may wait
+// for the user to approve it.
+const browserCommandBudget = approval.BrowserCommandBudget
+
+// moveCaptureRoute reports a move route that reads a session's whole worktree
+// or fetches origin, either of which can outlast the default request budget.
+// move/targets fetches origin once for each project with the repository.
+func moveCaptureRoute(req *http.Request) bool {
+	switch chi.RouteContext(req.Context()).RoutePattern() {
+	case "/api/v1/sessions/{sessionId}/move/export", "/api/v1/sessions/{sessionId}/move/preview", "/api/v1/sessions/{sessionId}/move/transcript",
+		"/api/v1/sessions/move/targets":
+		return true
+	}
+	return false
+}
+
+// setupRoute reports a request that may run the project's Setup steps.
+func setupRoute(req *http.Request) bool {
+	if req.Method != http.MethodPost {
+		return false
+	}
+	switch chi.RouteContext(req.Context()).RoutePattern() {
+	case "/api/v1/sessions", "/api/v1/orchestrators", "/api/v1/sessions/{sessionId}/restore",
+		// The first open of an imported chat runs Setup in its new workspace.
+		"/api/v1/sessions/{sessionId}/resume-agent",
+		// A fork spawns a session, whose Setup runs in its new worktree.
+		"/api/v1/sessions/{sessionId}/fork",
+		// A session moved from AO Cloud is spawned, which runs Setup.
+		"/api/v1/sessions/move/import":
+		return true
+	}
+	return false
+}
+
+// setupRequestBudget is the base budget of a Setup route before its Setup
+// steps extend it. A cold spawn fetches the default branch, creates a worktree
+// and starts the agent inside one request, which can outlast the general
+// REST timeout on a slow machine or a large repository.
+// A var only so tests can shorten it.
+var setupRequestBudget = 120 * time.Second
+
+// serveWithSetupBudget serves a Setup route under budget, like
+// middleware.Timeout, except that the operation may extend the deadline
+// (ports.ExtendSpawnRequestBudget) once it knows its Setup steps.
+func serveWithSetupBudget(next http.Handler, w http.ResponseWriter, req *http.Request, budget time.Duration) {
+	ctx, timedOut, release := ports.NewSpawnRequestContext(req.Context(), budget)
+	defer release()
+	next.ServeHTTP(w, req.WithContext(ctx))
+	if timedOut() {
+		w.WriteHeader(http.StatusGatewayTimeout)
 	}
 }
 
@@ -187,38 +357,173 @@ func (a *API) Register(root chi.Router) {
 		r.Get("/openapi.yaml", apispec.ServeYAML)
 
 		r.Group(func(r chi.Router) {
-			r.Use(middleware.Timeout(timeout))
+			// Large base64 bodies can spend longer than the ordinary REST budget
+			// uploading over a phone connection. Only attachment-bearing requests
+			// opt in; ordinary calls to the same routes keep the configured timeout.
+			r.Use(func(next http.Handler) http.Handler {
+				ordinary := middleware.Timeout(timeout)(next)
+				upload := middleware.Timeout(max(timeout, 10*time.Minute))(next)
+				clone := middleware.Timeout(max(timeout, 30*time.Minute))(next)
+				computerUse := middleware.Timeout(max(timeout, 2*time.Minute))(next)
+				stackMerge := middleware.Timeout(max(timeout, 3*time.Minute))(next)
+				browserCommand := middleware.Timeout(max(timeout, browserCommandBudget))(next)
+				deviceCommand := middleware.Timeout(max(timeout, deviceCommandBudget))(next)
+				return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+					// A clone downloads the whole repository inside the request,
+					// which takes minutes for a large repository.
+					if pattern := chi.RouteContext(req.Context()).RoutePattern(); pattern == "/api/v1/projects/clone" ||
+						pattern == "/api/v1/projects/clone/prepare" || pattern == "/api/v1/projects/clone/prepare/stream" {
+						clone.ServeHTTP(w, req)
+						return
+					}
+					// A run_steps batch may run for the driver's full 60 s before
+					// its step report and closing window read, and an action is
+					// followed by its own read: either outlasts the REST budget.
+					if chi.RouteContext(req.Context()).RoutePattern() == "/api/v1/computer-use/call" {
+						computerUse.ServeHTTP(w, req)
+						return
+					}
+					// A stack merge waits up to two minutes for the provider to land
+					// it (stackMergeWait in the GitHub adapter), after the layers'
+					// own readiness reads.
+					// A consequential browser action waits for the user's approval
+					// (browsersvc.DefaultApprovalTimeout) before it runs.
+					if pattern := chi.RouteContext(req.Context()).RoutePattern(); pattern == "/api/v1/browser/commands" || pattern == "/api/v1/browser/remote-commands" {
+						browserCommand.ServeHTTP(w, req)
+						return
+					}
+					if chi.RouteContext(req.Context()).RoutePattern() == "/api/v1/prs/{id}/stack/merge" {
+						stackMerge.ServeHTTP(w, req)
+						return
+					}
+					// A spawn, an orchestrator start or a restore runs the project's
+					// Setup inside the request, and a Setup step may take far longer
+					// than one REST request: the operation extends this budget by its
+					// Setup steps' limits once it knows its project.
+					if setupRoute(req) {
+						budget := max(timeout, setupRequestBudget)
+						// Resuming an agent reads its whole native history, which takes
+						// over a minute for a large imported Codex thread. A move from
+						// AO Cloud fetches its branch from origin before the spawn.
+						if attachmentUploadRoute(req) ||
+							chi.RouteContext(req.Context()).RoutePattern() == "/api/v1/sessions/{sessionId}/resume-agent" ||
+							chi.RouteContext(req.Context()).RoutePattern() == "/api/v1/sessions/move/import" {
+							budget = max(timeout, 10*time.Minute)
+						}
+						serveWithSetupBudget(next, w, req, budget)
+						return
+					}
+					// An import scan reads every local history.
+					if attachmentUploadRoute(req) || sessionImportRoute(req) || moveCaptureRoute(req) {
+						upload.ServeHTTP(w, req)
+						return
+					}
+					// Installing a large build, launching through a cold driver, or
+					// shutting a device down outlasts one REST request; cutting the
+					// request off would kill an install halfway.
+					if deviceCommandRoute(req) {
+						deviceCommand.ServeHTTP(w, req)
+						return
+					}
+					// A managed preview carries the dev server's HMR socket and event
+					// streams, and the agent browser its stream socket: both stay open
+					// as long as the page does. A file upload streams to disk for as
+					// long as its bytes keep coming; the handler ends one that stalls.
+					if pattern := chi.RouteContext(req.Context()).RoutePattern(); pattern == "/api/v1/sessions/{sessionId}/preview/app/*" ||
+						pattern == "/api/v1/sessions/{sessionId}/agent-browser/*" ||
+						pattern == "/api/v1/attachment-uploads" ||
+						pattern == "/api/v1/sessions/{sessionId}/device/hub/*" ||
+						pattern == "/api/v1/sessions/{sessionId}/device/open" {
+						next.ServeHTTP(w, req)
+						return
+					}
+					ordinary.ServeHTTP(w, req)
+				})
+			})
 			r.Use(presenceMiddleware(a.deps.Presence))
+			r.Use(clientTimeZoneMiddleware(a.deps.ClientTimeZone))
 			a.agents.Register(r)
 			a.codexAccounts.Register(r)
+			a.agentAccounts.Register(r)
 			a.projects.Register(r)
 			a.sessions.Register(r)
+			a.sessionForks.Register(r)
+			a.automations.Register(r)
 			a.desktop.Register(r)
 			a.usage.Register(r)
 			a.prs.Register(r)
 			a.reviews.Register(r)
 			a.notifications.Register(r)
+			a.reports.Register(r)
 			a.push.Register(r)
 			a.imports.Register(r)
+			a.sessionImport.Register(r)
+			a.sessionMoves.Register(r)
+			a.fs.Register(r)
 			a.shellTerms.Register(r)
+			a.cues.Register(r)
 			a.conversations.Register(r)
 			a.settings.Register(r)
 			a.dev.Register(r)
 			a.browser.Register(r)
+			a.devices.Register(r)
+			a.panes.Register(r)
 			a.system.Register(r)
 			a.identity.Register(r)
 			a.endpoints.Register(r)
+			a.hostUpdate.Register(r)
+			a.telemetryID.Register(r)
 			a.systemInstall.Register(r)
+			a.computerUse.Register(r)
+			a.approvals.Register(r)
 			a.agentAuth.Register(r)
 			a.linkPreview.Register(r)
+			a.prPreview.Register(r)
+			a.sessionSearch.Register(r)
+			a.github.Register(r)
 			// Sibling REST controllers plug in here.
 		})
 		// Long-lived streams intentionally bypass the REST timeout middleware.
 		a.notifications.RegisterStream(r)
+		a.approvals.RegisterStream(r)
 		a.codexAccounts.RegisterStreams(r)
 		a.sessions.RegisterStreams(r)
 		a.events.Register(r)
 	})
+}
+
+// sessionImportRoute covers the scan and the import: both read every chosen history.
+func sessionImportRoute(req *http.Request) bool {
+	return chi.RouteContext(req.Context()).RoutePattern() == "/api/v1/session-import"
+}
+
+func attachmentUploadRoute(req *http.Request) bool {
+	if req.Method != http.MethodPost {
+		return false
+	}
+	route := chi.RouteContext(req.Context()).RoutePattern()
+	// This route only accepts attachments, including from older clients.
+	if route == "/api/v1/sessions/{sessionId}/attachments" {
+		return true
+	}
+	if req.Header.Get(attachmentUploadHeader) != "1" {
+		return false
+	}
+	switch route {
+	case "/api/v1/sessions",
+		"/api/v1/orchestrators/delegate",
+		"/api/v1/sessions/{sessionId}/send",
+		"/api/v1/sessions/{sessionId}/conversation/messages",
+		"/api/v1/sessions/{sessionId}/provider-switch",
+		"/api/v1/sessions/{sessionId}/conversation/steer",
+		"/api/v1/sessions/{sessionId}/conversation/steer-or-send",
+		"/api/v1/sessions/{sessionId}/conversation/turns/{turnId}/queue/edit",
+		"/api/v1/reviews/{reviewId}/conversation/messages",
+		"/api/v1/prs/{id}/comments":
+		return true
+	default:
+		return false
+	}
 }
 
 // notFoundJSON returns the locked envelope for unmatched routes. Chi's default
@@ -235,4 +540,58 @@ func notFoundJSON(w http.ResponseWriter, r *http.Request) {
 func methodNotAllowedJSON(w http.ResponseWriter, r *http.Request) {
 	envelope.WriteAPIError(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "METHOD_NOT_ALLOWED",
 		r.Method+" not allowed on "+r.URL.Path, nil)
+}
+
+// memoryPressure is the memory service's cheap pressure read when it offers
+// one; nil leaves the route at 501.
+func memoryPressure(svc controllers.SessionMemoryService) controllers.MemoryPressureReader {
+	if p, ok := svc.(controllers.MemoryPressureReader); ok {
+		return p
+	}
+	return nil
+}
+
+// newAgentAccountsController moves sessions through the session service when
+// it can, so a move maps errors like every other session command.
+func newAgentAccountsController(deps APIDeps) *controllers.AgentAccountsController {
+	c := &controllers.AgentAccountsController{Svc: deps.AgentAccounts}
+	if mover, ok := deps.Sessions.(controllers.AgentAccountSessionMover); ok {
+		c.Sessions = mover
+	}
+	return c
+}
+
+// agentBrowserURL is the host's agent browser, or nil when it has none.
+// config.Load already accepted only a loopback http URL.
+func agentBrowserURL(raw string) *url.URL {
+	u, err := url.Parse(raw)
+	if raw == "" || err != nil {
+		return nil
+	}
+	return u
+}
+
+// userMessageRecorder reuses the session service, which owns session telemetry,
+// to report human chat sends. Nil when the service cannot record.
+func userMessageRecorder(sessions any) controllers.UserMessageRecorder {
+	recorder, _ := sessions.(controllers.UserMessageRecorder)
+	return recorder
+}
+
+// deviceCommandBudget covers the device provider's own limits: two minutes for
+// an install, a launch or a button press through the agent driver, and up to
+// three for a shutdown through the hub, after the lease's driver release.
+const deviceCommandBudget = 4 * time.Minute
+
+// deviceCommandRoute reports the device routes that run a provider command
+// inside the request.
+func deviceCommandRoute(req *http.Request) bool {
+	switch chi.RouteContext(req.Context()).RoutePattern() {
+	case "/api/v1/sessions/{sessionId}/device/install",
+		"/api/v1/sessions/{sessionId}/device/launch",
+		"/api/v1/sessions/{sessionId}/device/close",
+		"/api/v1/sessions/{sessionId}/device/button":
+		return true
+	}
+	return false
 }

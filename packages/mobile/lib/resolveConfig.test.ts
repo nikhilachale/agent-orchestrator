@@ -11,6 +11,7 @@ import { DEFAULT_CONFIG, type ServerConfig } from "./config";
 import type { Endpoint } from "./endpoints";
 import type { Host } from "./hosts";
 import { resolveActiveConfig } from "./resolveConfig";
+import { IncompatibleHostVersionError } from "./race";
 
 const lan: Endpoint = { kind: "lan", host: "192.168.1.42", port: 3011, secure: false };
 const tunnel: Endpoint = { kind: "tunnel", host: "abc.trycloudflare.com", port: 443, secure: true };
@@ -50,11 +51,44 @@ describe("resolveActiveConfig", () => {
 		);
 	});
 
+	it("reports a late credential repair for the config it returned", async () => {
+		const stale = { ...DEFAULT_CONFIG, host: "192.168.1.42", httpPort: "3011", password: "aod_refused" };
+		let repair!: (repaired: boolean) => void;
+		const d = deps({ connect: vi.fn(async (id: string) => ({
+			ok: true as const, config: stale, endpoint: lan, hostId: id,
+			credentialRepair: new Promise<boolean>((done) => { repair = done; }),
+		})) });
+		const onRepaired = vi.fn();
+		await expect(resolveActiveConfig(d, onRepaired)).resolves.toBe(stale);
+		expect(onRepaired).not.toHaveBeenCalled();
+		repair(true);
+		await vi.waitFor(() => expect(onRepaired).toHaveBeenCalledExactlyOnceWith(stale));
+	});
+
 	it("does not persist anything when the race fails", async () => {
 		const d = deps({ connect: vi.fn(async () => ({ ok: false as const, reason: "none-reachable" as const })) });
 		await resolveActiveConfig(d);
 
 		expect(d.persist).not.toHaveBeenCalled();
+	});
+
+	it("keeps incompatible host failures distinct from offline without using a cached address", async () => {
+		const d = deps({ connect: vi.fn(async () => ({ ok: false as const, reason: "incompatible" as const })) });
+		await expect(resolveActiveConfig(d)).rejects.toBeInstanceOf(IncompatibleHostVersionError);
+		expect(d.persist).not.toHaveBeenCalled();
+		expect(d.loadLegacyConfig).not.toHaveBeenCalled();
+	});
+
+	it("rejects a host upgrade on reconnect even after a working v1 connection", async () => {
+		const working = deps().connect;
+		const connect = vi.fn()
+			.mockImplementationOnce(working)
+			.mockResolvedValueOnce({ ok: false as const, reason: "incompatible" as const });
+		const d = deps({ connect });
+		await expect(resolveActiveConfig(d)).resolves.toMatchObject({ host: "192.168.1.42" });
+		await expect(resolveActiveConfig(d)).rejects.toBeInstanceOf(IncompatibleHostVersionError);
+		expect(connect).toHaveBeenCalledTimes(2);
+		expect(d.persist).toHaveBeenCalledTimes(1);
 	});
 
 	// Which machine that is belongs to hosts.activeHost — an explicit selection
@@ -83,14 +117,22 @@ describe("resolveActiveConfig", () => {
 		expect(order).toEqual(["migrate", "load"]);
 	});
 
-	// The safety net. If the race cannot reach the machine we must still hand
-	// back the last known config: the rest of the app is built around always
-	// having one, and returning nothing would look like being unpaired.
-	it("falls back to the stored config when nothing answers", async () => {
-		const d = deps({ connect: vi.fn(async () => ({ ok: false as const, reason: "none-reachable" as const })) });
-		const got = await resolveActiveConfig(d);
+	it("does not reuse an unverified saved address when the selected machine is offline", async () => {
+		const d = deps({
+			connect: vi.fn(async () => ({ ok: false as const, reason: "none-reachable" as const })),
+			loadLegacyConfig: vi.fn(async () => ({ ...legacy, hostId: "h_a" })),
+		});
+		expect(await resolveActiveConfig(d)).toBeNull();
+	});
 
-		expect(got?.host).toBe("10.0.0.9");
+	it("never reconnects to A when selected B is offline", async () => {
+		const d = deps({
+			activeHost: vi.fn(async () => host({ id: "h_b" })),
+			connect: vi.fn(async () => ({ ok: false as const, reason: "none-reachable" as const })),
+			loadLegacyConfig: vi.fn(async () => ({ ...legacy, hostId: "h_a" })),
+		});
+
+		expect(await resolveActiveConfig(d)).toBeNull();
 	});
 
 	it("falls back to the stored config when no machine is paired", async () => {
@@ -101,16 +143,14 @@ describe("resolveActiveConfig", () => {
 		expect(got?.host).toBe("10.0.0.9");
 	});
 
-	// A crash here would leave the app with no connection at all, so a thrown
-	// error degrades to the stored config rather than propagating.
-	it("degrades to the stored config if resolution throws", async () => {
+	it("does not use another machine's stored config if resolution throws", async () => {
 		const d = deps({
+			activeHost: vi.fn(async () => host({ id: "h_b" })),
+			loadLegacyConfig: vi.fn(async () => ({ ...legacy, hostId: "h_a" })),
 			connect: vi.fn(async () => {
 				throw new Error("boom");
 			}),
 		});
-		const got = await resolveActiveConfig(d);
-
-		expect(got?.host).toBe("10.0.0.9");
+		expect(await resolveActiveConfig(d)).toBeNull();
 	});
 });

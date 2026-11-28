@@ -23,9 +23,12 @@ export type ProjectSettingsValues = {
 	intakeAssignee: string;
 };
 
+export const MAX_PROJECT_DISPLAY_NAME_LEN = 100;
+
 export type ProjectSettingsValidationCode =
 	| "agents_required"
 	| "name_required"
+	| "name_too_long"
 	| "intake_assignee_required";
 
 export function validateProjectSettings(
@@ -33,27 +36,30 @@ export function validateProjectSettings(
 		ProjectSettingsValues,
 		"displayName" | "workerAgent" | "orchestratorAgent" | "intakeEnabled" | "intakeAssignee"
 	>,
-	options: { validateIntake?: boolean } = {},
+	options: { validateIntake?: boolean; originalDisplayName?: string } = {},
 ): ProjectSettingsValidationCode | null {
 	if (values.workerAgent === "" || values.orchestratorAgent === "") return "agents_required";
-	if (values.displayName.trim() === "") return "name_required";
+	const trimmedName = values.displayName.trim();
+	if (trimmedName === "") return "name_required";
+	if (
+		Array.from(trimmedName).length > MAX_PROJECT_DISPLAY_NAME_LEN &&
+		trimmedName !== options.originalDisplayName?.trim()
+	) {
+		return "name_too_long";
+	}
 	if (options.validateIntake !== false && values.intakeEnabled && values.intakeAssignee.trim() === "") {
 		return "intake_assignee_required";
 	}
 	return null;
 }
 
+// Agents are not chosen at setup: the project starts on the most preferred
+// ready agent and can be changed later in project settings.
 export type ProjectSetupSelection = {
-	workerAgent: string;
-	orchestratorAgent: string;
 	intakeEnabled?: boolean;
 	intakeAssignee?: string;
 };
 
 export function canSubmitProjectSetup(selection: ProjectSetupSelection): boolean {
-	return (
-		selection.workerAgent !== "" &&
-		selection.orchestratorAgent !== "" &&
-		(!selection.intakeEnabled || (selection.intakeAssignee?.trim() ?? "") !== "")
-	);
+	return !selection.intakeEnabled || (selection.intakeAssignee?.trim() ?? "") !== "";
 }

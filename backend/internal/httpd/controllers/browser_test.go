@@ -15,6 +15,7 @@ import (
 	"github.com/aoagents/agent-orchestrator/backend/internal/domain"
 	"github.com/aoagents/agent-orchestrator/backend/internal/httpd"
 	"github.com/aoagents/agent-orchestrator/backend/internal/httpd/apierr"
+	browsersvc "github.com/aoagents/agent-orchestrator/backend/internal/service/browser"
 )
 
 type fakeBrowserRuntime struct {
@@ -47,6 +48,51 @@ func (f *fakeBrowserRuntime) Execute(
 		return browserruntime.Result{}, action, f.err
 	}
 	return browserruntime.Result{RequestID: "request-1", Value: map[string]interface{}{"text": "button Save [ref=e1]"}}, action, nil
+}
+
+func (f *fakeBrowserRuntime) ExecuteRemote(
+	_ context.Context,
+	_ domain.SessionID,
+	_ string,
+	args []string,
+	_ map[string]string,
+) (browsersvc.RemoteResponse, error) {
+	f.action = "remote:" + strings.Join(args, " ")
+	if f.err != nil {
+		return browsersvc.RemoteResponse{}, f.err
+	}
+	return browsersvc.RemoteResponse{Output: "clicked", Files: map[string]string{"/tmp/s.png": "cG5n"}}, nil
+}
+
+func TestBrowserRemoteCommandRoute(t *testing.T) {
+	runtime := &fakeBrowserRuntime{}
+	srv := browserServer(t, runtime)
+	post := func(body string) (*http.Response, string) {
+		req, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/v1/browser/remote-commands", strings.NewReader(body))
+		req.Header.Set("X-AO-Browser-Capability", "cap")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return resp, string(raw)
+	}
+	resp, body := post(`{"sessionId":"s1","args":["click","@e2"]}`)
+	if resp.StatusCode != http.StatusOK || !strings.Contains(body, `"output":"clicked"`) || runtime.action != "remote:click @e2" {
+		t.Fatalf("status %d body %s action %q", resp.StatusCode, body, runtime.action)
+	}
+	if resp, _ := post(`{"sessionId":"s1","args":[]}`); resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("empty args status %d", resp.StatusCode)
+	}
+	runtime.err = apierr.Forbidden("BROWSER_ACTION_DENIED", "The user denied this action")
+	if resp, body := post(`{"sessionId":"s1","args":["click","@e2"]}`); resp.StatusCode != http.StatusForbidden || !strings.Contains(body, "BROWSER_ACTION_DENIED") {
+		t.Fatalf("deny status %d body %s", resp.StatusCode, body)
+	}
+	runtime.err = apierr.Unavailable("BROWSER_REMOTE_UNREACHABLE", "down")
+	if resp, _ := post(`{"sessionId":"s1","args":["snapshot"]}`); resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("unreachable status %d", resp.StatusCode)
+	}
 }
 
 func browserServer(t *testing.T, runtime *fakeBrowserRuntime) *httptest.Server {
@@ -125,6 +171,21 @@ func TestBrowserCommandValidationAndErrors(t *testing.T) {
 	body, status, _ = doRequest(t, srv, http.MethodPost, "/api/v1/browser/commands", `{"sessionId":"ao-1","action":"click"}`)
 	if status != http.StatusConflict || !containsAll(body, `"code":"STALE_REFERENCE"`) {
 		t.Fatalf("stale = %d body=%s", status, body)
+	}
+	runtime.err = browserruntime.CommandError{Code: "BROWSER_TARGET_MISMATCH", Message: "Browser automation could not target AO tab t2"}
+	body, status, _ = doRequest(t, srv, http.MethodPost, "/api/v1/browser/commands", `{"sessionId":"ao-1","action":"click"}`)
+	if status != http.StatusConflict || !containsAll(body, `"code":"BROWSER_TARGET_MISMATCH"`, `"message":"Browser automation could not target AO tab t2"`) {
+		t.Fatalf("target mismatch = %d body=%s", status, body)
+	}
+	runtime.err = browserruntime.CommandError{Code: "AGENT_BROWSER_TIMEOUT", Message: "agent-browser command timed out"}
+	body, status, _ = doRequest(t, srv, http.MethodPost, "/api/v1/browser/commands", `{"sessionId":"ao-1","action":"screenshot"}`)
+	if status != http.StatusGatewayTimeout || !containsAll(body, `"code":"AGENT_BROWSER_TIMEOUT"`) {
+		t.Fatalf("native timeout = %d body=%s", status, body)
+	}
+	runtime.err = context.DeadlineExceeded
+	body, status, _ = doRequest(t, srv, http.MethodPost, "/api/v1/browser/commands", `{"sessionId":"ao-1","action":"screenshot"}`)
+	if status != http.StatusGatewayTimeout || !containsAll(body, `"code":"BROWSER_COMMAND_TIMEOUT"`) {
+		t.Fatalf("request deadline = %d body=%s", status, body)
 	}
 }
 

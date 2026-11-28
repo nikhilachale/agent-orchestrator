@@ -29,8 +29,24 @@ func TestCapacityNormalizationIncludesBucketsAndRejectsMalformedWindows(t *testi
 	if observed.Plan == nil || *observed.Plan != "pro" || observed.Overall == nil || observed.Overall.Primary == nil {
 		t.Fatalf("overall = %#v", observed)
 	}
-	if observed.Overall.Secondary != nil {
-		t.Fatalf("out-of-range window was accepted: %#v", observed.Overall.Secondary)
+	if observed.Overall.Secondary != nil || !observed.Overall.InvalidWindow {
+		t.Fatalf("out-of-range window was accepted or not flagged: %#v", observed.Overall)
+	}
+	if observed.AdditionalBuckets[0].InvalidWindow || observed.DroppedBucket {
+		t.Fatalf("absent window or valid bucket was flagged: %#v", observed)
+	}
+	envelope.RateLimitsByLimitID["codex"] = capacityWireBucket{LimitID: new("codex"), Primary: &capacityWireWindow{UsedPercent: new(81.0), WindowDurationMins: new(int64(300)), ResetsAt: new(int64(4102444800))}, Secondary: &capacityWireWindow{UsedPercent: new(101.0)}}
+	if capacityObservationFromEnvelope(envelope, time.Unix(1, 0), false).DroppedBucket {
+		t.Fatal("duplicate bucket matching the overall bucket was flagged")
+	}
+	envelope.RateLimitsByLimitID["codex"] = capacityWireBucket{LimitID: new("codex"), Primary: &capacityWireWindow{UsedPercent: new(100.0)}}
+	if !capacityObservationFromEnvelope(envelope, time.Unix(1, 0), false).DroppedBucket {
+		t.Fatal("duplicate bucket disagreeing with the overall bucket was not flagged")
+	}
+	delete(envelope.RateLimitsByLimitID, "codex")
+	envelope.RateLimitsByLimitID["bad"] = capacityWireBucket{LimitID: new(strings.Repeat("x", 161))}
+	if !capacityObservationFromEnvelope(envelope, time.Unix(1, 0), false).DroppedBucket {
+		t.Fatal("bucket with an invalid limit id was dropped without a flag")
 	}
 	if len(observed.AdditionalBuckets) != 2 || observed.AdditionalBuckets[0].LimitID != "alpha" || observed.AdditionalBuckets[1].LimitID != "spark" || observed.AdditionalBuckets[1].Reached != domain.CodexCapacityNotReached {
 		t.Fatalf("additional buckets = %#v", observed.AdditionalBuckets)
@@ -59,6 +75,40 @@ func TestSparseCapacityNormalizationKeepsUnknownReachedState(t *testing.T) {
 	observed := capacityObservationFromEnvelope(envelope, time.Now(), true)
 	if observed.Overall == nil || observed.Overall.Reached != domain.CodexCapacityReachUnknown {
 		t.Fatalf("reached = %#v", observed.Overall)
+	}
+}
+
+func TestCapacityAutoResumeResetRetainsNativeSafety(t *testing.T) {
+	now := time.Date(2026, 8, 2, 10, 0, 0, 0, time.UTC)
+	const single = `{"primary":{"usedPercent":100,"resetsAt":1785664860},"secondary":null}`
+	for _, tc := range []struct {
+		name    string
+		body    string
+		partial bool
+		reset   int64
+	}{
+		{"complete default codex identity", `{"rateLimits":` + single + `}`, false, 1785664860},
+		{"all saturated windows wait for latest", `{"rateLimits":{"limitId":"codex","primary":{"usedPercent":100,"resetsAt":1785664860},"secondary":{"usedPercent":100,"resetsAt":1785664920}}}`, false, 1785664920},
+		{"duplicate canonical bucket", `{"rateLimits":` + single + `,"rateLimitsByLimitId":{"codex":` + single + `}}`, false, 1785664860},
+		{"conflicting canonical bucket", `{"rateLimits":` + single + `,"rateLimitsByLimitId":{"codex":{"primary":{"usedPercent":10},"secondary":null}}}`, false, 0},
+		{"additional bucket is ambiguous", `{"rateLimits":` + single + `,"rateLimitsByLimitId":{"model":` + single + `}}`, false, 0},
+		{"partial observation", `{"rateLimits":` + single + `}`, true, 0},
+		{"omitted window is unknown", `{"rateLimits":{"primary":{"usedPercent":100,"resetsAt":1785664860}}}`, false, 0},
+		{"other limit identity", `{"rateLimits":{"limitId":"other","primary":{"usedPercent":100,"resetsAt":1785664860},"secondary":null}}`, false, 0},
+		{"spend control", `{"rateLimits":{"primary":{"usedPercent":100,"resetsAt":1785664860},"secondary":null,"spendControlReached":true}}`, false, 0},
+		{"nonrolling refusal", `{"rateLimits":{"primary":{"usedPercent":100,"resetsAt":1785664860},"secondary":null,"rateLimitReachedType":"workspace_member_usage_limit_reached"}}`, false, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var envelope capacityReadEnvelope
+			if err := json.Unmarshal([]byte(tc.body), &envelope); err != nil {
+				t.Fatal(err)
+			}
+			got := capacityObservationFromEnvelope(envelope, now, tc.partial)
+			if (tc.reset == 0 && got.AutoResumeResetsAt != nil) ||
+				(tc.reset != 0 && (got.AutoResumeResetsAt == nil || got.AutoResumeResetsAt.Unix() != tc.reset)) {
+				t.Fatalf("safe account reset = %v, want Unix %d", got.AutoResumeResetsAt, tc.reset)
+			}
+		})
 	}
 }
 

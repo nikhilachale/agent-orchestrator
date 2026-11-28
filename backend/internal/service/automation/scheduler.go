@@ -1,0 +1,364 @@
+package automation
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/aoagents/agent-orchestrator/backend/internal/domain"
+	"github.com/aoagents/agent-orchestrator/backend/internal/httpd/apierr"
+	"github.com/aoagents/agent-orchestrator/backend/internal/ports"
+	sessionmanager "github.com/aoagents/agent-orchestrator/backend/internal/session_manager"
+)
+
+const (
+	dueScanLimit      = 100
+	dispatchScanLimit = 100
+	spawnLease        = 2 * time.Minute
+	maxRunErrorBytes  = 512
+
+	unfinishedRunMessage = "Did not finish before the next scheduled run"
+)
+
+// SessionSpawner is the existing user-facing session launch boundary.
+type SessionSpawner interface {
+	Spawn(context.Context, ports.SpawnConfig) (domain.Session, int, int, error)
+	// RequestKill returns once the controller is closed and termination is
+	// durable. Untimed cleanup commands continue on background workers, which
+	// hold the session's operation guard, so Tick and Reconcile never wait on them.
+	// The scheduler has no blocking Kill, so no close path can wait on cleanup.
+	RequestKill(context.Context, domain.SessionID) (sessionmanager.KillResult, error)
+}
+
+// schedulerStore is deliberately separate from CRUD Store so focused CRUD
+// tests and alternate read adapters need not implement daemon-only operations.
+type schedulerStore interface {
+	ListDueAutomations(context.Context, time.Time, int64) ([]domain.Automation, error)
+	MaterializeAutomationRuns(context.Context, domain.AutomationID, time.Time, []domain.AutomationRun, time.Time, time.Time, time.Time) (bool, error)
+	AutomationSessionReadyToComplete(context.Context, domain.SessionID, time.Time) (bool, error)
+	ClaimNextAutomationRun(context.Context, time.Time, time.Time) (domain.AutomationRun, bool, error)
+	ListActiveAutomationRuns(context.Context) ([]domain.AutomationRun, error)
+	GetSessionByAutomationRunID(context.Context, domain.AutomationRunID) (domain.SessionRecord, bool, error)
+	GetSession(context.Context, domain.SessionID) (domain.SessionRecord, bool, error)
+	MarkAutomationRunRunning(context.Context, domain.AutomationRunID, domain.SessionID, time.Time) (bool, error)
+	RecordAutomationRunOutcome(context.Context, domain.AutomationRunID, string, time.Time) (bool, error)
+	CompleteAutomationRun(context.Context, domain.AutomationRunID, time.Time) (bool, error)
+	FailAutomationRun(context.Context, domain.AutomationRunID, string, time.Time) (bool, error)
+	ReleaseAutomationRun(context.Context, domain.AutomationRunID, string, time.Time) (bool, error)
+}
+
+func (s *Service) schedulerStore() (schedulerStore, error) {
+	store, ok := s.store.(schedulerStore)
+	if !ok {
+		return nil, fmt.Errorf("automation scheduler storage is unavailable")
+	}
+	return store, nil
+}
+
+// Tick performs one bounded materialization, lifecycle projection, claim, and
+// dispatch pass. One bad definition is joined into the returned diagnostic but
+// does not prevent other definitions from progressing.
+func (s *Service) Tick(ctx context.Context, at time.Time) error {
+	store, err := s.schedulerStore()
+	if err != nil {
+		return err
+	}
+	now := at.UTC()
+	var problems []error
+	if err := s.completeAndAdoptActive(ctx, store, now); err != nil {
+		problems = append(problems, err)
+	}
+	due, err := store.ListDueAutomations(ctx, now, dueScanLimit)
+	if err != nil {
+		problems = append(problems, err)
+	} else {
+		for _, definition := range due {
+			if err := s.materializeDefinition(ctx, store, definition, now); err != nil {
+				problems = append(problems, fmt.Errorf("automation %s: %w", definition.ID, err))
+			}
+		}
+	}
+
+	// Claim the batch before launching anything. Each spawning claim blocks its
+	// siblings, which guarantees at most one dispatch per definition this poll.
+	claims := make([]domain.AutomationRun, 0)
+	for len(claims) < dispatchScanLimit && ctx.Err() == nil {
+		run, ok, claimErr := store.ClaimNextAutomationRun(ctx, now, now.Add(spawnLease))
+		if claimErr != nil {
+			problems = append(problems, claimErr)
+			break
+		}
+		if !ok {
+			break
+		}
+		claims = append(claims, run)
+	}
+	for _, run := range claims {
+		if err := s.dispatch(ctx, store, run, now); err != nil {
+			problems = append(problems, fmt.Errorf("automation run %s: %w", run.ID, err))
+		}
+	}
+	if ctx.Err() != nil {
+		problems = append(problems, ctx.Err())
+	}
+	return errors.Join(problems...)
+}
+
+func (s *Service) materializeDefinition(ctx context.Context, store schedulerStore, definition domain.Automation, now time.Time) error {
+	if !definition.Enabled || definition.NextRunAt.After(now) {
+		return nil
+	}
+	// A schedule is a request for current work, not a replay of every missed
+	// interval. Materialize only the newest due occurrence after downtime.
+	last, err := latestOccurrence(definition.RRuleText, definition.Timezone, now)
+	if err != nil {
+		return err
+	}
+	if last.Before(definition.NextRunAt) {
+		return fmt.Errorf("latest occurrence precedes schedule cursor")
+	}
+	occurrence, err := NextOccurrence(definition.RRuleText, definition.Timezone, last)
+	if err != nil {
+		return err
+	}
+	runs := []domain.AutomationRun{{
+		ID: domain.AutomationRunID("automation-run-" + s.newID()), AutomationID: definition.ID,
+		ScheduledFor: last, Status: domain.AutomationRunPending,
+		CreatedAt: now, UpdatedAt: now,
+	}}
+	_, err = store.MaterializeAutomationRuns(ctx, definition.ID, definition.NextRunAt, runs, last, occurrence, now)
+	return err
+}
+
+func (s *Service) dispatch(ctx context.Context, store schedulerStore, run domain.AutomationRun, now time.Time) error {
+	definition, err := s.Get(ctx, run.AutomationID)
+	if err != nil {
+		message := runError(err)
+		_, markErr := store.FailAutomationRun(context.WithoutCancel(ctx), run.ID, message, now)
+		return errors.Join(err, markErr)
+	}
+	if s.spawner == nil {
+		err := fmt.Errorf("session spawner is unavailable")
+		_, releaseErr := store.ReleaseAutomationRun(context.WithoutCancel(ctx), run.ID, runError(err), now)
+		return errors.Join(err, releaseErr)
+	}
+	session, _, _, spawnErr := s.spawner.Spawn(ctx, ports.SpawnConfig{
+		ProjectID: definition.ProjectID, Kind: definition.Kind, Harness: definition.Harness,
+		AgentConfig:    ports.AgentConfig{Model: definition.Model, Mode: definition.Mode, Effort: definition.Effort},
+		EffortOverride: definition.Model != "" || definition.Effort != "",
+		Prompt:         definition.Prompt, DisplayName: definition.DisplayName, DisplayNameExplicit: definition.DisplayName != "", AutomationRunID: &run.ID,
+	})
+	if spawnErr != nil {
+		var apiError *apierr.Error
+		if session, ok, lookupErr := store.GetSessionByAutomationRunID(context.WithoutCancel(ctx), run.ID); lookupErr != nil {
+			return errors.Join(spawnErr, lookupErr)
+		} else if ok {
+			if session.AutomationLaunchCompleted {
+				_, markErr := store.MarkAutomationRunRunning(context.WithoutCancel(ctx), run.ID, session.ID, now)
+				return errors.Join(spawnErr, markErr)
+			}
+			if !session.IsTerminated {
+				_, killErr := s.spawner.RequestKill(context.WithoutCancel(ctx), session.ID)
+				if killErr != nil {
+					return errors.Join(spawnErr, killErr)
+				}
+			}
+			_, markErr := store.FailAutomationRun(context.WithoutCancel(ctx), run.ID, runError(spawnErr), now)
+			return errors.Join(spawnErr, markErr)
+		}
+		// A paused project fails this occurrence rather than re-queueing it: the
+		// pause holds until a person starts a session or changes its settings.
+		permanent := errors.As(spawnErr, &apiError) && (apiError.Kind == apierr.KindInvalid || apiError.Kind == apierr.KindNotFound || apiError.Code == "AUTO_SPAWN_PAUSED")
+		if permanent {
+			_, markErr := store.FailAutomationRun(context.WithoutCancel(ctx), run.ID, runError(spawnErr), now)
+			return errors.Join(spawnErr, markErr)
+		}
+		_, releaseErr := store.ReleaseAutomationRun(context.WithoutCancel(ctx), run.ID, runError(spawnErr), now)
+		return errors.Join(spawnErr, releaseErr)
+	}
+	_, err = store.MarkAutomationRunRunning(context.WithoutCancel(ctx), run.ID, session.ID, now)
+	return err
+}
+
+// Reconcile repairs crash-interrupted claims, projects durable completion, and
+// materializes a bounded startup catch-up. Dispatch begins in the observer's
+// immediate Tick after reconciliation.
+func (s *Service) Reconcile(ctx context.Context) error {
+	store, err := s.schedulerStore()
+	if err != nil {
+		return err
+	}
+	now := s.clock().UTC()
+	var problems []error
+	if err := s.completeAndAdoptActive(ctx, store, now); err != nil {
+		problems = append(problems, err)
+	}
+	due, err := store.ListDueAutomations(ctx, now, dueScanLimit)
+	if err != nil {
+		problems = append(problems, err)
+	} else {
+		for _, definition := range due {
+			if err := s.materializeDefinition(ctx, store, definition, now); err != nil {
+				problems = append(problems, err)
+			}
+		}
+	}
+	return errors.Join(problems...)
+}
+
+func (s *Service) completeAndAdoptActive(ctx context.Context, store schedulerStore, now time.Time) error {
+	runs, err := store.ListActiveAutomationRuns(ctx)
+	if err != nil {
+		return err
+	}
+	var problems []error
+	for _, run := range runs {
+		if run.Status == domain.AutomationRunSpawning {
+			session, ok, lookupErr := store.GetSessionByAutomationRunID(ctx, run.ID)
+			if lookupErr != nil {
+				problems = append(problems, lookupErr)
+			} else if ok && session.AutomationLaunchCompleted {
+				_, lookupErr = store.MarkAutomationRunRunning(ctx, run.ID, session.ID, now)
+				if lookupErr != nil {
+					problems = append(problems, lookupErr)
+				} else if session.IsTerminated {
+					if _, lookupErr = store.CompleteAutomationRun(ctx, run.ID, now); lookupErr != nil {
+						problems = append(problems, lookupErr)
+					}
+				}
+			} else if ok && run.LeaseExpiresAt != nil && !run.LeaseExpiresAt.After(now) {
+				if lookupErr = s.rollbackIncompleteLaunch(ctx, store, run, session, now); lookupErr != nil {
+					problems = append(problems, lookupErr)
+				}
+			} else if !ok && run.LeaseExpiresAt != nil && !run.LeaseExpiresAt.After(now) {
+				// The daemon died between claiming and session creation, and
+				// startup reconciliation ran before the lease expired. Release
+				// the claim so later occurrences are not blocked forever.
+				if _, lookupErr = store.ReleaseAutomationRun(ctx, run.ID, "Recovered expired spawn claim", now); lookupErr != nil {
+					problems = append(problems, lookupErr)
+				}
+			}
+			continue
+		}
+		var session domain.SessionRecord
+		var ok bool
+		if run.SessionID != nil {
+			session, ok, err = store.GetSession(ctx, *run.SessionID)
+		} else {
+			session, ok, err = store.GetSessionByAutomationRunID(ctx, run.ID)
+		}
+		if err != nil {
+			problems = append(problems, err)
+			continue
+		}
+		if !ok {
+			_, failErr := store.FailAutomationRun(ctx, run.ID, "Linked session is missing", now)
+			if failErr != nil {
+				problems = append(problems, failErr)
+			}
+			continue
+		}
+		if run.SessionID == nil {
+			if _, err := store.MarkAutomationRunRunning(ctx, run.ID, session.ID, now); err != nil {
+				problems = append(problems, err)
+			}
+		}
+		if !session.IsTerminated && session.Kind == domain.KindWorker && session.Activity.State == domain.ActivityIdle {
+			ready, readyErr := store.AutomationSessionReadyToComplete(ctx, session.ID, now)
+			if readyErr != nil {
+				problems = append(problems, readyErr)
+				continue
+			}
+			if ready && s.spawner != nil {
+				// Keep the active run's non-overlap fence until its controller
+				// is closed. A failed kill must never release the next run.
+				if _, err := s.spawner.RequestKill(ctx, session.ID); err != nil {
+					problems = append(problems, fmt.Errorf("close finished automation session %s: %w", session.ID, err))
+					continue
+				}
+				session.IsTerminated = true
+			}
+		}
+		if session.IsTerminated {
+			// An outcome recorded before an interrupted close still decides the run.
+			if run.ErrorMessage != "" {
+				_, err = store.FailAutomationRun(ctx, run.ID, run.ErrorMessage, now)
+			} else {
+				_, err = store.CompleteAutomationRun(ctx, run.ID, now)
+			}
+			if err != nil {
+				problems = append(problems, err)
+			}
+			continue
+		}
+		if session.Activity.State != domain.ActivityIdle && session.Activity.State != domain.ActivityExited {
+			continue
+		}
+		// Otherwise a run holds the slot only until a newer occurrence is due.
+		// A worker without completion evidence keeps its session open. An idle
+		// orchestrator may be waiting on its workers, so it is closed only now,
+		// because the project's next orchestrator cannot start while it lives.
+		definition, found, err := s.store.GetAutomation(ctx, run.AutomationID)
+		if err != nil {
+			problems = append(problems, err)
+			continue
+		}
+		if !found || definition.LastRunAt == nil || !definition.LastRunAt.After(run.ScheduledFor) {
+			continue
+		}
+		if session.Kind == domain.KindOrchestrator && s.spawner != nil {
+			finished, err := store.AutomationSessionReadyToComplete(ctx, session.ID, now)
+			if err != nil {
+				problems = append(problems, err)
+				continue
+			}
+			// Readiness needs a live, idle session, so record it before closing.
+			// A later pass reads it if this one ends the session but not the run.
+			failure := ""
+			if !finished {
+				failure = unfinishedRunMessage
+			}
+			if recorded, err := store.RecordAutomationRunOutcome(ctx, run.ID, failure, now); err != nil || !recorded {
+				if err != nil {
+					problems = append(problems, err)
+				}
+				continue
+			}
+			if _, err := s.spawner.RequestKill(ctx, session.ID); err != nil {
+				problems = append(problems, fmt.Errorf("close automation orchestrator %s: %w", session.ID, err))
+				continue
+			}
+			if finished {
+				if _, err := store.CompleteAutomationRun(ctx, run.ID, now); err != nil {
+					problems = append(problems, err)
+				}
+				continue
+			}
+		}
+		if _, err := store.FailAutomationRun(ctx, run.ID, unfinishedRunMessage, now); err != nil {
+			problems = append(problems, err)
+		}
+	}
+	return errors.Join(problems...)
+}
+
+func (s *Service) rollbackIncompleteLaunch(ctx context.Context, store schedulerStore, run domain.AutomationRun, session domain.SessionRecord, now time.Time) error {
+	if s.spawner == nil {
+		return fmt.Errorf("cannot roll back incomplete automation session %s: session spawner is unavailable", session.ID)
+	}
+	if _, err := s.spawner.RequestKill(ctx, session.ID); err != nil {
+		return fmt.Errorf("roll back incomplete automation session %s: %w", session.ID, err)
+	}
+	_, err := store.FailAutomationRun(ctx, run.ID, "Recovered incomplete session launch", now)
+	return err
+}
+
+func runError(err error) string {
+	message := strings.Join(strings.Fields(err.Error()), " ")
+	if len(message) > maxRunErrorBytes {
+		message = message[:maxRunErrorBytes]
+	}
+	return message
+}

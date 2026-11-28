@@ -199,3 +199,29 @@ describe("matchInstruction", () => {
 		});
 	});
 });
+
+describe("matchInstruction safeguards", () => {
+	const page = {
+		e1: { role: "button", name: "Save" },
+		e2: { role: "button", name: "Search" },
+		e3: { role: "textbox", name: "Search" },
+		e4: { role: "button", name: "Other" },
+	};
+
+	it("returns no match for negated instructions", () => {
+		expect(matchInstruction("the don't save button", page)).toEqual({ outcome: "no-match" });
+		expect(matchInstruction("do not click the save button", page)).toEqual({ outcome: "no-match" });
+	});
+
+	it("filters by the named element type", () => {
+		const result = matchInstruction("the search textbox", page);
+		expect(result.outcome).toBe("matched");
+		if (result.outcome === "matched") expect(result.candidate.ref).toBe("e3");
+	});
+
+	it("does not pick a candidate by --nth when no name matched", () => {
+		const buttons = { e1: { role: "button", name: "Alpha" }, e2: { role: "button", name: "Beta" }, e3: { role: "button", name: "Gamma" } };
+		expect(matchInstruction("the delete button", buttons, { nth: 1 })).toEqual({ outcome: "no-match" });
+		expect(matchInstruction("the button", buttons, { nth: 1 })).toMatchObject({ outcome: "matched" });
+	});
+});

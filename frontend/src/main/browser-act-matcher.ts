@@ -42,6 +42,10 @@ const ARIA_ROLES = new Set([
 const LEADING_VERBS = new Set(["click", "tap", "press", "fill", "type", "select", "check", "uncheck", "hover", "focus"]);
 const ARTICLES = new Set(["the", "a", "an"]);
 
+// Negated instructions ("the don't save button") must never resolve to the
+// element they name; the tokenizer would otherwise split "don't" into "don"+"t".
+const NEGATION = /\b(?:do\s+not|does\s+not|did\s+not|not|never|without|(?:don|doesn|didn|won|can|couldn|shouldn|wouldn|isn|aren)['\u2019]?t|dont|cannot)\b/i;
+
 function tokenize(text: string): string[] {
 	return text
 		.toLowerCase()
@@ -80,8 +84,12 @@ function nameScore(entryName: string, nameHint: string, nameTokens: Set<string>)
 	return union === 0 ? 0 : Math.round((intersection / union) * 4);
 }
 
-function scoreCandidates(entries: SnapshotEntry[], roleHint: string | undefined, nameHint: string, nameTokens: Set<string>): ActCandidate[] {
+function scoreCandidates(allEntries: SnapshotEntry[], roleHint: string | undefined, nameHint: string, nameTokens: Set<string>): ActCandidate[] {
 	const candidates: ActCandidate[] = [];
+	// A named element type is a hard filter when the page has such elements, so
+	// "the search textbox" can't resolve to a button that is merely named "Search".
+	const typed = roleHint ? allEntries.filter((entry) => entry.role === roleHint) : [];
+	const entries = typed.length > 0 ? typed : allEntries;
 	for (const entry of entries) {
 		const roleScore = roleHint && entry.role === roleHint ? 3 : 0;
 		const score = roleScore + nameScore(entry.name, nameHint, nameTokens);
@@ -96,6 +104,7 @@ const MATCH_SCORE_FLOOR = 4;
 const MATCH_SCORE_GAP = 3;
 
 export function matchInstruction(instruction: string, snapshotRefs: unknown, opts: { nth?: number } = {}): ActMatchResult {
+	if (NEGATION.test(instruction)) return { outcome: "no-match" };
 	const entries = parseSnapshotEntries(snapshotRefs);
 	const instructions = [parseInstruction(instruction)];
 	if (LEADING_VERBS.has(tokenize(instruction)[0])) instructions.push(parseInstruction(instruction, true));
@@ -119,7 +128,8 @@ export function matchInstruction(instruction: string, snapshotRefs: unknown, opt
 	if (roleOnlyInstruction && typeof opts.nth === "number" && opts.nth >= 0 && opts.nth < candidates.length) {
 		return { outcome: "matched", candidate: candidates[opts.nth] };
 	}
-	if (candidates.length === 1 && top.score < MATCH_SCORE_FLOOR) return { outcome: "no-match" };
+	// Nothing matched by name (role-only scores): never guess, even with --nth.
+	if ((candidates.length === 1 || !roleOnlyInstruction) && top.score < MATCH_SCORE_FLOOR) return { outcome: "no-match" };
 	if (typeof opts.nth === "number" && opts.nth >= 0 && opts.nth < candidates.length) {
 		return { outcome: "matched", candidate: candidates[opts.nth] };
 	}

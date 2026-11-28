@@ -5227,3 +5227,23 @@ func TestSpawnTelemetryCarriesRequestID(t *testing.T) {
 		})
 	}
 }
+
+func TestSpawnRejectsSecondActiveOrchestrator(t *testing.T) {
+	st := newFakeStore()
+	st.projects["mer"] = domain.ProjectRecord{ID: "mer"}
+	st.sessions["mer-1"] = domain.SessionRecord{ID: "mer-1", ProjectID: "mer", Kind: domain.KindOrchestrator}
+	fc := &fakeCommander{}
+	svc := &Service{manager: fc, store: st}
+
+	_, _, _, err := svc.Spawn(context.Background(), ports.SpawnConfig{ProjectID: "mer", Kind: domain.KindOrchestrator, DisplayName: "second"})
+	var apiErr *apierr.Error
+	if !errors.As(err, &apiErr) || apiErr.Code != "ORCHESTRATOR_ALREADY_EXISTS" || apiErr.Kind != apierr.KindConflict {
+		t.Fatalf("err = %v, want ORCHESTRATOR_ALREADY_EXISTS conflict", err)
+	}
+	if !strings.Contains(apiErr.Message, "mer-1") {
+		t.Fatalf("message %q should name the existing orchestrator", apiErr.Message)
+	}
+	if fc.spawned {
+		t.Fatal("must not spawn when an orchestrator already exists")
+	}
+}
